@@ -11,8 +11,8 @@ export const TIP_OPTIONS = [
 ]
 
 // Tip basis options. `preTax: true` => tip on subtotal; false => tip on subtotal + tax.
-export const BASIS_FAIR = 'Fair Mark Value (Before Tax)'
-export const BASIS_DUPED = 'Oh we got duped again (After Tax)'
+export const BASIS_FAIR = 'Fair Mark Value - (Before Tax)'
+export const BASIS_DUPED = 'We got duped by "Big Restaurant" again - (After Tax)'
 
 export const BASIS_OPTIONS = [
   { label: BASIS_FAIR, preTax: true },
