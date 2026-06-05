@@ -16,8 +16,9 @@ export default function App() {
   const [basisLabel, setBasisLabel] = useState(BASIS_OPTIONS[0].label)
   const [itemsText, setItemsText] = useState('')
 
-  const tipOption = TIP_OPTIONS.find((o) => o.label === tipLabel)
-  const basisOption = BASIS_OPTIONS.find((o) => o.label === basisLabel)
+  const tipOption = TIP_OPTIONS.find((o) => o.label === tipLabel) ?? TIP_OPTIONS[2]
+  const basisOption =
+    BASIS_OPTIONS.find((o) => o.label === basisLabel) ?? BASIS_OPTIONS[0]
   const isWtf = tipLabel === WTF_TIP
 
   const items = parseItems(itemsText)
@@ -115,7 +116,9 @@ export default function App() {
 
           <div className="total">
             <span className="total__label">You owe</span>
-            <span className="total__value">{money(result.total)}</span>
+            <span key={result.total} className="total__value">
+              {money(result.total)}
+            </span>
           </div>
         </div>
       </section>
