@@ -35,7 +35,7 @@ export default function App() {
     <main className="app">
       <section className="card">
         <header className="card__head">
-          <h1 className="title">splitstupid</h1>
+          <h1 className="title">Split Stoopid</h1>
           <p className="subtitle">figure out what you actually owe</p>
         </header>
 
