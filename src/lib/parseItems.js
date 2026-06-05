@@ -12,7 +12,8 @@ export function parseItems(text) {
   return text
     .trim()
     .split(/\s+/)
+    .map((token) => token.replace(/^\$/, ''))
     .filter((token) => token.length > 0)
-    .map((token) => Number(token.replace(/^\$/, '')))
+    .map((token) => Number(token))
     .filter((n) => Number.isFinite(n) && n >= 0)
 }

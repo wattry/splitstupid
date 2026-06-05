@@ -26,4 +26,9 @@ describe('parseItems', () => {
   it('collapses multiple spaces / tabs / newlines', () => {
     expect(parseItems('1\t2\n3   4')).toEqual([1, 2, 3, 4])
   })
+
+  it('drops a bare $ token (empty after stripping)', () => {
+    expect(parseItems('$ 5')).toEqual([5])
+    expect(parseItems('$')).toEqual([])
+  })
 })
