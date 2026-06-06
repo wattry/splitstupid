@@ -25,10 +25,15 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Verify build env is present
+        run: |
+          echo "VITE_POSTHOG_KEY set:    ${{ (secrets.VITE_POSTHOG_KEY || vars.VITE_POSTHOG_KEY) != '' }}"
+          echo "VITE_POSTHOG_DOMAIN set: ${{ (secrets.VITE_POSTHOG_DOMAIN || vars.VITE_POSTHOG_DOMAIN) != '' }}"
       - run: pnpm build
         env:
-          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
-          VITE_POSTHOG_DOMAIN: ${{ vars.VITE_POSTHOG_DOMAIN }}
+          # Read from either the Secrets or the Variables tab, whichever holds it.
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY || vars.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_DOMAIN: ${{ vars.VITE_POSTHOG_DOMAIN || secrets.VITE_POSTHOG_DOMAIN }}
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
