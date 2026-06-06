@@ -28,7 +28,12 @@ describe('calculate', () => {
 
   it('returns all zeros for empty items', () => {
     const r = calculate({ items: [], stateTax: 10, tipPct: 20, preTax: true })
-    expect(r).toEqual({ subtotal: 0, taxAmt: 0, tipAmt: 0, total: 0 })
+    expect(r.subtotal).toBe(0)
+    expect(r.taxAmt).toBe(0)
+    expect(r.localTaxAmt).toBe(0)
+    expect(r.tipAmt).toBe(0)
+    expect(r.afterTax).toBe(0)
+    expect(r.total).toBe(0)
   })
 
   it('treats a missing/NaN stateTax as 0%', () => {

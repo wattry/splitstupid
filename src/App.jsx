@@ -1,11 +1,15 @@
-import { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   TIP_OPTIONS,
   BASIS_OPTIONS,
-  WTF_TIP
+  WTF_TIP,
+  FLAT_TIP
 } from './lib/constants.js'
-import { parseItems } from './lib/parseItems.js'
 import { calculate } from './lib/calculate.js'
+import ScanReceipt from './ScanReceipt.jsx'
+import ItemRows, { makeRow, rowOwed } from './ItemRows.jsx'
+
+const round2 = (n) => Math.round(n * 100) / 100
 
 const money = (n) => `$${n.toFixed(2)}`;
 const percent = (n) => `${(n * 100).toFixed(2)} %`;
@@ -36,38 +40,92 @@ const CustomTip = (props) => {
   </div>
 };
 
+// Flat-tip mode: payer added a dollar tip and we back out the rate from the
+// tip amount and the final total. `rate` is the derived percent (for display).
+const FlatTip = ({ tipAmount, setTipAmount, finalTotal, setFinalTotal, rate }) => (
+  <>
+    <div className="field">
+      <label htmlFor="tip_amount">Tip Amount ($)</label>
+      <input
+        id="tip_amount"
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step="0.01"
+        placeholder="0.00"
+        value={tipAmount}
+        onChange={(e) => setTipAmount(e.target.value)}
+      />
+    </div>
+    <div className="field">
+      <label htmlFor="final_total">Final Total ($)</label>
+      <input
+        id="final_total"
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step="0.01"
+        placeholder="0.00"
+        value={finalTotal}
+        onChange={(e) => setFinalTotal(e.target.value)}
+      />
+      <span className="hint hint--muted">
+        Tip works out to {rate.toFixed(2)}% of the after-tax bill
+      </span>
+    </div>
+  </>
+);
+
 export default function App() {
   const [stateTax, setStateTax] = useState(5);
   const [localTax, setLocalTax] = useState(0);
   const [customTipPct, setCustomTip] = useState(0);
   const [tipLabel, setTipLabel] = useState(TIP_OPTIONS[5].label) // default 15%
   const [basisLabel, setBasisLabel] = useState(BASIS_OPTIONS[1].label)
-  const [itemsText, setItemsText] = useState('')
-  const itemsRef = useRef(null);
+  const [items, setItems] = useState(() => [makeRow()])
+  // true => Price column is per single unit; false => Price is total for all units.
+  const [perUnit, setPerUnit] = useState(true)
+  // Flat-tip mode inputs (used only when the FLAT_TIP option is selected).
+  const [tipAmount, setTipAmount] = useState('')
+  const [finalTotal, setFinalTotal] = useState('')
+
+  // Flip the toggle, converting each row's Price so the amount owed stays put.
+  const togglePerUnit = () => {
+    setItems(
+      items.map((it) => {
+        const units = parseFloat(it.units) || 1
+        const price = parseFloat(it.price) || 0
+        const next = perUnit ? price * units : units ? price / units : price
+        return { ...it, price: round2(next) }
+      })
+    )
+    setPerUnit(!perUnit)
+  }
 
   const tipOption = TIP_OPTIONS.find((o) => o.label === tipLabel) ?? TIP_OPTIONS[2]
   const basisOption =
     BASIS_OPTIONS.find((o) => o.label === basisLabel) ?? BASIS_OPTIONS[0]
   const isWtf = tipLabel === WTF_TIP
-  const items = parseItems(itemsText)
+  const isFlat = tipLabel === FLAT_TIP
+
+  // Flat-tip mode: derive the rate from the tip amount and final total.
+  // rate = tip / (after-tax bill) = tip / (finalTotal - tip).
+  const billAfterTax = (parseFloat(finalTotal) || 0) - (parseFloat(tipAmount) || 0)
+  const flatRate =
+    isFlat && billAfterTax > 0 ? ((parseFloat(tipAmount) || 0) / billAfterTax) * 100 : 0
+
+  // Each row owes the amount attributable to the user under the current mode.
+  const prices = items.map((it) => rowOwed(it, perUnit))
   const result = calculate({
-    items,
+    items: prices,
     stateTax: parseFloat(stateTax),
     localTax: parseFloat(localTax),
-    customTipPct: parseFloat(customTipPct),
-    tipPct: tipOption.value,
-    preTax: basisOption.preTax,
+    customTipPct: isFlat ? 0 : parseFloat(customTipPct),
+    tipPct: isFlat ? flatRate : tipOption.value,
+    // Flat tip already sits on the after-tax bill, so tip on the after-tax base.
+    preTax: isFlat ? false : basisOption.preTax,
+    flatTip: isFlat,
   });
-
-  // Auto-grow the items textarea so every line stays visible without scrolling.
-  useLayoutEffect(() => {
-    const el = itemsRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }, [itemsText])
-
-  const hasGarbage = itemsText.trim().length > 0 && items.length === 0
 
   return (
     <main className="app">
@@ -120,7 +178,14 @@ export default function App() {
           setCustomTip={setCustomTip}
           isWtf={isWtf} />}
 
-        <div className="field">
+        {isFlat && <FlatTip
+          tipAmount={tipAmount}
+          setTipAmount={setTipAmount}
+          finalTotal={finalTotal}
+          setFinalTotal={setFinalTotal}
+          rate={flatRate} />}
+
+        {!isFlat && <div className="field">
           <label htmlFor="basis">Tip Basis</label>
           <select
             id="basis"
@@ -133,23 +198,25 @@ export default function App() {
               </option>
             ))}
           </select>
+        </div>}
+
+        <ScanReceipt items={items} setItems={setItems} perUnit={perUnit} />
+
+        <div className="field toggle">
+          <span className="field__label">Line Item Pricing</span>
+          <button
+            type="button"
+            className="toggle__btn"
+            role="switch"
+            aria-checked={perUnit}
+            onClick={togglePerUnit}
+          >
+            <span className={!perUnit ? 'toggle__on' : ''}>Total Per Item</span>
+            <span className={perUnit ? 'toggle__on' : ''}>Per Item</span>
+          </button>
         </div>
 
-        <div className="field">
-          <label htmlFor="items">Your items (space-separated prices)</label>
-          <textarea
-            id="items"
-            ref={itemsRef}
-            inputMode="decimal"
-            rows={2}
-            placeholder="12.50 8 4.25"
-            value={itemsText}
-            onChange={(e) => setItemsText(e.target.value)}
-          />
-          {hasGarbage && (
-            <span className="hint">No valid prices found — try numbers like "12.50 8".</span>
-          )}
-        </div>
+        <ItemRows items={items} setItems={setItems} perUnit={perUnit} />
 
         <div className={`result ${isWtf ? 'result--wtf' : ''}`}>
           <dl className="breakdown">

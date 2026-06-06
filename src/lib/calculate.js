@@ -7,9 +7,12 @@
  * @param {number}   params.localTax  tax percent (e.g. 8.25). NaN/undefined => 0
  * @param {number|null} params.tipPct tip percent. null => 0 (WTF option)
  * @param {boolean}  params.preTax    true => tip on subtotal; false => tip on subtotal + tax
+ * @param {boolean}  [params.flatTip] true => flat-amount tip mode; effectiveTip
+ *                                    is reported against the after-tax base so it
+ *                                    matches the derived "tip % of the bill"
  * @returns {{subtotal:number, taxAmt:number, tipAmt:number, total:number}}
  */
-export function calculate({ items, stateTax, localTax, customTipPct, tipPct, preTax }) {
+export function calculate({ items, stateTax, localTax, customTipPct, tipPct, preTax, flatTip }) {
   const subtotal = items.reduce((sum, n) => sum + n, 0);
 
   const taxRate = Number.isFinite(stateTax) ? stateTax : 0;
@@ -22,7 +25,11 @@ export function calculate({ items, stateTax, localTax, customTipPct, tipPct, pre
 
   const tipBase = preTax ? subtotal : subtotal + taxAmt + localTaxAmt;
   const tipAmt = tipBase * ((tipRate + customTipRate) / 100);
-  const effectiveTip = preTax ? 0 : (tipAmt / subtotal);
+  // Flat tip: report the rate against the after-tax base (= tipBase here) so it
+  // matches the "tip % of the after-tax bill" shown in flat mode.
+  const effectiveTip = flatTip
+    ? (tipBase > 0 ? tipAmt / tipBase : 0)
+    : (preTax ? 0 : tipAmt / subtotal);
 
   const afterTax = subtotal + taxAmt + localTaxAmt;
   const total = afterTax + tipAmt;

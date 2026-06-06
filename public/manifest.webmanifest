@@ -1,0 +1,30 @@
+{
+  "name": "Split Stoopid — WTF Do I Owe?",
+  "short_name": "Split Stoopid",
+  "description": "Figure out who owes what, fast.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#12141C",
+  "theme_color": "#12141C",
+  "icons": [
+    {
+      "src": "/favicon/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

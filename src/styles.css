@@ -85,6 +85,302 @@ body {
 }
 
 .hint { font-size: 0.8rem; color: var(--accent); }
+.hint--muted { color: var(--muted); }
+
+.field__label { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+
+.scan-actions { display: flex; gap: 10px; }
+
+.scan-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: linear-gradient(120deg, #7b2ff7 0%, #f107a3 100%);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.scan-btn--camera {
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
+}
+
+.scan-preview {
+  margin: 12px 0 0;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(123, 47, 247, 0.2);
+}
+
+.scan-preview__open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.scan-preview__open img {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.scan-preview figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.scan-preview__close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.scan-preview__close:hover { color: var(--accent); }
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(11, 7, 25, 0.95);
+}
+
+/* Hug the image so the surrounding dark area stays tappable to close. */
+.lightbox__inner { max-width: 92vw; max-height: 82vh; }
+
+.lightbox img {
+  display: block;
+  max-width: 92vw;
+  max-height: 82vh;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
+  touch-action: none;
+}
+
+.lightbox__close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 1;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1.4rem;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.lightbox__hint { color: rgba(255, 255, 255, 0.7); font-size: 0.8rem; }
+
+/* Item rows: Units | Yours | Description | Price | remove */
+.items { display: flex; flex-direction: column; gap: 10px; }
+
+.items__head,
+.items__grid {
+  display: grid;
+  grid-template-columns: 44px 44px 1fr 72px 24px;
+  gap: 6px;
+  align-items: center;
+}
+
+.items__head {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0 2px;
+}
+
+.items__row { display: flex; flex-direction: column; gap: 2px; }
+
+.items__grid input {
+  width: 100%;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.items__grid input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 46, 136, 0.18);
+}
+
+/* Tighten the small number inputs (Units/Yours) and drop the spinners. */
+.items__num {
+  padding-left: 4px;
+  padding-right: 4px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.items__num::-webkit-outer-spin-button,
+.items__num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.items__owe {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: right;
+  padding-right: 30px;
+}
+
+/* Per-unit / total toggle */
+.toggle__btn {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+.toggle__btn span {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  transition: background 0.2s, color 0.2s;
+}
+
+.toggle__btn .toggle__on {
+  background: linear-gradient(120deg, #7b2ff7 0%, #f107a3 100%);
+  color: #fff;
+}
+
+.items__remove {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
+.items__remove:hover { color: var(--accent); }
+
+.items__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.items__add {
+  border: 1px dashed rgba(123, 47, 247, 0.4);
+  background: transparent;
+  color: #7b2ff7;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.items__add:hover { background: rgba(123, 47, 247, 0.08); }
+
+.items__clear {
+  margin-left: auto;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.items__clear:hover { color: var(--accent); border-color: var(--accent); }
+
+.camera {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  background: rgba(11, 7, 25, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.camera__stage {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #000;
+}
+
+.camera__video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.camera__error { color: #fff; text-align: center; padding: 24px; }
+
+.camera__hint { margin: 0; color: #fff; text-align: center; font-size: 0.9rem; }
+
+/* react-easy-crop needs a positioned, sized parent to fill. */
+.camera__stage--crop { position: relative; }
+
+.camera__zoom { width: 100%; accent-color: var(--accent); }
+
+.camera__actions { display: flex; gap: 10px; }
+
+.scan-btn:hover { box-shadow: 0 8px 24px rgba(123, 47, 247, 0.35); }
+.scan-btn:active { transform: scale(0.98); }
+
+.scan-btn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.scan-btn svg { flex: none; }
 
 .result {
   margin-top: 22px;
