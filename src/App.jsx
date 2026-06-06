@@ -84,7 +84,7 @@ export default function App() {
   const [basisLabel, setBasisLabel] = useState(BASIS_OPTIONS[1].label)
   const [items, setItems] = useState(() => [makeRow()])
   // true => Price column is per single unit; false => Price is total for all units.
-  const [perUnit, setPerUnit] = useState(true)
+  const [perUnit, setPerUnit] = useState(false)
   // Flat-tip mode inputs (used only when the FLAT_TIP option is selected).
   const [tipAmount, setTipAmount] = useState('')
   const [finalTotal, setFinalTotal] = useState('')
@@ -200,8 +200,6 @@ export default function App() {
           </select>
         </div>}
 
-        <ScanReceipt items={items} setItems={setItems} perUnit={perUnit} />
-
         <div className="field toggle">
           <span className="field__label">Line Item Pricing</span>
           <button
@@ -214,7 +212,10 @@ export default function App() {
             <span className={!perUnit ? 'toggle__on' : ''}>Total Per Item</span>
             <span className={perUnit ? 'toggle__on' : ''}>Per Item</span>
           </button>
+            <span className="field__label">Are  line items listed as a totals or per item?</span>
         </div>
+
+        <ScanReceipt items={items} setItems={setItems} perUnit={perUnit} />
 
         <ItemRows items={items} setItems={setItems} perUnit={perUnit} />
 
