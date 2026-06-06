@@ -26,6 +26,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+        env:
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_DOMAIN: ${{ vars.VITE_POSTHOG_DOMAIN }}
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
