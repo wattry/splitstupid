@@ -225,6 +225,7 @@ export default function App() {
               <dt>Your Total</dt>
               <dd>{money(result.subtotal)}</dd>
             </div>
+            <hr />
             <div className="row">
               <dt>State Tax</dt>
               <dd>+ {money(result.taxAmt)}</dd>
@@ -233,6 +234,7 @@ export default function App() {
               <dt>Local Tax</dt>
               <dd>+ {money(result.localTaxAmt)}</dd>
             </div>}
+            <hr />
             <div className="row">
               <dt>After Tax Total</dt>
               <dd>{money(result.afterTax)}</dd>
