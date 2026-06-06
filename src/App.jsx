@@ -41,7 +41,7 @@ export default function App() {
   const [stateTax, setStateTax] = useState(5);
   const [localTax, setLocalTax] = useState(0);
   const [customTipPct, setCustomTip] = useState(0);
-  const [tipLabel, setTipLabel] = useState(TIP_OPTIONS[2].label) // default 15%
+  const [tipLabel, setTipLabel] = useState(TIP_OPTIONS[5].label) // default 15%
   const [basisLabel, setBasisLabel] = useState(BASIS_OPTIONS[1].label)
   const [itemsText, setItemsText] = useState('')
   const itemsRef = useRef(null);
@@ -153,10 +153,6 @@ export default function App() {
         </div>
 
         <div className={`result ${isWtf ? 'result--wtf' : ''}`}>
-          {isWtf ? (
-            <p className="principles">{PRINCIPLES_MESSAGE}</p>
-          ) : null}
-
           <dl className="breakdown">
             <div className="row">
               <dt>Your Total</dt>

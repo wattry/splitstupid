@@ -20,6 +20,3 @@ export const BASIS_OPTIONS = [
   { label: BASIS_FAIR, preTax: true },
   { label: BASIS_DUPED, preTax: false },
 ]
-
-// Shown in the result when WTF tip is selected.
-export const PRINCIPLES_MESSAGE = 'Good job having principles 🎉'
