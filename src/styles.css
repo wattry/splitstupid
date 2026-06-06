@@ -55,7 +55,8 @@ body {
 .field label { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   padding: 12px 14px;
   border-radius: 14px;
@@ -66,8 +67,18 @@ body {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+.field textarea {
+  font-family: inherit;
+  line-height: 1.5;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .field input:focus,
-.field select:focus {
+.field select:focus,
+.field textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(255, 46, 136, 0.18);
