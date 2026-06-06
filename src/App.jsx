@@ -2,8 +2,7 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import {
   TIP_OPTIONS,
   BASIS_OPTIONS,
-  WTF_TIP,
-  PRINCIPLES_MESSAGE,
+  WTF_TIP
 } from './lib/constants.js'
 import { parseItems } from './lib/parseItems.js'
 import { calculate } from './lib/calculate.js'
