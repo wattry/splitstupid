@@ -2,7 +2,7 @@
 export const WTF_TIP = 'WTF did we do?';
 
 // The label for "payer tipped a flat amount, back out the %".
-export const FLAT_TIP = "It's Not A %?";
+export const FLAT_TIP = "It's not a %?";
 
 // Tip dropdown options. value is the percent (null = WTF, 'flat' = flat amount).
 export const TIP_OPTIONS = [

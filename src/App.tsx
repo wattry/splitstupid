@@ -79,8 +79,6 @@ export default function App() {
     tipPct: isFlat ? flatRate : tipPctValue,
     // Flat tip already sits on the after-tax bill, so tip on the after-tax base.
     preTax: isFlat ? false : basisOption.preTax,
-    flatTip: isFlat,
-    flatTipAmount: isFlat ? parseFloat(tipAmount) : 0,
   });
 
   return (
