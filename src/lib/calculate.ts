@@ -1,21 +1,18 @@
 
 interface CalculateInput {
+  /** This user's owed amount per row (their share of each line item). */
   items: number[];
-  stateTax: number;
-  /** Local tax percent. Omitted or NaN counts as 0%. */
-  localTax?: number;
-  /** Extra custom tip percent (WTF mode). Omitted or NaN counts as 0%. */
-  customTipPct?: number;
-  /** Base tip percent. `null` (WTF, no tip) counts as 0%. */
-  tipPct: number | null;
-  /** Tip on the pre-tax subtotal when true, otherwise on the after-tax bill. */
-  preTax: boolean;
+  /** Whole-bill subtotal — the denominator for the tax and tip ratios. */
+  billSubtotal?: number;
+  /** Whole-bill tax in dollars. Tax rate = totalTax / billSubtotal. */
+  totalTax?: number;
+  /** Whole-bill tip in dollars. Tip rate = tipAmt / billSubtotal. */
+  tipAmt?: number;
 };
 
 interface CalculateOutput {
   subtotal: number;
   taxAmt: number;
-  localTaxAmt: number;
   tipAmt: number;
   total: number;
   afterTax: number;
@@ -25,38 +22,37 @@ interface CalculateOutput {
 /**
  * Compute what the user owes.
  *
+ * Tax and tip are entered as whole-bill dollar totals. We derive their ratios
+ * against the whole-bill subtotal, then apply those ratios to THIS user's share
+ * (the sum of their owed line items).
+ *
  * @param  calculateInput  contains form input values based on the options a user has provided
  * @returns the display values for the summary
  */
 export function calculate(calculateInput: CalculateInput): CalculateOutput {
-  const { items, stateTax, localTax, customTipPct, tipPct, preTax } = calculateInput;
+  const { items, billSubtotal, totalTax } = calculateInput;
   const subtotal = items.reduce((sum, n) => sum + n, 0);
 
-  // Coerce each rate to a finite number; missing/null/NaN all count as 0.
-  const rate = (value: number | null | undefined): number => {
+  // Coerce each value to a finite number; missing/null/NaN all count as 0.
+  const num = (value: number | null | undefined): number => {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
   };
 
-  const taxRate = rate(stateTax);
-  const localTaxRate = rate(localTax);
-  const taxAmt = subtotal * (taxRate / 100);
-  const localTaxAmt = subtotal * (localTaxRate / 100);
+  // Ratios off the whole-bill subtotal; guard against divide-by-zero.
+  const denom = num(billSubtotal);
+  const taxRate = denom > 0 ? num(totalTax) / denom : 0;
+  const tipRate = denom > 0 ? num(calculateInput.tipAmt) / denom : 0;
 
-  const tipRate = rate(tipPct);
-  const customTipRate = rate(customTipPct);
+  // Apply each ratio to this user's share.
+  const taxAmt = subtotal * taxRate;
+  const tipAmt = subtotal * tipRate;
+  // "Actual Tip % on Total": tip measured against "Your Total" (the subtotal).
+  const effectiveTip = tipRate;
 
-  // Flat mode passes its derived rate as tipPct, so the same formula applies it
-  // to THIS user's after-tax base (their share), not the whole-bill tip.
-  const tipBase = preTax ? subtotal : subtotal + taxAmt + localTaxAmt;
-  const tipAmt = tipBase * ((tipRate + customTipRate) / 100);
-  // "Actual Tip % on Total": tip measured against "Your Total" (the subtotal),
-  // regardless of mode.
-  const effectiveTip = subtotal > 0 ? tipAmt / subtotal : 0;
-
-  const afterTax = subtotal + taxAmt + localTaxAmt;
+  const afterTax = subtotal + taxAmt;
   const total = afterTax + tipAmt;
 
-  return { subtotal, taxAmt, localTaxAmt, tipAmt, total, afterTax, effectiveTip };
+  return { subtotal, taxAmt, tipAmt, total, afterTax, effectiveTip };
 }
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
