@@ -478,6 +478,41 @@ body {
   animation: pop 0.25s ease;
 }
 
+.copy-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.copy-btn:hover { background: var(--accent); color: #fff; }
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.action-btn:hover { background: var(--accent); color: #fff; }
+
 @keyframes pop {
   from { transform: scale(0.92); opacity: 0.4; }
   to { transform: scale(1); opacity: 1; }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   calculate,
   round2,
@@ -28,6 +28,8 @@ export default function App() {
 
   // true => Price column is per single unit; false => Price is total for all units.
   const [perUnit, setPerUnit] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
 
   // Flip the toggle, converting each row's Price so the amount owed stays put.
   const togglePerUnit = () => {
@@ -40,6 +42,50 @@ export default function App() {
       })
     )
     setPerUnit(!perUnit);
+  }
+
+  // Export every input to a JSON file the user can re-import later.
+  const saveForm = () => {
+    const data = { version: 1, billSubtotal, totalTax, tipAmount, perUnit, items };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'split-stoopid.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Load inputs from a previously saved JSON file.
+  const importForm = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-importing the same file
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(String(reader.result));
+        if (typeof data.billSubtotal === 'string') setBillSubtotal(data.billSubtotal);
+        if (typeof data.totalTax === 'string') setTotalTax(data.totalTax);
+        if (typeof data.tipAmount === 'string') setTipAmount(data.tipAmount);
+        if (typeof data.perUnit === 'boolean') setPerUnit(data.perUnit);
+        if (Array.isArray(data.items) && data.items.length > 0) setItems(data.items);
+      } catch {
+        // Not a valid save file — ignore.
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // Copy the owed amount to the clipboard, flashing "Copied" briefly.
+  const copyOwed = async () => {
+    try {
+      await navigator.clipboard.writeText(money(result.total));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard unavailable (e.g. insecure context) — silently ignore.
+    }
   }
 
   // Tax and tip expressed as a percent of the whole-bill subtotal (for helper text).
@@ -170,10 +216,38 @@ export default function App() {
           </dl>
 
           <div className="total">
-            <span className="total__label">What You owe</span>
+            <span className="total__label">What I Owe</span>
             <span key={result.total} className="total__value">
               {money(result.total)}
             </span>
+            <button
+              type="button"
+              className="copy-btn"
+              onClick={copyOwed}
+              aria-label="Copy amount owed"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+
+          <div className="actions">
+            <button type="button" className="action-btn" onClick={saveForm}>
+              Save
+            </button>
+            <button
+              type="button"
+              className="action-btn"
+              onClick={() => importRef.current?.click()}
+            >
+              Import
+            </button>
+            <input
+              ref={importRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={importForm}
+              hidden
+            />
           </div>
         </div>
       </section>
