@@ -12,6 +12,8 @@ interface CalculateInput {
   preTax: boolean;
   /** Flat-tip mode: report the effective rate against the after-tax base. */
   flatTip?: boolean;
+  /** Flat-tip mode: the exact dollar tip the user entered. Used verbatim. */
+  flatTipAmount?: number;
 };
 
 interface CalculateOutput {
@@ -31,7 +33,7 @@ interface CalculateOutput {
  * @returns the display values for the summary
  */
 export function calculate(calculateInput: CalculateInput): CalculateOutput {
-  const { items, stateTax, localTax, customTipPct, tipPct, preTax, flatTip } = calculateInput;
+  const { items, stateTax, localTax, customTipPct, tipPct, preTax, flatTip, flatTipAmount } = calculateInput;
   const subtotal = items.reduce((sum, n) => sum + n, 0);
 
   // Coerce each rate to a finite number; missing/null/NaN all count as 0.
@@ -48,12 +50,14 @@ export function calculate(calculateInput: CalculateInput): CalculateOutput {
   const customTipRate = rate(customTipPct);
 
   const tipBase = preTax ? subtotal : subtotal + taxAmt + localTaxAmt;
-  const tipAmt = tipBase * ((tipRate + customTipRate) / 100);
-  // Flat tip: report the rate against the after-tax base (= tipBase here) so it
-  // matches the "tip % of the after-tax bill" shown in flat mode.
-  const effectiveTip = flatTip
-    ? (tipBase > 0 ? tipAmt / tipBase : 0)
-    : (preTax ? 0 : tipAmt / subtotal);
+  // Flat mode: use the exact dollar tip the user entered, untouched by any rate
+  // or tax base. Otherwise derive it from the tip rate against the base.
+  const tipAmt = flatTip
+    ? rate(flatTipAmount)
+    : tipBase * ((tipRate + customTipRate) / 100);
+  // "Actual Tip % on Total": tip measured against "Your Total" (the subtotal),
+  // regardless of mode.
+  const effectiveTip = subtotal > 0 ? tipAmt / subtotal : 0;
 
   const afterTax = subtotal + taxAmt + localTaxAmt;
   const total = afterTax + tipAmt;

@@ -89,6 +89,50 @@ body {
 
 .field__label { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 
+/* Tax input and Calculate button share the row 50/50. */
+.field__split { display: flex; gap: 10px; align-items: stretch; }
+.field__split input { flex: 1; min-width: 0; }
+.field__split .scan-btn { flex: 1; }
+
+/* Tax % calculator overlay. */
+.calc {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(11, 7, 25, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.calc__card {
+  width: 100%;
+  max-width: 360px;
+  padding: 22px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.calc__title { margin: 0 0 16px; font-size: 1.1rem; font-weight: 700; }
+
+.calc__result {
+  margin: 4px 0 18px;
+  font-size: 1rem;
+  color: var(--muted);
+}
+.calc__result strong { color: var(--accent); font-size: 1.15rem; }
+
+.calc__actions { display: flex; gap: 10px; }
+
+.scan-btn--ghost {
+  background: rgba(123, 47, 247, 0.1);
+  color: var(--accent);
+}
+
 .scan-actions { display: flex; gap: 10px; }
 
 .scan-btn {

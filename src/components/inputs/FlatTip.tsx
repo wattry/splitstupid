@@ -27,7 +27,7 @@ export const FlatTip = ({ tipAmount, setTipAmount, finalTotal, setFinalTotal, ra
       />
     </div>
     <div className="field">
-      <label htmlFor="final_total">Final Total ($)</label>
+      <label htmlFor="final_total">Total Before Tax ($)</label>
       <input
         id="final_total"
         type="number"

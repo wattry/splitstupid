@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import stateTaxRates from '../../lib/stateTaxRates.json' with { type: 'json' };
 import { useIPLocation } from '../../hooks/location.js';
 import type { StateTaxSelection } from '../../types.js';
 import { CircularLoading } from '../CircularLoading.js';
+import { TaxCalculator } from './TaxCalculator.js';
 
 interface StateTaxRate {
   state: string;
@@ -27,6 +28,7 @@ export function StateSelector({
   onSelect
 }: StateSelectorProps) {
   const location = useIPLocation();
+  const [showCalc, setShowCalc] = useState(false);
   // Rates are stored as fractions (0.04); the tax input works in percent (4).
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const entry = rates.find((r) => r.state === e.target.value);
@@ -71,18 +73,30 @@ export function StateSelector({
 
       <div className="field">
         <label htmlFor="state_tax">State Tax (%)</label>
-        <input
-          id="state_tax"
-          type="number"
-          inputMode="decimal"
-          min="0"
-          step="0.01"
-          placeholder="0.00"
-          value={value.value}
-          onChange={(e) => setValue((prev) => ({ ...prev, value: e.target.value }))}
-        />
+        <div className="field__split">
+          <input
+            id="state_tax"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+            value={value.value}
+            onChange={(e) => setValue((prev) => ({ ...prev, value: e.target.value }))}
+          />
+          <button type="button" className="scan-btn" onClick={() => setShowCalc(true)}>
+            Calculate
+          </button>
+        </div>
         <span className="field__label">Defaults from the selected state — edit if yours differs</span>
       </div>
+
+      {showCalc && (
+        <TaxCalculator
+          onApply={(percent) => setValue((prev) => ({ ...prev, value: percent }))}
+          onClose={() => setShowCalc(false)}
+        />
+      )}
     </>
   );
 }
