@@ -2,5 +2,4 @@ allowBuilds:
   core-js: true
   esbuild: true
   tesseract.js: true
-minimumReleaseAgeExclude:
-  - '@wattry/tsconfig@0.4.4'
+
