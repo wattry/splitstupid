@@ -149,7 +149,7 @@ export default function App() {
             </div>
             <hr />
             {result.taxAmt > 0 && <div className="row">
-              <dt>Tax</dt>
+              <dt>Tax ({taxPct.toFixed(2)}%)</dt>
               <dd>+ {money(result.taxAmt)}</dd>
             </div>}
             <hr />
@@ -159,7 +159,7 @@ export default function App() {
             </div>
             <hr />
             <div className="row">
-              <dt>Tip</dt>
+              <dt>Tip ({tipPct.toFixed(2)}%)</dt>
               <dd>+ {money(result.tipAmt)}</dd>
             </div>
             <hr />
