@@ -1,0 +1,24 @@
+{
+  "extends": "@wattry/tsconfig/base",
+  "include": [
+    "src",
+    "types",
+    "tests",
+    "mocks",
+    "__tests__",
+    "__mocks__",
+    "vite.config.ts",
+    "eslint.config.ts"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules"
+  ],
+  "compilerOptions": {
+    "typeRoots": [
+      "./types",
+      "./node_modules/@types"
+    ],
+    "rootDir": "."
+  }
+}

@@ -1,124 +1,74 @@
-import { useState, useEffect } from 'react'
+import React, { useState } from 'react';
 import {
   TIP_OPTIONS,
   BASIS_OPTIONS,
   WTF_TIP,
   FLAT_TIP
-} from './lib/constants.js'
-import { calculate } from './lib/calculate.js'
-import ScanReceipt from './ScanReceipt.jsx'
-import ItemRows, { makeRow, rowOwed } from './ItemRows.jsx'
-
-const round2 = (n) => Math.round(n * 100) / 100
-
-const money = (n) => `$${n.toFixed(2)}`;
-const percent = (n) => `${(n * 100).toFixed(2)} %`;
-
-const CustomTip = (props) => {
-  const { customTipPct, setCustomTip, isWtf } = props;
-
-  useEffect(() => {
-    if (isWtf) {
-      setCustomTip(20);
-    }
-
-    return () => setCustomTip(0);
-  }, []);
-
-  return <div className="field">
-    <label htmlFor="custom_tip">Custom Tip (%)</label>
-    <input
-      id="tax"
-      type="number"
-      inputMode="decimal"
-      min="0"
-      step="1"
-      placeholder="1.00"
-      value={customTipPct}
-      onChange={(e) => setCustomTip(e.target.value)}
-    />
-  </div>
-};
-
-// Flat-tip mode: payer added a dollar tip and we back out the rate from the
-// tip amount and the final total. `rate` is the derived percent (for display).
-const FlatTip = ({ tipAmount, setTipAmount, finalTotal, setFinalTotal, rate }) => (
-  <>
-    <div className="field">
-      <label htmlFor="tip_amount">Tip Amount ($)</label>
-      <input
-        id="tip_amount"
-        type="number"
-        inputMode="decimal"
-        min="0"
-        step="0.01"
-        placeholder="0.00"
-        value={tipAmount}
-        onChange={(e) => setTipAmount(e.target.value)}
-      />
-    </div>
-    <div className="field">
-      <label htmlFor="final_total">Final Total ($)</label>
-      <input
-        id="final_total"
-        type="number"
-        inputMode="decimal"
-        min="0"
-        step="0.01"
-        placeholder="0.00"
-        value={finalTotal}
-        onChange={(e) => setFinalTotal(e.target.value)}
-      />
-      <span className="hint hint--muted">
-        Tip works out to {rate.toFixed(2)}% of the after-tax bill
-      </span>
-    </div>
-  </>
-);
+} from './lib/constants.js';
+import {
+  calculate,
+  round2,
+  money,
+  percent
+} from './lib/calculate.js';
+import ScanReceipt from './ScanReceipt.js';
+import ItemRows, { rowOwed } from './ItemRows.js';
+import type { Item } from './ItemRows.js';
+import { StateSelector } from './components/inputs/StateSelector.js';
+import { CustomTip } from './components/inputs/CustomTip.js';
+import { FlatTip } from './components/inputs/FlatTip.js';
 
 export default function App() {
-  const [stateTax, setStateTax] = useState(5);
-  const [localTax, setLocalTax] = useState(0);
-  const [customTipPct, setCustomTip] = useState(0);
-  const [tipLabel, setTipLabel] = useState(TIP_OPTIONS[5].label) // default 15%
-  const [basisLabel, setBasisLabel] = useState(BASIS_OPTIONS[1].label)
-  const [items, setItems] = useState(() => [makeRow()])
+  const [stateTax, setStateTax] = useState<{ state: string, value: number | string }>({ state: '', value: 5 });
+  const [localTax, setLocalTax] = useState<number | string>(0);
+  const [customTipPct, setCustomTip] = useState<number>(0);
+  const [tipLabel, setTipLabel] = useState<string>(TIP_OPTIONS[5].label); // default 15%
+  const [basisLabel, setBasisLabel] = useState<string>(BASIS_OPTIONS[1].label);
+  const [items, setItems] = useState<Item[]>([]);
+
+  /**
+   * Build a blank row. `fields` can prefill units/yours/desc/price.
+   * @param {Partial<Row>} fields
+   * @returns {Row}
+   */
+  function makeRow(fields: Partial<Omit<Item, 'id'>> = {}): Item {
+    return { id: `row-${items.length}`, units: 1, yours: 1, desc: '', price: '', ...fields };
+  }
+
   // true => Price column is per single unit; false => Price is total for all units.
-  const [perUnit, setPerUnit] = useState(false)
+  const [perUnit, setPerUnit] = useState(false);
   // Flat-tip mode inputs (used only when the FLAT_TIP option is selected).
-  const [tipAmount, setTipAmount] = useState('')
-  const [finalTotal, setFinalTotal] = useState('')
+  const [tipAmount, setTipAmount] = useState<string>('');
+  const [finalTotal, setFinalTotal] = useState<string>('');
 
   // Flip the toggle, converting each row's Price so the amount owed stays put.
   const togglePerUnit = () => {
     setItems(
-      items.map((it) => {
-        const units = parseFloat(it.units) || 1
-        const price = parseFloat(it.price) || 0
+      items.map((item) => {
+        const units = parseFloat(item.units) || 1
+        const price = parseFloat(item.price) || 0
         const next = perUnit ? price * units : units ? price / units : price
         return { ...it, price: round2(next) }
       })
     )
-    setPerUnit(!perUnit)
+    setPerUnit(!perUnit);
   }
 
-  const tipOption = TIP_OPTIONS.find((o) => o.label === tipLabel) ?? TIP_OPTIONS[2]
-  const basisOption =
-    BASIS_OPTIONS.find((o) => o.label === basisLabel) ?? BASIS_OPTIONS[0]
-  const isWtf = tipLabel === WTF_TIP
-  const isFlat = tipLabel === FLAT_TIP
+  const tipOption = TIP_OPTIONS.find((o) => o.label === tipLabel) ?? TIP_OPTIONS[2];
+  const basisOption = BASIS_OPTIONS.find((o) => o.label === basisLabel) ?? BASIS_OPTIONS[0];
+  const isWtf = tipLabel === WTF_TIP;
+  const isFlat = tipLabel === FLAT_TIP;
 
   // Flat-tip mode: derive the rate from the tip amount and final total.
   // rate = tip / (after-tax bill) = tip / (finalTotal - tip).
-  const billAfterTax = (parseFloat(finalTotal) || 0) - (parseFloat(tipAmount) || 0)
-  const flatRate =
-    isFlat && billAfterTax > 0 ? ((parseFloat(tipAmount) || 0) / billAfterTax) * 100 : 0
+  const billAfterTax = (parseFloat(finalTotal) || 0) - (parseFloat(tipAmount) || 0);
+  const flatRate = isFlat && billAfterTax > 0 ? ((parseFloat(tipAmount) || 0) / billAfterTax) * 100 : 0;
 
   // Each row owes the amount attributable to the user under the current mode.
-  const prices = items.map((it) => rowOwed(it, perUnit))
+  const prices = items.map((it) => rowOwed(it, perUnit));
   const result = calculate({
     items: prices,
-    stateTax: parseFloat(stateTax),
+    stateTax: parseFloat(stateTax.value),
     localTax: parseFloat(localTax),
     customTipPct: isFlat ? 0 : parseFloat(customTipPct),
     tipPct: isFlat ? flatRate : tipOption.value,
@@ -134,20 +84,8 @@ export default function App() {
           <h1 className="title">Split Stoopid</h1>
           <p className="subtitle">figure out what you actually owe</p>
         </header>
+        <StateSelector value={stateTax} setValue={setStateTax} onSelect={(e) => console.log(e.state)} />
 
-        <div className="field">
-          <label htmlFor="state_tax">State Tax (%)</label>
-          <input
-            id="state_tax"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="1"
-            placeholder="5"
-            value={stateTax}
-            onChange={(e) => setStateTax(e.target.value)}
-          />
-        </div>
         <div className="field">
           <label htmlFor="local_tax">Local Tax (%)</label>
           <input
@@ -212,12 +150,22 @@ export default function App() {
             <span className={!perUnit ? 'toggle__on' : ''}>Total Per Item</span>
             <span className={perUnit ? 'toggle__on' : ''}>Per Item</span>
           </button>
-            <span className="field__label">Are  line items listed as a totals or per item?</span>
+          <span className="field__label">Are  line items listed as a totals or per item?</span>
         </div>
 
-        <ScanReceipt items={items} setItems={setItems} perUnit={perUnit} />
+        <ScanReceipt
+          items={items}
+          setItems={setItems}
+          perUnit={perUnit}
+          makeRow={makeRow}
+        />
 
-        <ItemRows items={items} setItems={setItems} perUnit={perUnit} />
+        <ItemRows
+          items={items}
+          setItems={setItems}
+          perUnit={perUnit}
+          makeRow={makeRow}
+        />
 
         <div className={`result ${isWtf ? 'result--wtf' : ''}`}>
           <dl className="breakdown">
@@ -260,5 +208,5 @@ export default function App() {
         </div>
       </section>
     </main>
-  )
+  );
 }

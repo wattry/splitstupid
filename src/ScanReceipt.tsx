@@ -1,12 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
-import { scanReceipt } from './lib/ocr.js'
-import { parseLineItems } from './lib/parseLineItems.js'
-import { makeRow } from './ItemRows.jsx'
-import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
-import CameraCapture from './CameraCapture.jsx'
-import CropImage from './CropImage.jsx'
+import React, { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent, ReactElement } from 'react';
+import { scanReceipt } from './lib/ocr.js';
+import { parseLineItems } from './lib/parseLineItems.js';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import CameraCapture from './CameraCapture.js';
+import CropImage from './CropImage.js';
+import type { Item } from './ItemRows.js';
 
-const round2 = (n) => Math.round(n * 100) / 100
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+interface LineItem {
+  price: string;
+  desc: string;
+};
+
+interface ScanReceiptProps {
+  items: LineItem[];
+  perUnit: boolean;
+  setItems: (rows: LineItem[]) => void;
+  makeRow: (fields: Partial<Omit<Item, 'id'>>) => Item;
+};
 
 /**
  * "Scan Receipt" controls. Offers two ways to supply the image — upload an
@@ -14,23 +27,34 @@ const round2 = (n) => Math.round(n * 100) / 100
  * crop step, then OCRs the cropped region, parses qty/desc/price line items,
  * and replaces the item rows (asking before overwriting existing rows).
  *
- * @param {{ items: object[], setItems: (rows: object[]) => void, perUnit: boolean }} props
+ * @param props
  */
-export default function ScanReceipt({ items, setItems, perUnit }) {
+export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
+  const {
+    items,
+    setItems,
+    perUnit,
+    makeRow
+  } = props;
+
   const uploadRef = useRef(null)
   const [status, setStatus] = useState('idle') // 'idle' | 'scanning' | 'error'
   const [progress, setProgress] = useState(0)
   const [cameraOpen, setCameraOpen] = useState(false)
-  const [cropSrc, setCropSrc] = useState(null) // object URL pending crop
+  const [cropSrc, setCropSrc] = useState <string|null>(null) // object URL pending crop
   const [preview, setPreview] = useState(null) // preprocessed image data URL
   const [expanded, setExpanded] = useState(false) // preview lightbox open
 
   // Close the lightbox on Escape.
   useEffect(() => {
     if (!expanded) return
-    const onKey = (e) => e.key === 'Escape' && setExpanded(false)
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setExpanded(false)
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, [expanded])
 
   // True when the user already has real item content worth protecting.
@@ -39,7 +63,7 @@ export default function ScanReceipt({ items, setItems, perUnit }) {
   )
 
   // Hand an image off to the crop step. Accepts a File (upload) or Blob (camera).
-  const openCrop = (imageLike) => {
+  const openCrop = (imageLike: Blob) => {
     setCropSrc(URL.createObjectURL(imageLike))
   }
 

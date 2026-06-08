@@ -33,11 +33,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
-
+  console.log('request', request);
+  
   const url = new URL(request);
   if (url.origin !== self.location.origin) return;
 
-  // Navigations: network-first, fall back to cached shell when offline.
+  // Navigation: network-first, fall back to cached shell when offline.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)

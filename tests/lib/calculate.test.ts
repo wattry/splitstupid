@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { calculate } from './calculate.js'
+import { describe, it, expect } from 'vitest';
+import { calculate } from '../../src/lib/calculate.js';
 
 describe('calculate', () => {
   it('applies tip on the pre-tax subtotal (Fair Mark Value)', () => {

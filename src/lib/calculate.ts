@@ -1,21 +1,35 @@
+
+interface CalculateInput {
+  items: number[];
+  stateTax: number;
+  localTax: number;
+  customTipPct: number;
+  tipPct: number;
+  preTax: number;
+  flatTip: number;
+};
+
+interface CalculateOutput {
+  subtotal: number;
+  taxAmt: number;
+  localTaxAmt: number;
+  tipAmt: number;
+  total: number;
+  afterTax: number;
+  effectiveTip: number;
+}
+
 /**
  * Compute what the user owes.
  *
- * @param {object}   params
- * @param {number[]} params.items     parsed item prices
- * @param {number}   params.stateTax  tax percent (e.g. 8.25). NaN/undefined => 0
- * @param {number}   params.localTax  tax percent (e.g. 8.25). NaN/undefined => 0
- * @param {number|null} params.tipPct tip percent. null => 0 (WTF option)
- * @param {boolean}  params.preTax    true => tip on subtotal; false => tip on subtotal + tax
- * @param {boolean}  [params.flatTip] true => flat-amount tip mode; effectiveTip
- *                                    is reported against the after-tax base so it
- *                                    matches the derived "tip % of the bill"
- * @returns {{subtotal:number, taxAmt:number, tipAmt:number, total:number}}
+ * @param  calculateInput  contains form input values based on the options a user has provided
+ * @returns the display values for the summary
  */
-export function calculate({ items, stateTax, localTax, customTipPct, tipPct, preTax, flatTip }) {
+export function calculate(calculateInput: CalculateInput): CalculateOutput {
+  const { items, stateTax, localTax, customTipPct, tipPct, preTax, flatTip } = calculateInput;
   const subtotal = items.reduce((sum, n) => sum + n, 0);
 
-  const taxRate = Number.isFinite(stateTax) ? stateTax : 0;
+  const taxRate: number = Number.isFinite(stateTax) ? stateTax : 0;
   const localTaxRate = Number.isFinite(localTax) ? localTax : 0;
   const taxAmt = subtotal * (taxRate / 100);
   const localTaxAmt = subtotal * (localTaxRate / 100);
@@ -36,3 +50,7 @@ export function calculate({ items, stateTax, localTax, customTipPct, tipPct, pre
 
   return { subtotal, taxAmt, localTaxAmt, tipAmt, total, afterTax, effectiveTip };
 }
+
+export const round2 = (n: number) => Math.round(n * 100) / 100;
+export const money = (n: number) => `$${n.toFixed(2)}`;
+export const percent = (n: number) => `${(n * 100).toFixed(2)} %`;

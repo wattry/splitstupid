@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { extractPrices } from './extractPrices.js'
+import { extractPrices } from '../../src/lib/extractPrices.js'
 
 describe('extractPrices', () => {
   it('returns [] for empty / nullish input', () => {

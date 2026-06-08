@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseItems } from './parseItems.js'
+import { parseItems } from '../../src/lib/parseItems.js'
 
 describe('parseItems', () => {
   it('parses space-separated numbers', () => {

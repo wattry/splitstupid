@@ -1,0 +1,11 @@
+name = "splitstupid-proxy"
+main = "src/index.js"
+compatibility_date = "2026-06-01"
+
+# Set secrets (never commit these) with:
+#   wrangler secret put IPSTACK_KEY
+#   wrangler secret put TABSCANNER_KEY
+#
+# Allowed browser origins that may call this worker.
+[vars]
+ALLOWED_ORIGINS = "https://splitstupid.com,http://localhost:5173"

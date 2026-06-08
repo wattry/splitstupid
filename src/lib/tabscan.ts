@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios from 'axios';
 
 /**
  * TabScanner receipt OCR client (browser).
@@ -13,14 +13,14 @@ const client = axios.create({
   headers: {
     apikey: import.meta.env.VITE_TAB_SCAN_KEY,
   },
-})
+});
 
 // TabScanner suggests ~5s to process; wait before the first poll, then poll 1s.
-const FIRST_POLL_MS = 4000
-const POLL_INTERVAL_MS = 1000
-const MAX_POLLS = 20
+const FIRST_POLL_MS = 4000;
+const POLL_INTERVAL_MS = 1000;
+const MAX_POLLS = 20;
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Submit an image for processing.
@@ -31,19 +31,19 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
  * @returns {Promise<string>} polling token
  */
 export async function process(image, params = {}) {
-  const form = new FormData()
-  form.append('file', image, 'receipt.jpg')
-  form.append('documentType', 'receipt')
+  const form = new FormData();
+  form.append('file', image, 'receipt.jpg');
+  form.append('documentType', 'receipt');
   for (const [key, value] of Object.entries(params)) {
-    form.append(key, value)
+    form.append(key, value);
   }
 
-  const { data } = await client.post('/2/process', form)
-  const token = data?.token ?? data?.results?.token
+  const { data } = await client.post('/2/process', form);
+  const token = data?.token ?? data?.results?.token;
   if (!token) {
-    throw new Error(data?.message || 'TabScanner: no token returned from /process')
+    throw new Error(data?.message || 'TabScanner: no token returned from /process');
   }
-  return token
+  return token;
 }
 
 /**
@@ -53,19 +53,19 @@ export async function process(image, params = {}) {
  * @returns {Promise<object>} the parsed receipt result (lineItems, total, …)
  */
 export async function getResult(token) {
-  await delay(FIRST_POLL_MS)
+  await delay(FIRST_POLL_MS);
 
   for (let attempt = 0; attempt < MAX_POLLS; attempt++) {
-    const { data } = await client.get(`/result/${token}`)
+    const { data } = await client.get(`/result/${token}`);
 
-    if (data.status === 'done') return data.result
+    if (data.status === 'done') return data.result;
     if (data.status === 'failed') {
-      throw new Error(data.message || 'TabScanner: processing failed')
+      throw new Error(data.message || 'TabScanner: processing failed');
     }
-    await delay(POLL_INTERVAL_MS)
+    await delay(POLL_INTERVAL_MS);
   }
 
-  throw new Error('TabScanner: timed out waiting for result')
+  throw new Error('TabScanner: timed out waiting for result');
 }
 
 /**
@@ -80,14 +80,14 @@ export async function getResult(token) {
  * @returns {Promise<number[]>}
  */
 export async function scanReceipt(image, onStage) {
-  onStage?.('uploading')
-  const token = await process(image)
+  onStage?.('uploading');
+  const token = await process(image);
 
-  onStage?.('processing')
-  const result = await getResult(token)
+  onStage?.('processing');
+  const result = await getResult(token);
 
-  const items = result?.lineItems ?? []
+  const items = result?.lineItems ?? [];
   return items
     .map((item) => (Number.isFinite(item.lineTotal) ? item.lineTotal : item.price))
-    .filter((n) => Number.isFinite(n) && n > 0)
+    .filter((n) => Number.isFinite(n) && n > 0);
 }

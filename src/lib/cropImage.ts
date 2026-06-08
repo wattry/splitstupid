@@ -8,12 +8,12 @@
  * @returns {Promise<Blob|null>}
  */
 export async function getCroppedBlob(src, pixels) {
-  const image = await loadImage(src)
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(pixels.width)
-  canvas.height = Math.round(pixels.height)
+  const image = await loadImage(src);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(pixels.width);
+  canvas.height = Math.round(pixels.height);
 
-  const ctx = canvas.getContext('2d')
+  const ctx = canvas.getContext('2d');
   ctx.drawImage(
     image,
     pixels.x,
@@ -24,18 +24,18 @@ export async function getCroppedBlob(src, pixels) {
     0,
     pixels.width,
     pixels.height
-  )
+  );
 
   return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92)
-  })
+    canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92);
+  });
 }
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = src
-  })
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
 }

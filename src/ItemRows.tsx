@@ -1,20 +1,49 @@
-const money = (n) => `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`
+import React from 'react';
+import type { ElementType, Dispatch, SetStateAction, ReactElement } from 'react';
+
+export interface Item {
+  id: string;
+  units: number;
+  yours: number;
+  desc: string;
+  price: string;
+};
+
+export interface ItemInputElement {
+  id: string;
+  units: string;
+  yours: string;
+  desc: string;
+  price: string;
+};
+
+interface ItemRowsProps {
+  items: Item[];
+  setItems: Dispatch<SetStateAction<Item>>;
+  perUnit: boolean;
+  makeRow: (fields: Partial<Omit<Item, 'id'>>) => Item;
+};
+
+const money = (n: number) => `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`
 
 /**
  * Amount of a row attributable to the user.
  *  - per-unit mode:  yours × price
  *  - total mode:     price × (yours / units)
  *
- * @param {Row} row
- * @param {boolean} perUnit
- * @returns {number}
+ * @param row
+ * @param perUnit
+ * @returns
  */
-export function rowOwed(row, perUnit) {
-  const yours = parseFloat(row.yours) || 0
-  const price = parseFloat(row.price) || 0
-  if (perUnit) return yours * price
-  const units = parseFloat(row.units) || 0
-  return units > 0 ? price * (yours / units) : 0
+export function rowOwed(row: ItemInputElement, perUnit: boolean): number {
+  const yours = parseFloat(row.yours) || 0;
+  const price = parseFloat(row.price) || 0;
+
+  if (perUnit) { return yours * price }
+
+  const units = parseFloat(row.units) || 0;
+
+  return units > 0 ? price * (yours / units) : 0;
 }
 
 /**
@@ -23,14 +52,22 @@ export function rowOwed(row, perUnit) {
  * count on the receipt; "Yours" is how many you actually had. Whether Price is
  * per-unit or a total for all units is governed by the parent's `perUnit` flag.
  *
- * @param {{ items: Row[], setItems: (rows: Row[]) => void, perUnit: boolean }} props
- * @typedef {{ id: string, units: number|string, yours: number|string, desc: string, price: number|string }} Row
+ * @param props
+ * @typedef Row
  */
-export default function ItemRows({ items, setItems, perUnit }) {
-  const update = (id, field, value) =>
+export default function ItemRows(
+  props: ItemRowsProps
+): ReactElement {
+  const {
+    items,
+    setItems,
+    perUnit,
+    makeRow
+  } = props;
+  const update = (id: string, field: string, value: unknown) =>
     setItems(items.map((it) => (it.id === id ? { ...it, [field]: value } : it)))
 
-  const remove = (id) => {
+  const remove = (id: string) => {
     const next = items.filter((it) => it.id !== id)
     setItems(next.length ? next : [makeRow()])
   }
@@ -100,7 +137,7 @@ export default function ItemRows({ items, setItems, perUnit }) {
                 onClick={() => remove(it.id)}
                 aria-label="Remove item"
               >
-                ×
+                &times;
               </button>
             </div>
             <span className="items__owe">you owe {money(rowOwed(it, perUnit))}</span>
@@ -118,15 +155,4 @@ export default function ItemRows({ items, setItems, perUnit }) {
       </div>
     </div>
   )
-}
-
-let seq = 0
-/**
- * Build a blank row. `fields` can prefill units/yours/desc/price.
- * @param {Partial<Row>} [fields]
- * @returns {Row}
- */
-export function makeRow(fields = {}) {
-  seq += 1
-  return { id: `row-${seq}`, units: 1, yours: 1, desc: '', price: '', ...fields }
 }

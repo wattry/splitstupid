@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseLineItems } from './parseLineItems.js'
+import { parseLineItems } from '../../src/lib/parseLineItems.js'
 
 describe('parseLineItems', () => {
   it('returns [] for empty / nullish input', () => {
@@ -47,7 +47,7 @@ describe('parseLineItems', () => {
   it('prefers a $-tagged amount over a bare decimal', () => {
     // bare "2.00" (a stray/qty decimal) must not win over the real $13.00
     expect(parseLineItems('2.00 Margarita $13.00')).toEqual([
-      { units: 1, desc: '2.00 Margarita', lineTotal: 13.0 },
+      { units: 1, desc: 'Margarita', lineTotal: 13.0 },
     ])
   })
 

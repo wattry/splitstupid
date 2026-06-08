@@ -1,14 +1,18 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { PostHogProvider } from '@posthog/react';
+import type { Container } from 'react-dom/client';
 
-import App from './App.jsx'
-import './styles.css'
+import App from './App.jsx';
+import './styles.css';
+import { LocationProvider } from './context/LocationProvider.js';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const root = document.getElementById('root') as Container;
+
+ReactDOM.createRoot(root).render(
   <React.StrictMode>
     {(import.meta.env.PROD || import.meta.env.VITE_PROD)
-      ? <PostHogProvider
+      ? <LocationProvider><PostHogProvider
         apiKey={import.meta.env.VITE_POSTHOG_KEY}
         options={{
           api_host: import.meta.env.VITE_POSTHOG_DOMAIN,
@@ -17,7 +21,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         }}>
         <App />
       </PostHogProvider>
-      : <App />
+      </LocationProvider>
+      : <LocationProvider><App /></LocationProvider>
     }
   </React.StrictMode>,
 )

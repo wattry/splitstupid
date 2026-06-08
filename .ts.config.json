@@ -1,0 +1,9 @@
+{
+  "version": "0.4.3",
+  "snapshots": {
+    "tsconfig": {},
+    "eslint": "import { defineConfig } from 'eslint/config';\nimport { createBaseConfig } from './eslint.base.js';\n\nconst files = ['**/*.ts'];\nconst ignores = ['dist/**/*', 'node_modules/**/*'];\n\nexport default defineConfig(\n  createBaseConfig(import.meta, { files, ignores })\n);\n",
+    "vitest": "import { defineConfig } from 'vitest/config';\n\nexport default defineConfig({\n  test: {\n    exclude: [],\n    include: ['__tests__/**/*.{test,spec}.{ts,js}', 'test/**/*.{test,spec}.{ts,js}']\n  },\n});\n"
+  },
+  "overrides": []
+}
