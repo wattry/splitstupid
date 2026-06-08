@@ -77,7 +77,7 @@ export default function ItemRows(
         </div>
 
         {items.map((it) => (
-          <div className="items__row" key={it.id}>
+          <div className="items__row" key={it.id} id={it.id}>
             <div className="items__grid">
               <input
                 className="items__num"
@@ -140,6 +140,10 @@ export default function ItemRows(
           Clear
         </button>
       </div>
+
+      <span className="items__count field__label">
+        {items.length} {items.length === 1 ? 'item' : 'items'}
+      </span>
     </div>
   )
 }

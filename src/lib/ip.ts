@@ -37,16 +37,19 @@ export interface IpGeoLocation {
   readme: string
 };
 
-const noop = () => { };
-
 export class IPLookUp {
   #location: void | IpGeoLocation = this.getCache();
   #isFetching: boolean = false;
+  // The in-flight initial lookup. Resolves once the first refresh settles,
+  // letting consumers await completion instead of polling `isFetching`.
+  #ready: Promise<IpGeoLocation | void>;
 
   constructor() {
-    this.refresh()
-      .then(noop)
-      .catch(noop);
+    this.#ready = this.refresh();
+  }
+
+  get ready(): Promise<IpGeoLocation | void> {
+    return this.#ready;
   }
 
   get ip(): string | void {

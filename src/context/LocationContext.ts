@@ -6,13 +6,15 @@ export interface LocationContextValues {
   ip: string;
   isLoading: boolean;
   salesTax: number;
+  text: string;
 }
 
 export const defaultProps: LocationContextValues = {
   state: '',
   location: '',
   ip: '',
-  isLoading: true,
+  text: '',
+  isLoading: false,
   salesTax: 5
 };
 

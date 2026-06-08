@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import stateTaxRates from '../../lib/stateTaxRates.json' with { type: 'json' };
 import { useIPLocation } from '../../hooks/location.js';
 import type { StateTaxSelection } from '../../types.js';
+import { CircularLoading } from '../CircularLoading.js';
 
 interface StateTaxRate {
   state: string;
@@ -26,48 +27,62 @@ export function StateSelector({
   onSelect
 }: StateSelectorProps) {
   const location = useIPLocation();
+  // Rates are stored as fractions (0.04); the tax input works in percent (4).
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const entry = rates.find((r) => r.state === e.target.value);
     if (!entry) return;
-    setValue({ state: entry.state, value: entry.value });
+    setValue({ state: entry.state, value: entry.value * 100 });
     onSelect?.(entry);
   };
 
   useEffect(() => {
-    console.log(location.state);
-
     if (location.state) {
-      setValue({ state: location.state, value: location.salesTax });
+      setValue({ state: location.state, value: location.salesTax * 100 });
     }
 
     return () => {
-      setValue({ state: '', value: 5 });
+      setValue({ state: '', value: 0 });
     };
   }, [location]);
 
-  if (!location.state) {
-    return (<></>);
+  if (location.isLoading) {
+    return <CircularLoading />;
   }
 
-  // value holds the rate; map it back to a state abbrev for the controlled select.
+  // value holds the rate; map the picked state back to its abbrev for the select.
   const selected = rates.find((r) => r.state === value.state)?.state ?? '';
 
-  console.log('value', value, selected);
-
   return (
-    <div className="field">
-      <label htmlFor="state_selector">State Tax (%)</label>
-      <select id="state_selector" value={selected} onChange={handleChange}>
-        <option value="" disabled>
-          Select a state
-        </option>
-        {rates.map((r) => (
-          <option key={r.state} value={r.state}>
-            {r.state} ({(r.value * 100).toFixed(2)}%)
+    <>
+      <div className="field">
+        <label htmlFor="state_selector">State</label>
+        <select id="state_selector" value={selected} onChange={handleChange}>
+          <option value="" disabled>
+            Select a state
           </option>
-        ))}
-      </select>
-      <span className="field__label">Based on current location &#128205;</span>
-    </div>
+          {rates.map((r: StateTaxRate) => (
+            <option key={r.state} value={r.state}>
+              {r.state} ({(r.value * 100).toFixed(2)}%)
+            </option>
+          ))}
+        </select>
+        {location.text && <span className="field__label">{location.text} &#128205;</span>}
+      </div>
+
+      <div className="field">
+        <label htmlFor="state_tax">State Tax (%)</label>
+        <input
+          id="state_tax"
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          placeholder="0.00"
+          value={value.value}
+          onChange={(e) => setValue((prev) => ({ ...prev, value: e.target.value }))}
+        />
+        <span className="field__label">Defaults from the selected state — edit if yours differs</span>
+      </div>
+    </>
   );
 }

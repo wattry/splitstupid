@@ -23,7 +23,7 @@ const KEYFRAMES = `
   to { transform: rotate(360deg); }
 }`;
 
-export default function CircularLoading({
+export function CircularLoading({
   size = 48,
   thickness = 5,
   speed = 0.9,

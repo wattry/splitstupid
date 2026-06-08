@@ -24,15 +24,17 @@ export default function App() {
   const [customTipPct, setCustomTip] = useState<string>('0');
   const [tipLabel, setTipLabel] = useState<string>(TIP_OPTIONS[5].label); // default 15%
   const [basisLabel, setBasisLabel] = useState<string>(BASIS_OPTIONS[1].label);
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<Item[]>(() => [makeRow()]);
 
   /**
    * Build a blank row. `fields` can prefill units/yours/desc/price.
+   * Each row gets a unique id so rows stay independent even when several are
+   * created in the same render (e.g. a receipt scan).
    * @param {Partial<Row>} fields
    * @returns {Row}
    */
   function makeRow(fields: ItemFields = {}): Item {
-    return { id: `row-${items.length}`, units: '1', yours: '1', desc: '', price: '', ...fields };
+    return { id: crypto.randomUUID(), units: '1', yours: '1', desc: '', price: '', ...fields };
   }
 
   // true => Price column is per single unit; false => Price is total for all units.
