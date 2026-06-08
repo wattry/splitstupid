@@ -154,7 +154,7 @@ export default function App() {
         </div>
 
         <div className="field">
-          <label htmlFor="total_tax">Total Tax ($)</label>
+          <label htmlFor="total_tax">Total Taxes & Fees ($)</label>
           <input
             id="total_tax"
             type="number"
