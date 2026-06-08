@@ -13,15 +13,15 @@ import {
 } from './lib/calculate.js';
 import ScanReceipt from './ScanReceipt.js';
 import ItemRows, { rowOwed } from './ItemRows.js';
-import type { Item } from './ItemRows.js';
+import type { Item, ItemFields, StateTaxSelection } from './types.js';
 import { StateSelector } from './components/inputs/StateSelector.js';
 import { CustomTip } from './components/inputs/CustomTip.js';
 import { FlatTip } from './components/inputs/FlatTip.js';
 
 export default function App() {
-  const [stateTax, setStateTax] = useState<{ state: string, value: number | string }>({ state: '', value: 5 });
+  const [stateTax, setStateTax] = useState<StateTaxSelection>({ state: '', value: 5 });
   const [localTax, setLocalTax] = useState<number | string>(0);
-  const [customTipPct, setCustomTip] = useState<number>(0);
+  const [customTipPct, setCustomTip] = useState<string>('0');
   const [tipLabel, setTipLabel] = useState<string>(TIP_OPTIONS[5].label); // default 15%
   const [basisLabel, setBasisLabel] = useState<string>(BASIS_OPTIONS[1].label);
   const [items, setItems] = useState<Item[]>([]);
@@ -31,8 +31,8 @@ export default function App() {
    * @param {Partial<Row>} fields
    * @returns {Row}
    */
-  function makeRow(fields: Partial<Omit<Item, 'id'>> = {}): Item {
-    return { id: `row-${items.length}`, units: 1, yours: 1, desc: '', price: '', ...fields };
+  function makeRow(fields: ItemFields = {}): Item {
+    return { id: `row-${items.length}`, units: '1', yours: '1', desc: '', price: '', ...fields };
   }
 
   // true => Price column is per single unit; false => Price is total for all units.
@@ -48,7 +48,7 @@ export default function App() {
         const units = parseFloat(item.units) || 1
         const price = parseFloat(item.price) || 0
         const next = perUnit ? price * units : units ? price / units : price
-        return { ...it, price: round2(next) }
+        return { ...item, price: String(round2(next)) }
       })
     )
     setPerUnit(!perUnit);
@@ -56,6 +56,9 @@ export default function App() {
 
   const tipOption = TIP_OPTIONS.find((o) => o.label === tipLabel) ?? TIP_OPTIONS[2];
   const basisOption = BASIS_OPTIONS.find((o) => o.label === basisLabel) ?? BASIS_OPTIONS[0];
+  // `value` is the percent for the numeric options, but `null` (WTF) or 'flat'
+  // for the special ones — those contribute no base rate of their own.
+  const tipPctValue = typeof tipOption.value === 'number' ? tipOption.value : 0;
   const isWtf = tipLabel === WTF_TIP;
   const isFlat = tipLabel === FLAT_TIP;
 
@@ -68,10 +71,10 @@ export default function App() {
   const prices = items.map((it) => rowOwed(it, perUnit));
   const result = calculate({
     items: prices,
-    stateTax: parseFloat(stateTax.value),
-    localTax: parseFloat(localTax),
+    stateTax: Number(stateTax.value),
+    localTax: Number(localTax),
     customTipPct: isFlat ? 0 : parseFloat(customTipPct),
-    tipPct: isFlat ? flatRate : tipOption.value,
+    tipPct: isFlat ? flatRate : tipPctValue,
     // Flat tip already sits on the after-tax bill, so tip on the after-tax base.
     preTax: isFlat ? false : basisOption.preTax,
     flatTip: isFlat,
@@ -178,7 +181,7 @@ export default function App() {
               <dt>State Tax</dt>
               <dd>+ {money(result.taxAmt)}</dd>
             </div>
-            {localTax > 0 && <div className="row">
+            {Number(localTax) > 0 && <div className="row">
               <dt>Local Tax</dt>
               <dd>+ {money(result.localTaxAmt)}</dd>
             </div>}

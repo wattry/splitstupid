@@ -1,5 +1,27 @@
 import axios from 'axios';
 
+interface TabScanLineItem {
+  lineTotal?: number;
+  price?: number;
+}
+
+interface TabScanResult {
+  lineItems?: TabScanLineItem[];
+  total?: number;
+}
+
+interface ProcessResponse {
+  token?: string;
+  message?: string;
+  results?: { token?: string };
+}
+
+interface ResultResponse {
+  status: string;
+  result: TabScanResult;
+  message?: string;
+}
+
 /**
  * TabScanner receipt OCR client (browser).
  *
@@ -20,17 +42,17 @@ const FIRST_POLL_MS = 4000;
 const POLL_INTERVAL_MS = 1000;
 const MAX_POLLS = 20;
 
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
  * Submit an image for processing.
  *
- * @param {Blob|File} image cropped receipt image
- * @param {Record<string, string>} [params] optional process params
+ * @param image cropped receipt image
+ * @param params optional process params
  *        (documentType, region, decimalPlaces, cents, defaultDateParsing)
- * @returns {Promise<string>} polling token
+ * @returns polling token
  */
-export async function process(image, params = {}) {
+export async function process(image: Blob | File, params: Record<string, string> = {}): Promise<string> {
   const form = new FormData();
   form.append('file', image, 'receipt.jpg');
   form.append('documentType', 'receipt');
@@ -38,7 +60,7 @@ export async function process(image, params = {}) {
     form.append(key, value);
   }
 
-  const { data } = await client.post('/2/process', form);
+  const { data } = await client.post<ProcessResponse>('/2/process', form);
   const token = data?.token ?? data?.results?.token;
   if (!token) {
     throw new Error(data?.message || 'TabScanner: no token returned from /process');
@@ -49,14 +71,14 @@ export async function process(image, params = {}) {
 /**
  * Poll for a processing result until it is done or failed.
  *
- * @param {string} token from {@link process}
- * @returns {Promise<object>} the parsed receipt result (lineItems, total, …)
+ * @param token from {@link process}
+ * @returns the parsed receipt result (lineItems, total, …)
  */
-export async function getResult(token) {
+export async function getResult(token: string): Promise<TabScanResult> {
   await delay(FIRST_POLL_MS);
 
   for (let attempt = 0; attempt < MAX_POLLS; attempt++) {
-    const { data } = await client.get(`/result/${token}`);
+    const { data } = await client.get<ResultResponse>(`/result/${token}`);
 
     if (data.status === 'done') return data.result;
     if (data.status === 'failed') {
@@ -75,11 +97,13 @@ export async function getResult(token) {
  * anything non-positive. Returns prices in receipt order — ready to join into
  * the items textarea.
  *
- * @param {Blob|File} image cropped receipt image
- * @param {(stage: 'uploading' | 'processing') => void} [onStage]
- * @returns {Promise<number[]>}
+ * @param image cropped receipt image
+ * @param onStage progress callback
  */
-export async function scanReceipt(image, onStage) {
+export async function scanReceipt(
+  image: Blob | File,
+  onStage?: (stage: 'uploading' | 'processing') => void
+): Promise<number[]> {
   onStage?.('uploading');
   const token = await process(image);
 
@@ -89,5 +113,5 @@ export async function scanReceipt(image, onStage) {
   const items = result?.lineItems ?? [];
   return items
     .map((item) => (Number.isFinite(item.lineTotal) ? item.lineTotal : item.price))
-    .filter((n) => Number.isFinite(n) && n > 0);
+    .filter((n): n is number => n != null && Number.isFinite(n) && n > 0);
 }

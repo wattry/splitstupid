@@ -8,7 +8,7 @@ export interface LocationContextValues {
   salesTax: number;
 }
 
-export const defaultProps = {
+export const defaultProps: LocationContextValues = {
   state: '',
   location: '',
   ip: '',

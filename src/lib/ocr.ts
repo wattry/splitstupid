@@ -78,6 +78,7 @@ async function preprocess(image: Image): Promise<HTMLCanvasElement> {
     canvas.height = Math.round(img.naturalHeight * scale);
 
     const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Could not get a 2D canvas context');
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -105,7 +106,7 @@ function grayscaleAndStretch(data: Uint8ClampedArray) {
 
     for (let i = 0, g = 0; i < data.length; i += 4, g++) {
       // Rec. 601 luma.
-      const lum = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) | 0;
+      const lum = ((data[i] ?? 0) * 0.299 + (data[i + 1] ?? 0) * 0.587 + (data[i + 2] ?? 0) * 0.114) | 0;
       gray[g] = lum;
       if (lum < min) min = lum;
       if (lum > max) max = lum;
@@ -113,7 +114,7 @@ function grayscaleAndStretch(data: Uint8ClampedArray) {
 
     const range = max - min || 1;
     for (let i = 0, g = 0; i < data.length; i += 4, g++) {
-      const v = ((gray[g] - min) * 255) / range;
+      const v = (((gray[g] ?? 0) - min) * 255) / range;
 
       data[i] = data[i + 1] = data[i + 2] = v;
     }

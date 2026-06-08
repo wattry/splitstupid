@@ -26,10 +26,10 @@ const DATE_LIKE = /\d{1,2}[/-]\d{1,2}/;
 // A price: one or more digits, a dot, exactly two decimals.
 const PRICE = /\d+\.\d{2}/g;
 
-export function extractPrices(text: string) {
+export function extractPrices(text?: string | null): number[] {
   if (!text) return [];
 
-  const prices = [];
+  const prices: number[] = [];
   for (const rawLine of text.split('\n')) {
 
     const line = rawLine.trim().toLowerCase();

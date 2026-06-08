@@ -7,7 +7,7 @@
  * @param {string} text
  * @returns {number[]}
  */
-export function parseItems(text) {
+export function parseItems(text?: string | null): number[] {
   if (!text) return [];
   return text
     .trim()

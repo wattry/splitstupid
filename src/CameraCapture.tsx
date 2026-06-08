@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+
+interface CameraCaptureProps {
+  onCapture: (blob: Blob) => void;
+  onClose: () => void;
+}
 
 /**
  * Live camera capture overlay. Requests photo access via getUserMedia, shows a
  * preview, and on "Capture" grabs a still frame as a JPEG Blob.
  *
  * Works on desktop and mobile over a secure context (HTTPS / localhost).
- *
- * @param {{ onCapture: (blob: Blob) => void, onClose: () => void }} props
  */
-export default function CameraCapture({ onCapture, onClose }) {
-  const videoRef = useRef(null)
-  const streamRef = useRef(null)
+export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -49,7 +52,9 @@ export default function CameraCapture({ onCapture, onClose }) {
     const canvas = document.createElement('canvas')
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
-    canvas.getContext('2d').drawImage(video, 0, 0)
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0)
     canvas.toBlob(
       (blob) => {
         if (blob) onCapture(blob)

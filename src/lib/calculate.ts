@@ -2,11 +2,16 @@
 interface CalculateInput {
   items: number[];
   stateTax: number;
-  localTax: number;
-  customTipPct: number;
-  tipPct: number;
-  preTax: number;
-  flatTip: number;
+  /** Local tax percent. Omitted or NaN counts as 0%. */
+  localTax?: number;
+  /** Extra custom tip percent (WTF mode). Omitted or NaN counts as 0%. */
+  customTipPct?: number;
+  /** Base tip percent. `null` (WTF, no tip) counts as 0%. */
+  tipPct: number | null;
+  /** Tip on the pre-tax subtotal when true, otherwise on the after-tax bill. */
+  preTax: boolean;
+  /** Flat-tip mode: report the effective rate against the after-tax base. */
+  flatTip?: boolean;
 };
 
 interface CalculateOutput {
@@ -29,13 +34,18 @@ export function calculate(calculateInput: CalculateInput): CalculateOutput {
   const { items, stateTax, localTax, customTipPct, tipPct, preTax, flatTip } = calculateInput;
   const subtotal = items.reduce((sum, n) => sum + n, 0);
 
-  const taxRate: number = Number.isFinite(stateTax) ? stateTax : 0;
-  const localTaxRate = Number.isFinite(localTax) ? localTax : 0;
+  // Coerce each rate to a finite number; missing/null/NaN all count as 0.
+  const rate = (value: number | null | undefined): number => {
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  };
+
+  const taxRate = rate(stateTax);
+  const localTaxRate = rate(localTax);
   const taxAmt = subtotal * (taxRate / 100);
   const localTaxAmt = subtotal * (localTaxRate / 100);
 
-  const tipRate = Number.isFinite(tipPct) ? tipPct : 0;
-  const customTipRate = Number.isFinite(customTipPct) ? customTipPct : 0;
+  const tipRate = rate(tipPct);
+  const customTipRate = rate(customTipPct);
 
   const tipBase = preTax ? subtotal : subtotal + taxAmt + localTaxAmt;
   const tipAmt = tipBase * ((tipRate + customTipRate) / 100);

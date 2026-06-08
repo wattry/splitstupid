@@ -16,6 +16,8 @@
  * @returns {{ units: number, desc: string, lineTotal: number }[]}
  */
 
+import type { ParsedLineItem } from '../types.js';
+
 const SKIP_LINE =
   /total|subtotal|sub-total|\btax\b|change|\bcash\b|\bcard\b|credit|debit|balance|\btip\b|gratuity|\bdate\b|\btel\b|phone|visa|mastercard|amex|acct|account|\bauth\b|\bref\b|invoice|receipt|order\s*#|server|table/i;
 
@@ -31,12 +33,12 @@ const LEADING_QTY = /^(\d{1,2})\s+/;
 // description so a quantity like "2" or "2.00" doesn't bleed into the item name.
 const LEADING_NUM = /^\s*\d+(?:\.\d+)?\s+/;
 
-const toNumber = (token) => Number(token.replace(/[^\d.]/g, ''));
+const toNumber = (token: string) => Number(token.replace(/[^\d.]/g, ''));
 
-export function parseLineItems(text) {
+export function parseLineItems(text?: string | null): ParsedLineItem[] {
   if (!text) return [];
 
-  const items = [];
+  const items: ParsedLineItem[] = [];
   for (const rawLine of text.split('\n')) {
     const line = rawLine.trim();
     if (!line) continue;
@@ -49,12 +51,14 @@ export function parseLineItems(text) {
 
     // The price sits in the rightmost column, so the LAST token is the line
     // total — this also means a leading quantity can never be mistaken for it.
-    const lineTotal = toNumber(prices[prices.length - 1]);
+    const lastPrice = prices[prices.length - 1];
+    if (!lastPrice) continue;
+    const lineTotal = toNumber(lastPrice);
     if (!Number.isFinite(lineTotal) || lineTotal <= 0) continue;
 
     // Leading integer → prepopulate units.
     const qtyMatch = line.match(LEADING_QTY);
-    const units = qtyMatch ? parseInt(qtyMatch[1], 10) || 1 : 1;
+    const units = qtyMatch?.[1] ? parseInt(qtyMatch[1], 10) || 1 : 1;
 
     // Description = text after any leading quantity, before the first price.
     const rest = line.replace(LEADING_NUM, '');

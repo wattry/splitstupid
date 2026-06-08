@@ -2,22 +2,18 @@ import React, { useEffect } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import stateTaxRates from '../../lib/stateTaxRates.json' with { type: 'json' };
 import { useIPLocation } from '../../hooks/location.js';
+import type { StateTaxSelection } from '../../types.js';
 
 interface StateTaxRate {
   state: string;
   value: number;
 }
 
-interface StateTaxInput {
-  state: string;
-  value: number | string;
-}
-
 interface StateSelectorProps {
   /** Selected tax rate (the chosen entry's `value`). */
-  value: StateTaxInput;
+  value: StateTaxSelection;
   /** State setter from useState that holds the selected `value`. */
-  setValue: Dispatch<SetStateAction<StateTaxInput>>;
+  setValue: Dispatch<SetStateAction<StateTaxSelection>>;
   /** Fired with the full entry whenever a state is picked. */
   onSelect?: (entry: StateTaxRate) => void;
 }

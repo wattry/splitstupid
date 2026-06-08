@@ -1,20 +1,25 @@
-import { useState, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import Cropper from 'react-easy-crop'
+import type { Area } from 'react-easy-crop'
 import { getCroppedBlob } from './lib/cropImage.js'
+
+interface CropImageProps {
+  src: string;
+  onConfirm: (blob: Blob) => void;
+  onCancel: () => void;
+}
 
 /**
  * Full-screen crop step. Lets the user drag/zoom to frame the part of the
  * receipt to scan, then produces a cropped JPEG Blob.
- *
- * @param {{ src: string, onConfirm: (blob: Blob) => void, onCancel: () => void }} props
  */
-export default function CropImage({ src, onConfirm, onCancel }) {
+export default function CropImage({ src, onConfirm, onCancel }: CropImageProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
-  const [areaPixels, setAreaPixels] = useState(null)
+  const [areaPixels, setAreaPixels] = useState<Area | null>(null)
   const [busy, setBusy] = useState(false)
 
-  const onCropComplete = useCallback((_area, pixels) => {
+  const onCropComplete = useCallback((_area: Area, pixels: Area) => {
     setAreaPixels(pixels)
   }, [])
 

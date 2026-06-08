@@ -1,27 +1,14 @@
 import React from 'react';
-import type { ElementType, Dispatch, SetStateAction, ReactElement } from 'react';
+import type { Dispatch, SetStateAction, ReactElement } from 'react';
+import type { Item, MakeRow } from './types.js';
 
-export interface Item {
-  id: string;
-  units: number;
-  yours: number;
-  desc: string;
-  price: string;
-};
-
-export interface ItemInputElement {
-  id: string;
-  units: string;
-  yours: string;
-  desc: string;
-  price: string;
-};
+export type { Item } from './types.js';
 
 interface ItemRowsProps {
   items: Item[];
-  setItems: Dispatch<SetStateAction<Item>>;
+  setItems: Dispatch<SetStateAction<Item[]>>;
   perUnit: boolean;
-  makeRow: (fields: Partial<Omit<Item, 'id'>>) => Item;
+  makeRow: MakeRow;
 };
 
 const money = (n: number) => `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`
@@ -35,7 +22,7 @@ const money = (n: number) => `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`
  * @param perUnit
  * @returns
  */
-export function rowOwed(row: ItemInputElement, perUnit: boolean): number {
+export function rowOwed(row: Item, perUnit: boolean): number {
   const yours = parseFloat(row.yours) || 0;
   const price = parseFloat(row.price) || 0;
 

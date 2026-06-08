@@ -29,11 +29,13 @@ jobs:
         run: |
           echo "VITE_POSTHOG_KEY set:    ${{ (secrets.VITE_POSTHOG_KEY || vars.VITE_POSTHOG_KEY) != '' }}"
           echo "VITE_POSTHOG_DOMAIN set: ${{ (secrets.VITE_POSTHOG_DOMAIN || vars.VITE_POSTHOG_DOMAIN) != '' }}"
+          echo "VITE_PROXY set:          ${{ (secrets.VITE_PROXY || vars.VITE_PROXY) != '' }}"
       - run: pnpm build
         env:
           # Read from either the Secrets or the Variables tab, whichever holds it.
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY || vars.VITE_POSTHOG_KEY }}
-          VITE_POSTHOG_DOMAIN: ${{ vars.VITE_POSTHOG_DOMAIN || secrets.VITE_POSTHOG_DOMAIN }}
+          VITE_POSTHOG_DOMAIN: ${{ secrets.VITE_POSTHOG_DOMAIN || vars.VITE_POSTHOG_DOMAIN }}
+          VITE_PROXY: ${{ secrets.VITE_PROXY || vars.VITE_PROXY }}
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist

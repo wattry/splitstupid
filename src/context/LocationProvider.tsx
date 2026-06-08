@@ -12,7 +12,7 @@ import taxRates from '../lib/stateTaxRates.json' with { type: 'json' };
 
 export function LocationProvider(props: { children: ReactElement }): ReactElement {
   const { children } = props;
-  const [location, setLocation] = useState<LocationContextValues | null>(defaultProps);
+  const [location, setLocation] = useState<LocationContextValues>(defaultProps);
   const [client] = useState<IPLookUp>(new IPLookUp());
 
   async function getLocation() {
@@ -26,12 +26,12 @@ export function LocationProvider(props: { children: ReactElement }): ReactElemen
           ...prev,
           state,
           ip,
-          salesTax: stateTaxes?.value,
+          salesTax: stateTaxes?.value ?? prev.salesTax,
           isLoading: false
         }));
       }
     } catch (e: unknown) {
-      setLocation((prev: LocationContextValues) => ({ ...prev, isLoading: false }));
+      setLocation((prev) => ({ ...prev, isLoading: false }));
       if (e instanceof AxiosError) {
         const error = e as AxiosError;
         console.log('Unable to find geolocation', error.message, error.stack, error.response?.data);

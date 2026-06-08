@@ -1,24 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { KeyboardEvent, ReactElement } from 'react';
+import type { ChangeEvent, Dispatch, ReactElement, SetStateAction } from 'react';
 import { scanReceipt } from './lib/ocr.js';
 import { parseLineItems } from './lib/parseLineItems.js';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import CameraCapture from './CameraCapture.js';
 import CropImage from './CropImage.js';
-import type { Item } from './ItemRows.js';
+import type { Item, MakeRow } from './types.js';
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
-interface LineItem {
-  price: string;
-  desc: string;
-};
-
 interface ScanReceiptProps {
-  items: LineItem[];
+  items: Item[];
   perUnit: boolean;
-  setItems: (rows: LineItem[]) => void;
-  makeRow: (fields: Partial<Omit<Item, 'id'>>) => Item;
+  setItems: Dispatch<SetStateAction<Item[]>>;
+  makeRow: MakeRow;
 };
 
 /**
@@ -37,18 +32,18 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     makeRow
   } = props;
 
-  const uploadRef = useRef(null)
+  const uploadRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState('idle') // 'idle' | 'scanning' | 'error'
   const [progress, setProgress] = useState(0)
   const [cameraOpen, setCameraOpen] = useState(false)
-  const [cropSrc, setCropSrc] = useState <string|null>(null) // object URL pending crop
-  const [preview, setPreview] = useState(null) // preprocessed image data URL
+  const [cropSrc, setCropSrc] = useState<string | null>(null) // object URL pending crop
+  const [preview, setPreview] = useState<string | null>(null) // preprocessed image data URL
   const [expanded, setExpanded] = useState(false) // preview lightbox open
 
   // Close the lightbox on Escape.
   useEffect(() => {
     if (!expanded) return
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: KeyboardEvent) => { // DOM KeyboardEvent (window listener)
       if (e.key === 'Escape') {
         setExpanded(false)
       }
@@ -75,7 +70,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
   }
 
   // OCR an image (cropped Blob) and replace the item rows.
-  const processImage = async (image) => {
+  const processImage = async (image: Blob) => {
     setStatus('scanning')
     setProgress(0)
     setPreview(null)
@@ -103,11 +98,11 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
       setItems(
         parsed.map(({ units, desc, lineTotal }) =>
           makeRow({
-            units,
-            yours: 1,
+            units: String(units),
+            yours: '1',
             desc,
             // Price column follows the toggle: per-unit, or total for all units.
-            price: perUnit ? round2(lineTotal / units) : lineTotal,
+            price: String(perUnit ? round2(lineTotal / units) : lineTotal),
           })
         )
       )
@@ -118,18 +113,18 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     }
   }
 
-  const onFile = (e) => {
+  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = '' // let the user re-pick the same file later
     if (file) openCrop(file)
   }
 
-  const onCapture = (blob) => {
+  const onCapture = (blob: Blob) => {
     setCameraOpen(false)
     openCrop(blob)
   }
 
-  const onCropConfirm = (blob) => {
+  const onCropConfirm = (blob: Blob) => {
     closeCrop()
     processImage(blob)
   }
