@@ -8,6 +8,7 @@ import {
 import ScanReceipt from './ScanReceipt.js';
 import ItemRows, { rowOwed } from './ItemRows.js';
 import type { Item, ItemFields } from './types.js';
+import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 
 export default function App() {
   const [billSubtotal, setBillSubtotal] = useState<string>('');
@@ -23,7 +24,10 @@ export default function App() {
    * @returns {Row}
    */
   function makeRow(fields: ItemFields = {}): Item {
-    return { id: crypto.randomUUID(), units: '1', yours: '1', desc: '', price: '', ...fields };
+    const row = { id: crypto.randomUUID(), units: '1', yours: '1', desc: '', price: '', ...fields };
+    // "Yours" defaults to the "Total" (units) unless the caller set it explicitly.
+    if (fields.yours === undefined) row.yours = row.units;
+    return row;
   }
 
   // true => Price column is per single unit; false => Price is total for all units.
@@ -155,16 +159,19 @@ export default function App() {
 
         <div className="field">
           <label htmlFor="total_tax">Total Taxes & Fees ($)</label>
-          <input
-            id="total_tax"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="1"
-            placeholder="0.00"
-            value={totalTax}
-            onChange={(e) => setTotalTax(e.target.value)}
-          />
+          <div className="field__inline">
+            <input
+              id="total_tax"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="1"
+              placeholder="0.00"
+              value={totalTax}
+              onChange={(e) => setTotalTax(e.target.value)}
+            />
+            <FeeCalculator onApply={setTotalTax} />
+          </div>
           {subNum > 0 && <span className="hint hint--muted">
             {taxPct.toFixed(2)}%
           </span>}

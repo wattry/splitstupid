@@ -99,7 +99,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         parsed.map(({ units, desc, lineTotal }) =>
           makeRow({
             units: String(units),
-            yours: '1',
+            // Yours defaults to the full quantity; user trims it down.
             desc,
             // Price column follows the toggle: per-unit, or total for all units.
             price: String(perUnit ? round2(lineTotal / units) : lineTotal),

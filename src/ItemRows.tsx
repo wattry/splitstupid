@@ -52,7 +52,13 @@ export default function ItemRows(
     makeRow
   } = props;
   const update = (id: string, field: string, value: unknown) =>
-    setItems(items.map((it) => (it.id === id ? { ...it, [field]: value } : it)))
+    setItems(items.map((it) => {
+      if (it.id !== id) return it
+      const next = { ...it, [field]: value }
+      // "Yours" tracks "Total" (units) until the user edits Yours on its own.
+      if (field === 'units' && it.yours === it.units) next.yours = value as string
+      return next
+    }))
 
   const remove = (id: string) => {
     const next = items.filter((it) => it.id !== id)

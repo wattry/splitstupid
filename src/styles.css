@@ -87,6 +87,91 @@ body {
 .hint { font-size: 0.8rem; color: var(--accent); }
 .hint--muted { color: var(--muted); }
 
+.field__inline {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.field__inline input { flex: 1; }
+
+.feecalc { position: relative; }
+
+.feecalc__toggle {
+  height: 100%;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.feecalc__toggle:hover { border-color: var(--accent); }
+
+.feecalc__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 10;
+  width: 240px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.feecalc__row { display: flex; gap: 8px; align-items: center; }
+.feecalc__row input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  font-size: 0.95rem;
+}
+
+.feecalc__remove {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.feecalc__remove:hover:not(:disabled) { color: var(--accent); }
+.feecalc__remove:disabled { opacity: 0.3; cursor: default; }
+
+.feecalc__add {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.feecalc__sum {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  border-top: 1px dashed rgba(123, 47, 247, 0.3);
+  padding-top: 8px;
+}
+
+.feecalc__apply {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .field__label { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 
 /* Tax input and Calculate button share the row 50/50. */
