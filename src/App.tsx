@@ -10,6 +10,21 @@ import ItemRows, { rowOwed } from './ItemRows.js';
 import type { Item, ItemFields } from './types.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 
+import { login, splitClient } from './lib/splitwise.js';
+
+const Split = () => {
+  const onClick = async () => {
+    await login();
+  };
+  return (<button
+    type="button"
+    className="action-btn"
+    onClick={onClick}
+  >
+    Splitwise
+  </button>);
+};
+
 export default function App() {
   const [billSubtotal, setBillSubtotal] = useState<string>('');
   const [totalTax, setTotalTax] = useState<string>('');
@@ -255,6 +270,7 @@ export default function App() {
               onChange={importForm}
               hidden
             />
+            <Split />
           </div>
         </div>
       </section>
