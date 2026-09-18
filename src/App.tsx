@@ -80,11 +80,25 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Copy a link carrying the whole form (minus any photo) to the clipboard.
+  // Link carrying the whole form (minus any photo); shared and put in the Venmo note.
+  const buildShareUrl = async () => {
+    const encoded = await encodeState({ billSubtotal, totalTax, tipAmount, perUnit, items });
+    return `${window.location.origin}${window.location.pathname}#s=${encoded}`;
+  };
+
+  // Keep a current share URL around so the Venmo note can include it.
+  const [shareUrl, setShareUrl] = useState('');
+  useEffect(() => {
+    let live = true;
+    buildShareUrl().then((url) => { if (live) setShareUrl(url); }).catch(() => {});
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billSubtotal, totalTax, tipAmount, perUnit, items]);
+
+  // Copy the share link to the clipboard.
   const shareLink = async () => {
     try {
-      const encoded = await encodeState({ billSubtotal, totalTax, tipAmount, perUnit, items });
-      const url = `${window.location.origin}${window.location.pathname}#s=${encoded}`;
+      const url = await buildShareUrl();
       await navigator.clipboard.writeText(url);
       setShared(true);
       setTimeout(() => setShared(false), 1500);
@@ -164,8 +178,8 @@ export default function App() {
     tipAmt: parseFloat(tipAmount),
   });
 
-  // Note attached to a Venmo payment: the bill name, or the app name.
-  const venmoNote = billName.trim() || 'Split Stoopid';
+  // Note attached to a Venmo payment: the bill name (or app name) plus the share link.
+  const venmoNote = [billName.trim() || 'Split Stoopid', shareUrl].filter(Boolean).join(' ');
 
   return (
     <main className="app">
