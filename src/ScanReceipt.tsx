@@ -272,7 +272,12 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
       )}
 
       {cameraOpen && (
-        <CameraCapture onCapture={onCapture} onClose={() => setCameraOpen(false)} />
+        <CameraCapture
+          count={0}
+          max={1}
+          onCapture={onCapture}
+          onClose={() => setCameraOpen(false)}
+        />
       )}
 
       {cropSrc && (
