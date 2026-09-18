@@ -14,6 +14,7 @@ import { TipHelper } from './components/inputs/TipHelper.js';
 
 import { login, splitClient } from './lib/splitwise.js';
 import { scannedBill } from './lib/formState.js';
+import { exportFileName } from './lib/exportName.js';
 import { encodeState, decodeState } from './lib/shareLink.js';
 import { billTitle, buildShareText, shareBill } from './lib/share.js';
 import { VenmoModal } from './components/inputs/VenmoModal.js';
@@ -163,7 +164,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'split-stoopid.json';
+    a.download = exportFileName(billName, 'json');
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -230,6 +231,7 @@ export default function App() {
 
         <ScanReceipt
           items={items}
+          billName={billName}
           perUnit={perUnit}
           makeRow={makeRow}
           onScanned={applyScan}

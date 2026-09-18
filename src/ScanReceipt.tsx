@@ -4,6 +4,7 @@ import { scanReceipt } from './lib/ocr.js';
 import { parseLineItems } from './lib/parseLineItems.js';
 import { parseTotals } from './lib/parseTotals.js';
 import { scanWarnings } from './lib/scanWarnings.js';
+import { exportFileName } from './lib/exportName.js';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import CameraCapture from './CameraCapture.js';
 import CropImage from './CropImage.js';
@@ -13,6 +14,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 
 interface ScanReceiptProps {
   items: Item[];
+  /** Current bill name, used to name the saved processed image. */
+  billName: string;
   perUnit: boolean;
   makeRow: MakeRow;
   /**
@@ -36,6 +39,7 @@ interface ScanReceiptProps {
 export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
   const {
     items,
+    billName,
     perUnit,
     makeRow,
     onScanned,
@@ -216,7 +220,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
             <a
               className="scan-preview__save"
               href={preview}
-              download="receipt-processed.jpg"
+              download={exportFileName(billName, 'jpg')}
             >
               Save
             </a>
