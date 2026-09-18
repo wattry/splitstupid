@@ -8,6 +8,7 @@
 import type { Item } from '../types.js';
 
 export interface SavedState {
+  billName: string;
   billSubtotal: string;
   totalTax: string;
   tipAmount: string;
@@ -20,6 +21,8 @@ type PackedItem = [string, string, string, string];
 
 interface Payload {
   v: 1;
+  /** Bill name; omitted when blank to keep the link short. */
+  n?: string;
   s: string;
   x: string;
   t: string;
@@ -67,6 +70,7 @@ function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
 export async function encodeState(state: SavedState): Promise<string> {
   const payload: Payload = {
     v: 1,
+    ...(state.billName ? { n: state.billName } : {}),
     s: state.billSubtotal,
     x: state.totalTax,
     t: state.tipAmount,
@@ -90,12 +94,14 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     );
     const data: unknown = JSON.parse(new TextDecoder().decode(await pump(inflated)));
     if (typeof data !== 'object' || data === null) return null;
-    const { v, s, x, t, p, i } = data as Record<string, unknown>;
+    const { v, n, s, x, t, p, i } = data as Record<string, unknown>;
     if (v !== 1) return null;
+    if (n !== undefined && typeof n !== 'string') return null;
     if (typeof s !== 'string' || typeof x !== 'string' || typeof t !== 'string') return null;
     if (typeof p !== 'boolean') return null;
     if (!Array.isArray(i) || i.length === 0 || !i.every(isPackedItem)) return null;
     return {
+      billName: n ?? '',
       billSubtotal: s,
       totalTax: x,
       tipAmount: t,

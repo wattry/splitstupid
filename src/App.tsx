@@ -70,6 +70,7 @@ export default function App() {
     if (!encoded) return;
     decodeState(encoded).then((data) => {
       if (!data) return;
+      setBillName(data.billName);
       setBillSubtotal(data.billSubtotal);
       setTotalTax(data.totalTax);
       setTipAmount(data.tipAmount);
@@ -82,7 +83,7 @@ export default function App() {
 
   // Link carrying the whole form (minus any photo); shared and put in the Venmo note.
   const buildShareUrl = async () => {
-    const encoded = await encodeState({ billSubtotal, totalTax, tipAmount, perUnit, items });
+    const encoded = await encodeState({ billName, billSubtotal, totalTax, tipAmount, perUnit, items });
     return `${window.location.origin}${window.location.pathname}#s=${encoded}`;
   };
 
@@ -93,7 +94,7 @@ export default function App() {
     buildShareUrl().then((url) => { if (live) setShareUrl(url); }).catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billSubtotal, totalTax, tipAmount, perUnit, items]);
+  }, [billName, billSubtotal, totalTax, tipAmount, perUnit, items]);
 
   // Copy the share link to the clipboard.
   const shareLink = async () => {
