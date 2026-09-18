@@ -8,6 +8,7 @@ import {
 import ScanReceipt from './ScanReceipt.js';
 import ItemRows, { rowOwed } from './ItemRows.js';
 import type { Item, ItemFields, ParsedTotals } from './types.js';
+import { Calculator } from './components/inputs/Calculator.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 
 import { login, splitClient } from './lib/splitwise.js';
@@ -216,16 +217,19 @@ export default function App() {
 
         <div className="field">
           <label htmlFor="total_tax">Total Taxes & Fees ($)</label>
-          <input
-            id="total_tax"
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="1"
-            placeholder="0.00"
-            value={totalTax}
-            onChange={(e) => setTotalTax(e.target.value)}
-          />
+          <div className="field__inline">
+            <input
+              id="total_tax"
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="1"
+              placeholder="0.00"
+              value={totalTax}
+              onChange={(e) => setTotalTax(e.target.value)}
+            />
+            <FeeCalculator onApply={setTotalTax} />
+          </div>
           {subNum > 0 && <span className="hint hint--muted">
             {taxPct.toFixed(2)}%
           </span>}
@@ -323,7 +327,7 @@ export default function App() {
         </div>
       </section>
 
-      <FeeCalculator onApply={setTotalTax} />
+      <Calculator />
     </main>
   );
 }

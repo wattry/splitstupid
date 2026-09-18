@@ -104,7 +104,37 @@ body {
 }
 .fab:hover { border-color: var(--accent); }
 
-.feecalc {
+.field__inline {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.field__inline input { flex: 1; }
+
+.feecalc { position: relative; }
+
+.feecalc__toggle {
+  height: 100%;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.feecalc__toggle:hover { border-color: var(--accent); }
+
+.feecalc__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 10;
+  width: 240px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -158,6 +188,53 @@ body {
   font-weight: 700;
   cursor: pointer;
 }
+
+/* Quick-math calculator modal. */
+.calculator__display {
+  display: block;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(123, 47, 247, 0.06);
+  font-size: 1.6rem;
+  font-weight: 700;
+  text-align: right;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.calculator__keys {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.calculator__key {
+  padding: 12px 0;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.calculator__key:hover { border-color: var(--accent); }
+
+.calculator__key--op {
+  background: rgba(123, 47, 247, 0.1);
+  color: var(--accent);
+}
+
+.calculator__key--eq {
+  grid-row: span 2;
+  background: var(--accent);
+  color: #fff;
+}
+
+.calculator__key--zero { grid-column: span 2; }
+
+.calculator__close { width: 100%; margin-top: 12px; }
 
 .field__label { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 
