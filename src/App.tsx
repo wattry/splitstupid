@@ -316,10 +316,15 @@ export default function App() {
             <button type="button" className="action-btn" onClick={shareLink}>
               {shared ? 'Link Copied' : 'Share'}
             </button>
-            <button type="button" className="action-btn" onClick={saveForm}>
+            <button
+              style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
+              type="button"
+              className="action-btn"
+              onClick={saveForm}>
               Save
             </button>
             <button
+              style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
               type="button"
               className="action-btn"
               onClick={() => importRef.current?.click()}
@@ -327,6 +332,7 @@ export default function App() {
               Import
             </button>
             <input
+              style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
               ref={importRef}
               type="file"
               accept="application/json,.json"
