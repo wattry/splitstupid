@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeScans } from '../../src/lib/scanPhotos.js'
+import { mergeScans, scanPhotos } from '../../src/lib/scanPhotos.js'
 
 describe('mergeScans', () => {
   it('returns nothing for no photos', () => {
@@ -25,5 +25,25 @@ describe('mergeScans', () => {
     const { items, totals } = mergeScans(['', 'garbage', '1 Fries 8.00'])
     expect(items).toHaveLength(1)
     expect(totals).toEqual({})
+  })
+})
+
+describe('scanPhotos', () => {
+  it('scans each photo in order and reports per-photo progress', async () => {
+    const seen: string[] = []
+    const progress: [number, number][] = []
+    const fakeScan = async (image: Blob | string, opts: { onProgress: (p: number) => void }) => {
+      seen.push(String(image))
+      opts.onProgress(0.5)
+      return `text for ${image}`
+    }
+    const texts = await scanPhotos(
+      [{ src: 'blob:a' }, { src: 'blob:b' }],
+      { onProgress: (i, f) => progress.push([i, f]), onPreview: () => {} },
+      fakeScan
+    )
+    expect(seen).toEqual(['blob:a', 'blob:b'])
+    expect(texts).toEqual(['text for blob:a', 'text for blob:b'])
+    expect(progress).toEqual([[0, 0], [0, 0.5], [1, 0], [1, 0.5]])
   })
 })
