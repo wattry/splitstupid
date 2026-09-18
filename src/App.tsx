@@ -305,10 +305,10 @@ export default function App() {
               <dd>{money(result.subtotal)}</dd>
             </div>
             <hr />
-            {result.taxAmt > 0 && <div className="row">
+            <div className="row">
               <dt>{taxLabel} ({taxPct.toFixed(2)}%)</dt>
               <dd>+ {money(result.taxAmt)}</dd>
-            </div>}
+            </div>
             <hr />
             <div className="row">
               <dt>After Tax Total</dt>
