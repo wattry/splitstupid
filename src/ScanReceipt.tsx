@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { ChangeEvent, Dispatch, ReactElement, SetStateAction } from 'react';
+import type { ChangeEvent, ReactElement } from 'react';
 import { scanReceipt } from './lib/ocr.js';
 import { parseLineItems } from './lib/parseLineItems.js';
 import { parseTotals } from './lib/parseTotals.js';
@@ -13,10 +13,9 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 interface ScanReceiptProps {
   items: Item[];
   perUnit: boolean;
-  setItems: Dispatch<SetStateAction<Item[]>>;
   makeRow: MakeRow;
-  /** Receives subtotal/tax/tip parsed from the receipt's totals lines. */
-  onTotals: (totals: ParsedTotals) => void;
+  /** Receives the parsed totals and item rows; the parent replaces the whole bill. */
+  onScanned: (totals: ParsedTotals, rows: Item[]) => void;
   /** True when the subtotal/tax/tip fields already hold user-entered values. */
   hasTotals: boolean;
 };
@@ -25,17 +24,17 @@ interface ScanReceiptProps {
  * "Scan Receipt" controls. Offers two ways to supply the image — upload an
  * existing photo, or take a new one with the camera. Either path goes through a
  * crop step, then OCRs the cropped region, parses qty/desc/price line items,
- * and replaces the item rows (asking before overwriting existing rows).
+ * and hands them to the parent to replace the bill (asking first if the form
+ * already has content).
  *
  * @param props
  */
 export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
   const {
     items,
-    setItems,
     perUnit,
     makeRow,
-    onTotals,
+    onScanned,
     hasTotals
   } = props;
 
@@ -106,15 +105,14 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
 
       if (
         (hasContent || hasTotals) &&
-        !window.confirm('Replace your current items with the scanned ones?')
+        !window.confirm('Replace your current bill with the scanned one?')
       ) {
         setStatus('idle')
         return
       }
 
-      onTotals(totals)
-
-      setItems(
+      onScanned(
+        totals,
         parsed.map(({ units, desc, lineTotal }) =>
           makeRow({
             units: String(units),

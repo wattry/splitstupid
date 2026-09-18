@@ -13,6 +13,7 @@ import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 import { TipHelper } from './components/inputs/TipHelper.js';
 
 import { login, splitClient } from './lib/splitwise.js';
+import { scannedBill } from './lib/formState.js';
 import { encodeState, decodeState } from './lib/shareLink.js';
 import { billTitle, buildShareText, shareBill } from './lib/share.js';
 import { VenmoModal } from './components/inputs/VenmoModal.js';
@@ -59,11 +60,19 @@ export default function App() {
     return row;
   }
 
-  // Prefill the whole-bill fields from a receipt scan; missing fields untouched.
-  const applyTotals = ({ subtotal, tax, tip }: ParsedTotals) => {
-    if (subtotal !== undefined) setBillSubtotal(String(subtotal));
-    if (tax !== undefined) setTotalTax(String(tax));
-    if (tip !== undefined) setTipAmount(String(tip));
+  // A receipt scan replaces the whole bill, so values typed for a previous
+  // receipt never mix with the new one. Fields the scan lacked come back blank.
+  const applyScan = (totals: ParsedTotals, rows: Item[]) => {
+    const bill = scannedBill(totals, rows);
+    setBillName(bill.billName);
+    setBillSubtotal(bill.billSubtotal);
+    setTotalTax(bill.totalTax);
+    setHasFees(bill.hasFees);
+    setTipAmount(bill.tipAmount);
+    setSplitEven(bill.splitEven);
+    setPartySize(bill.partySize);
+    setMyParty(bill.myParty);
+    setItems(bill.items);
   };
 
   // true => Price column is per single unit; false => Price is total for all units.
@@ -217,10 +226,9 @@ export default function App() {
 
         <ScanReceipt
           items={items}
-          setItems={setItems}
           perUnit={perUnit}
           makeRow={makeRow}
-          onTotals={applyTotals}
+          onScanned={applyScan}
           hasTotals={Boolean(billSubtotal || totalTax || tipAmount)}
         />
 
