@@ -714,7 +714,7 @@ body {
   padding-top: 14px;
   border-top: 1px dashed rgba(123, 47, 247, 0.3);
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
 }
 
@@ -722,6 +722,7 @@ body {
 
 .total__value {
   font-size: 2rem;
+  line-height: 1;
   font-weight: 800;
   color: var(--accent);
   animation: pop 0.25s ease;
