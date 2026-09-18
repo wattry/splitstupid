@@ -13,7 +13,7 @@ import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 
 import { login, splitClient } from './lib/splitwise.js';
 import { encodeState, decodeState } from './lib/shareLink.js';
-import { buildShareText, shareBill } from './lib/share.js';
+import { billTitle, buildShareText, shareBill } from './lib/share.js';
 import { VenmoModal } from './components/inputs/VenmoModal.js';
 
 const Split = () => {
@@ -185,7 +185,7 @@ export default function App() {
   });
 
   // Note attached to a Venmo payment: the bill name (or app name) plus the share link.
-  const venmoNote = [billName.trim() || 'Split Stoopid', shareUrl].filter(Boolean).join(' ');
+  const venmoNote = [billTitle(billName), shareUrl].filter(Boolean).join(' ');
 
   return (
     <main className="app">

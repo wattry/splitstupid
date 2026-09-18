@@ -1,13 +1,22 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { buildShareText, shareBill } from '../../src/lib/share.js';
+import { billTitle, buildShareText, shareBill } from '../../src/lib/share.js';
 
 const totals = { subtotal: 42.5, taxAmt: 3.83, afterTax: 46.33, tipAmt: 8, total: 54.33 };
+
+describe('billTitle', () => {
+  it('appends the app name to the bill name', () => {
+    expect(billTitle(' Dinner ')).toBe('Dinner Split Stoopid');
+  });
+  it('is just the app name when there is no bill name', () => {
+    expect(billTitle('  ')).toBe('Split Stoopid');
+  });
+});
 
 describe('buildShareText', () => {
   it('lists every total with the bill name on top', () => {
     expect(buildShareText({ name: 'Dinner', taxPct: 9.01, tipPct: 18.82, ...totals })).toBe(
       [
-        'Dinner',
+        'Dinner Split Stoopid',
         'Your Total: $42.50',
         'Tax (9.01%): +$3.83',
         'After Tax: $46.33',

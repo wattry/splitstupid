@@ -17,9 +17,14 @@ export interface ShareTextInput {
   hasFees?: boolean;
 }
 
-/** Plain-text summary of the totals, one per line, bill name on top. */
+/** "Dinner Split Stoopid", or just "Split Stoopid" when the bill has no name. */
+export function billTitle(name: string): string {
+  return [name.trim(), 'Split Stoopid'].filter(Boolean).join(' ');
+}
+
+/** Plain-text summary of the totals, one per line, bill title on top. */
 export function buildShareText(t: ShareTextInput): string {
-  const lines = [t.name.trim() || 'Split Stoopid', `Your Total: ${money(t.subtotal)}`];
+  const lines = [billTitle(t.name), `Your Total: ${money(t.subtotal)}`];
   if (t.taxAmt > 0) {
     lines.push(`${t.hasFees ? 'Tax + Fees' : 'Tax'} (${t.taxPct.toFixed(2)}%): +${money(t.taxAmt)}`);
   }
