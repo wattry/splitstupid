@@ -13,6 +13,7 @@ import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 
 import { login, splitClient } from './lib/splitwise.js';
 import { encodeState, decodeState } from './lib/shareLink.js';
+import { buildShareText, shareBill } from './lib/share.js';
 import { VenmoModal } from './components/inputs/VenmoModal.js';
 
 const Split = () => {
@@ -60,7 +61,7 @@ export default function App() {
   // true => Price column is per single unit; false => Price is total for all units.
   const [perUnit, setPerUnit] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [shared, setShared] = useState(false);
+  const [shared, setShared] = useState<'' | 'Shared' | 'Link Copied'>('');
   const importRef = useRef<HTMLInputElement>(null);
 
   // Populate the form from a shared link (#s=...), then strip the hash so
@@ -96,15 +97,17 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [billName, billSubtotal, totalTax, tipAmount, perUnit, items]);
 
-  // Copy the share link to the clipboard.
+  // Open the device share sheet with the link and a totals summary; browsers
+  // without Web Share get the link copied to the clipboard instead. Uses the
+  // precomputed URL so the share call stays inside the click's user activation.
   const shareLink = async () => {
-    try {
-      const url = await buildShareUrl();
-      await navigator.clipboard.writeText(url);
-      setShared(true);
-      setTimeout(() => setShared(false), 1500);
-    } catch {
-      // Clipboard unavailable (e.g. insecure context) — silently ignore.
+    const url = shareUrl || (await buildShareUrl());
+    const title = billName.trim() || 'Split Stoopid';
+    const text = buildShareText({ name: billName, taxPct, tipPct, ...result });
+    const outcome = await shareBill({ title, text, url });
+    if (outcome === 'shared' || outcome === 'copied') {
+      setShared(outcome === 'shared' ? 'Shared' : 'Link Copied');
+      setTimeout(() => setShared(''), 1500);
     }
   }
 
@@ -329,7 +332,7 @@ export default function App() {
 
           <div className="actions">
             <button type="button" className="action-btn" onClick={shareLink}>
-              {shared ? 'Link Copied' : 'Share'}
+              {shared || 'Share'}
             </button>
             <button
               style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
