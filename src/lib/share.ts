@@ -25,7 +25,7 @@ export function buildShareText(t: ShareTextInput): string {
   }
   lines.push(`After Tax: ${money(t.afterTax)}`);
   if (t.tipAmt > 0) lines.push(`Tip (${t.tipPct.toFixed(2)}%): +${money(t.tipAmt)}`);
-  lines.push(`What I Owe: ${money(t.total)}`);
+  lines.push(`What U Owe: ${money(t.total)}`);
   return lines.join('\n');
 }
 
