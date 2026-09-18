@@ -40,7 +40,7 @@ export const TipHelper = ({ subtotal, onApply }: TipHelperProps) => {
         aria-expanded={open}
         aria-label="Pick a tip percentage"
       >
-        HELP ME
+        HELP ME!
       </button>
 
       {open && (
