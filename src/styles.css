@@ -328,6 +328,28 @@ body {
   color: var(--ink);
 }
 
+/* Receipt sanity-check warnings shown once after a scan. */
+.scan-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 46, 136, 0.08);
+}
+
+.scan-warnings__dismiss {
+  align-self: flex-end;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+}
+
 .scan-preview {
   margin: 12px 0 0;
   padding: 8px;
