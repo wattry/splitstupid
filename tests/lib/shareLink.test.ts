@@ -8,6 +8,9 @@ const state: SavedState = {
   totalTax: '3.83',
   tipAmount: '8.00',
   perUnit: true,
+  splitEven: false,
+  partySize: '',
+  myParty: '1',
   items: [
     { id: 'a', units: '2', yours: '1', desc: 'Pad Thai', price: '12.00' },
     { id: 'b', units: '1', yours: '1', desc: 'Beer', price: '6.50' },
@@ -84,6 +87,44 @@ describe('encodeState / decodeState', () => {
     expect(without.length).toBeLessThan(withName.length);
   });
 
+  it('round-trips split even fields', async () => {
+    const decoded = await decodeState(
+      await encodeState({ ...state, splitEven: true, partySize: '4', myParty: '2' })
+    );
+    expect(decoded!.splitEven).toBe(true);
+    expect(decoded!.partySize).toBe('4');
+    expect(decoded!.myParty).toBe('2');
+  });
+
+  it('omits split even fields from the payload when off', async () => {
+    const on = await encodeState({ ...state, splitEven: true, partySize: '4', myParty: '2' });
+    const off = await encodeState(state);
+    expect(off.length).toBeLessThan(on.length);
+  });
+
+  it('decodes links without split even fields as split even off', async () => {
+    const legacy = await encodeLegacy({
+      v: 1,
+      s: '10',
+      x: '1',
+      t: '2',
+      p: false,
+      i: [['1', '1', 'Soup', '10']],
+    });
+    const decoded = await decodeState(legacy);
+    expect(decoded!.splitEven).toBe(false);
+    expect(decoded!.partySize).toBe('4');
+    expect(decoded!.myParty).toBe('1');
+  });
+
+  it('returns null when split even fields have the wrong type', async () => {
+    const bad = await encodeLegacy({
+      v: 1, s: '10', x: '1', t: '2', p: false, i: [['1', '1', 'Soup', '10']],
+      e: true, z: 4, m: '1',
+    });
+    expect(await decodeState(bad)).toBeNull();
+  });
+
   it('decodes legacy links that carry no name as an empty name', async () => {
     // Fragment produced before billName existed (v1 payload without `n`).
     const legacy = await encodeLegacy({
@@ -114,6 +155,9 @@ describe('encodeState / decodeState', () => {
       totalTax: '',
       tipAmount: '',
       perUnit: false,
+      splitEven: false,
+      partySize: '',
+      myParty: '1',
       items: [],
     });
     expect(await decodeState(bogus)).toBeNull();

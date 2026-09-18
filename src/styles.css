@@ -110,6 +110,7 @@ body {
   gap: 8px;
 }
 .field__inline input { flex: 1; }
+.field__inline > .field { flex: 1; }
 
 .feecalc { position: relative; }
 
@@ -486,6 +487,48 @@ body {
   text-align: right;
   padding-right: 30px;
 }
+
+/* Split Even slider switch */
+.switch__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+.switch__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.switch__track {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border-radius: 14px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.6);
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.switch__track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+}
+.switch__input:checked + .switch__track {
+  background: linear-gradient(120deg, #7b2ff7 0%, #f107a3 100%);
+  border-color: transparent;
+}
+.switch__input:checked + .switch__track::after { transform: translateX(20px); }
+.switch__input:focus-visible + .switch__track { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Per-unit / total toggle */
 .toggle__btn {

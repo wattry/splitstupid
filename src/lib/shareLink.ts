@@ -13,6 +13,10 @@ export interface SavedState {
   totalTax: string;
   tipAmount: string;
   perUnit: boolean;
+  /** Split Even: take an even share of the whole bill instead of line items. */
+  splitEven: boolean;
+  partySize: string;
+  myParty: string;
   items: Item[];
 }
 
@@ -27,6 +31,10 @@ interface Payload {
   x: string;
   t: string;
   p: boolean;
+  /** Split Even on/off, party size, my party; all omitted when off. */
+  e?: boolean;
+  z?: string;
+  m?: string;
   i: PackedItem[];
 }
 
@@ -75,6 +83,7 @@ export async function encodeState(state: SavedState): Promise<string> {
     x: state.totalTax,
     t: state.tipAmount,
     p: state.perUnit,
+    ...(state.splitEven ? { e: true, z: state.partySize, m: state.myParty } : {}),
     i: state.items.map((it) => [it.units, it.yours, it.desc, it.price]),
   };
   const json = new TextEncoder().encode(JSON.stringify(payload));
@@ -94,11 +103,14 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     );
     const data: unknown = JSON.parse(new TextDecoder().decode(await pump(inflated)));
     if (typeof data !== 'object' || data === null) return null;
-    const { v, n, s, x, t, p, i } = data as Record<string, unknown>;
+    const { v, n, s, x, t, p, e, z, m, i } = data as Record<string, unknown>;
     if (v !== 1) return null;
     if (n !== undefined && typeof n !== 'string') return null;
     if (typeof s !== 'string' || typeof x !== 'string' || typeof t !== 'string') return null;
     if (typeof p !== 'boolean') return null;
+    if (e !== undefined && typeof e !== 'boolean') return null;
+    if (z !== undefined && typeof z !== 'string') return null;
+    if (m !== undefined && typeof m !== 'string') return null;
     if (!Array.isArray(i) || i.length === 0 || !i.every(isPackedItem)) return null;
     return {
       billName: n ?? '',
@@ -106,6 +118,9 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
       totalTax: x,
       tipAmount: t,
       perUnit: p,
+      splitEven: e ?? false,
+      partySize: z ?? '4',
+      myParty: m ?? '1',
       items: i.map(([units, yours, desc, price]) => ({
         id: crypto.randomUUID(),
         units,

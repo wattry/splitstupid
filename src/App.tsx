@@ -40,6 +40,10 @@ export default function App() {
   const taxLabel = hasFees ? 'Tax + Fees' : 'Tax';
   const [tipAmount, setTipAmount] = useState<string>('');
   const [items, setItems] = useState<Item[]>(() => [makeRow()]);
+  // Split Even: this user's share is an even slice of the line-item sum.
+  const [splitEven, setSplitEven] = useState(false);
+  const [partySize, setPartySize] = useState<string>('4');
+  const [myParty, setMyParty] = useState<string>('2');
 
   /**
    * Build a blank row. `fields` can prefill units/yours/desc/price.
@@ -80,6 +84,9 @@ export default function App() {
       setTotalTax(data.totalTax);
       setTipAmount(data.tipAmount);
       setPerUnit(data.perUnit);
+      setSplitEven(data.splitEven);
+      setPartySize(data.partySize);
+      setMyParty(data.myParty);
       setItems(data.items);
     });
     history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -88,7 +95,9 @@ export default function App() {
 
   // Link carrying the whole form (minus any photo); shared and put in the Venmo note.
   const buildShareUrl = async () => {
-    const encoded = await encodeState({ billName, billSubtotal, totalTax, tipAmount, perUnit, items });
+    const encoded = await encodeState({
+      billName, billSubtotal, totalTax, tipAmount, perUnit, splitEven, partySize, myParty, items,
+    });
     return `${window.location.origin}${window.location.pathname}#s=${encoded}`;
   };
 
@@ -99,7 +108,7 @@ export default function App() {
     buildShareUrl().then((url) => { if (live) setShareUrl(url); }).catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billName, billSubtotal, totalTax, tipAmount, perUnit, items]);
+  }, [billName, billSubtotal, totalTax, tipAmount, perUnit, splitEven, partySize, myParty, items]);
 
   // Open the device share sheet with the link and a totals summary; browsers
   // without Web Share get the link copied to the clipboard instead. Uses the
@@ -113,6 +122,13 @@ export default function App() {
       setTimeout(() => setShared(''), 1500);
     }
   }
+
+  // Turning Split Even on resets every row to Yours = Total so the line-item
+  // sum is the whole bill before it is divided by the party.
+  const toggleSplitEven = (on: boolean) => {
+    if (on) setItems(items.map((item) => ({ ...item, yours: item.units })));
+    setSplitEven(on);
+  };
 
   // Flip the toggle, converting each row's Price so the amount owed stays put.
   const togglePerUnit = () => {
@@ -183,6 +199,9 @@ export default function App() {
     billSubtotal: parseFloat(billSubtotal),
     totalTax: parseFloat(totalTax),
     tipAmt: parseFloat(tipAmount),
+    ...(splitEven
+      ? { split: { partySize: parseFloat(partySize), myParty: parseFloat(myParty) } }
+      : {}),
   });
 
   // Note attached to a Venmo payment: the bill name (or app name) plus the share link.
@@ -238,7 +257,6 @@ export default function App() {
           perUnit={perUnit}
           makeRow={makeRow}
         />
-
         <div className="field">
           <label htmlFor="sub_total">Sub Total ($)</label>
           <input
@@ -300,6 +318,53 @@ export default function App() {
             {tipPct.toFixed(2)}%
           </span>}
         </div>
+
+        <div className="field switch">
+          <label className="switch__row" htmlFor="split_even">
+            <span className="field__label">Split Even</span>
+            <input
+              id="split_even"
+              type="checkbox"
+              role="switch"
+              className="switch__input"
+              checked={splitEven}
+              onChange={(e) => toggleSplitEven(e.target.checked)}
+            />
+            <span className="switch__track" aria-hidden="true" />
+          </label>
+          <span className="field__label">Divide the line items evenly across the party</span>
+        </div>
+
+        {splitEven && (
+          <div className="field__inline">
+            <div className="field">
+              <label htmlFor="party_size">Party Size</label>
+              <input
+                id="party_size"
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                placeholder="4"
+                value={partySize}
+                onChange={(e) => setPartySize(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="my_party">My Party</label>
+              <input
+                id="my_party"
+                type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
+                placeholder="2"
+                value={myParty}
+                onChange={(e) => setMyParty(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="result">
           <dl className="breakdown">

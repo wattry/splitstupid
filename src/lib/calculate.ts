@@ -8,7 +8,17 @@ interface CalculateInput {
   totalTax?: number;
   /** Whole-bill tip in dollars. Tip rate = tipAmt / billSubtotal. */
   tipAmt?: number;
+  /**
+   * Split Even: this user's share is (myParty / partySize) of the line-item
+   * sum instead of the sum itself. Ignored when partySize is not > 0.
+   */
+  split?: SplitEven;
 };
+
+export interface SplitEven {
+  partySize: number;
+  myParty: number;
+}
 
 interface CalculateOutput {
   subtotal: number;
@@ -30,13 +40,19 @@ interface CalculateOutput {
  * @returns the display values for the summary
  */
 export function calculate(calculateInput: CalculateInput): CalculateOutput {
-  const { items, billSubtotal, totalTax } = calculateInput;
-  const subtotal = items.reduce((sum, n) => sum + n, 0);
+  const { items, billSubtotal, totalTax, split } = calculateInput;
 
   // Coerce each value to a finite number; missing/null/NaN all count as 0.
   const num = (value: number | null | undefined): number => {
     return typeof value === 'number' && Number.isFinite(value) ? value : 0;
   };
+
+  // Split Even: an even share of the line-item sum replaces the per-row share.
+  const itemSum = items.reduce((sum, n) => sum + n, 0);
+  const partySize = num(split?.partySize);
+  const subtotal = split && partySize > 0
+    ? (itemSum * num(split.myParty)) / partySize
+    : itemSum;
 
   // Ratios off the whole-bill subtotal; guard against divide-by-zero.
   const denom = num(billSubtotal);
