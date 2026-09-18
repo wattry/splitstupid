@@ -17,6 +17,12 @@ describe('buildShareText', () => {
     );
   });
 
+  it('labels the tax line "Tax + Fees" when fees were itemised', () => {
+    const text = buildShareText({ name: 'Dinner', taxPct: 9.01, tipPct: 0, hasFees: true, ...totals, tipAmt: 0 });
+    expect(text).toContain('Tax + Fees (9.01%): +$3.83');
+    expect(text).not.toContain('Tax (');
+  });
+
   it('drops tax and tip lines when zero and falls back to the app name', () => {
     expect(
       buildShareText({ name: '  ', taxPct: 0, tipPct: 0, ...totals, taxAmt: 0, tipAmt: 0 })

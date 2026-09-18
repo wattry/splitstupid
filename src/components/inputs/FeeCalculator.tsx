@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 export interface FeeCalculatorProps {
-  /** Called with the summed total (as a fixed-2 string) when the user applies. */
-  onApply: (total: string) => void;
+  /**
+   * Called with the summed total (as a fixed-2 string) and the number of
+   * non-zero entries when the user applies.
+   */
+  onApply: (total: string, count: number) => void;
 }
 
 // A small popover calculator: the user lists individual taxes/fees, sees a
@@ -32,7 +35,7 @@ export const FeeCalculator = ({ onApply }: FeeCalculatorProps) => {
   const removeFee = (i: number) => setFees(fees.filter((_, idx) => idx !== i));
 
   const apply = () => {
-    onApply(sum.toFixed(2));
+    onApply(sum.toFixed(2), fees.filter((f) => (parseFloat(f) || 0) > 0).length);
     setOpen(false);
   };
 

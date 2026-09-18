@@ -34,6 +34,9 @@ export default function App() {
   const [billName, setBillName] = useState<string>('');
   const [billSubtotal, setBillSubtotal] = useState<string>('');
   const [totalTax, setTotalTax] = useState<string>('');
+  // True when the tax total came from more than one itemised fee.
+  const [hasFees, setHasFees] = useState(false);
+  const taxLabel = hasFees ? 'Tax + Fees' : 'Tax';
   const [tipAmount, setTipAmount] = useState<string>('');
   const [items, setItems] = useState<Item[]>(() => [makeRow()]);
 
@@ -103,7 +106,7 @@ export default function App() {
   const shareLink = async () => {
     const url = shareUrl || (await buildShareUrl());
     const title = billName.trim() || 'Split Stoopid';
-    const text = buildShareText({ name: billName, taxPct, tipPct, ...result });
+    const text = buildShareText({ name: billName, taxPct, tipPct, hasFees, ...result });
     const outcome = await shareBill({ title, text, url });
     if (outcome === 'shared' || outcome === 'copied') {
       setShared(outcome === 'shared' ? 'Shared' : 'Link Copied');
@@ -261,9 +264,17 @@ export default function App() {
               step="1"
               placeholder="0.00"
               value={totalTax}
-              onChange={(e) => setTotalTax(e.target.value)}
+              onChange={(e) => {
+                setTotalTax(e.target.value);
+                setHasFees(false);
+              }}
             />
-            <FeeCalculator onApply={setTotalTax} />
+            <FeeCalculator
+              onApply={(total, count) => {
+                setTotalTax(total);
+                setHasFees(count > 1);
+              }}
+            />
           </div>
           {subNum > 0 && <span className="hint hint--muted">
             {taxPct.toFixed(2)}%
@@ -295,7 +306,7 @@ export default function App() {
             </div>
             <hr />
             {result.taxAmt > 0 && <div className="row">
-              <dt>Tax ({taxPct.toFixed(2)}%)</dt>
+              <dt>{taxLabel} ({taxPct.toFixed(2)}%)</dt>
               <dd>+ {money(result.taxAmt)}</dd>
             </div>}
             <hr />
