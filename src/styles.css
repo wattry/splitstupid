@@ -328,12 +328,12 @@ body {
   color: var(--ink);
 }
 
-/* Receipt sanity-check warnings shown once after a scan. */
+/* Receipt sanity-check warnings, shown once after a scan above Sub Total. */
 .scan-warnings {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: 12px 0 0;
+  margin: 0 0 16px;
   padding: 10px 12px;
   border-radius: 14px;
   background: rgba(255, 46, 136, 0.08);

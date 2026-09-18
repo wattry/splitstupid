@@ -62,8 +62,12 @@ export default function App() {
 
   // A receipt scan replaces the whole bill, so values typed for a previous
   // receipt never mix with the new one. Fields the scan lacked come back blank.
-  const applyScan = (totals: ParsedTotals, rows: Item[]) => {
+  // Sanity-check messages from the last scan. Shown once, at import; later
+  // edits are the user's call, so they are never recomputed.
+  const [scanWarnings, setScanWarnings] = useState<string[]>([]);
+  const applyScan = (totals: ParsedTotals, rows: Item[], warnings: string[]) => {
     const bill = scannedBill(totals, rows);
+    setScanWarnings(warnings);
     setBillName(bill.billName);
     setBillSubtotal(bill.billSubtotal);
     setTotalTax(bill.totalTax);
@@ -265,6 +269,20 @@ export default function App() {
           perUnit={perUnit}
           makeRow={makeRow}
         />
+        {scanWarnings.length > 0 && (
+          <div className="scan-warnings" role="alert">
+            {scanWarnings.map((text) => (
+              <span key={text} className="hint">{text}</span>
+            ))}
+            <button
+              type="button"
+              className="scan-warnings__dismiss"
+              onClick={() => setScanWarnings([])}
+            >
+              Got it
+            </button>
+          </div>
+        )}
         <div className="field">
           <label htmlFor="sub_total">Sub Total ($)</label>
           <input

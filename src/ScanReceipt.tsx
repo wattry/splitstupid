@@ -15,8 +15,11 @@ interface ScanReceiptProps {
   items: Item[];
   perUnit: boolean;
   makeRow: MakeRow;
-  /** Receives the parsed totals and item rows; the parent replaces the whole bill. */
-  onScanned: (totals: ParsedTotals, rows: Item[]) => void;
+  /**
+   * Receives the parsed totals, item rows and sanity-check warnings; the
+   * parent replaces the whole bill and shows the warnings.
+   */
+  onScanned: (totals: ParsedTotals, rows: Item[], warnings: string[]) => void;
   /** True when the subtotal/tax/tip fields already hold user-entered values. */
   hasTotals: boolean;
 };
@@ -50,9 +53,6 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
   const [zoom, setZoom] = useState(1)
   const [preview, setPreview] = useState<string | null>(null) // preprocessed image data URL
   const [expanded, setExpanded] = useState(false) // preview lightbox open
-  // Sanity-check messages from the last successful scan. Shown once, at import;
-  // later edits are the user's call, so they are never recomputed.
-  const [warnings, setWarnings] = useState<string[]>([])
 
   // Close the lightbox on Escape.
   useEffect(() => {
@@ -93,7 +93,6 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     setStatus('scanning')
     setProgress(0)
     setPreview(null)
-    setWarnings([])
 
     try {
       const text = await scanReceipt(image, {
@@ -116,7 +115,6 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         return
       }
 
-      setWarnings(scanWarnings(totals, parsed))
       onScanned(
         totals,
         parsed.map(({ units, desc, lineTotal }) =>
@@ -127,7 +125,8 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
             // Price column follows the toggle: per-unit, or total for all units.
             price: String(perUnit ? round2(lineTotal / units) : lineTotal),
           })
-        )
+        ),
+        scanWarnings(totals, parsed)
       )
       setStatus('idle')
     } catch (err) {
@@ -200,21 +199,6 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
 
       {status === 'error' && (
         <span className="hint">Couldn’t read prices — type them manually.</span>
-      )}
-
-      {warnings.length > 0 && (
-        <div className="scan-warnings" role="alert">
-          {warnings.map((text) => (
-            <span key={text} className="hint">{text}</span>
-          ))}
-          <button
-            type="button"
-            className="scan-warnings__dismiss"
-            onClick={() => setWarnings([])}
-          >
-            Got it
-          </button>
-        </div>
       )}
 
       {preview && (
