@@ -18,6 +18,7 @@ const Split = () => {
     await login();
   };
   return (<button
+    style={{ display: 'none' }}
     type="button"
     className="action-btn"
     onClick={onClick}
@@ -189,7 +190,7 @@ export default function App() {
             <span className={!perUnit ? 'toggle__on' : ''}>Total Per Item</span>
             <span className={perUnit ? 'toggle__on' : ''}>Per Item</span>
           </button>
-          <span className="field__label">Are line items a total for all items or a price for one?</span>
+          <span className="field__label">Are line items a Total for all or a price for one?</span>
         </div>
 
         <ItemRows
@@ -294,11 +295,11 @@ export default function App() {
           </div>
 
           <div className="actions">
-            <button type="button" className="action-btn" onClick={saveForm}>
-              Save
-            </button>
             <button type="button" className="action-btn" onClick={shareLink}>
               {shared ? 'Link Copied' : 'Share'}
+            </button>
+            <button type="button" className="action-btn" onClick={saveForm}>
+              Save
             </button>
             <button
               type="button"
