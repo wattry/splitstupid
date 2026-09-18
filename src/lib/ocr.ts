@@ -7,13 +7,16 @@
  * tesseract.js CDN at runtime (needs network on first use).
  *
  * Receipt OCR accuracy is improved two ways:
- *   1. Preprocessing — upscale small images, grayscale, boost contrast.
+ *   1. Preprocessing — upscale small images, grayscale, trim the dark
+ *      table/background around the receipt, boost contrast.
  *   2. Engine params — treat the image as one ragged column of text (PSM 4) at
  *      a fixed 300 DPI. A/B tested against PSM 6 on real receipt photos:
  *      PSM 6 reads the table surface around the receipt as garbage tokens;
  *      PSM 4 tracks the receipt column cleanly. A character whitelist drops
  *      glyphs that can't appear on a receipt (smart quotes, brackets).
  */
+
+import { findBrightBounds } from './trimMargins.js';
 
 // Upscale anything narrower than this (px) — tesseract wants ~300 DPI text.
 
@@ -71,11 +74,16 @@ export async function scanReceipt(image: File | Blob | string, opts: ScanReceipt
 }
 
 /**
- * Clean up a receipt image for OCR: upscale if small, grayscale, and stretch
- * contrast. Returns a canvas tesseract can read directly.
+ * Clean up a receipt image for OCR: upscale if small, grayscale, trim dark
+ * margins around the receipt, and stretch contrast. Returns a canvas
+ * tesseract can read directly.
+ *
+ * Order matters: margins are found on the full grayscale image, then the
+ * contrast stretch runs on the trimmed region only, so a dark table doesn't
+ * dominate the min/max and wash out faint print.
  *
  * @param image
- * @returns A promise containing an image element
+ * @returns A promise containing a canvas element
  */
 async function preprocess(image: Image): Promise<HTMLCanvasElement> {
   const src = typeof image === 'string' ? image : URL.createObjectURL(image);
@@ -83,22 +91,46 @@ async function preprocess(image: Image): Promise<HTMLCanvasElement> {
     const img = await loadImage(src);
 
     const scale = img.naturalWidth < MIN_WIDTH ? MIN_WIDTH / img.naturalWidth : 1;
+    const width = Math.round(img.naturalWidth * scale);
+    const height = Math.round(img.naturalHeight * scale);
     const canvas = document.createElement('canvas');
-    canvas.width = Math.round(img.naturalWidth * scale);
-    canvas.height = Math.round(img.naturalHeight * scale);
+    canvas.width = width;
+    canvas.height = height;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Could not get a 2D canvas context');
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, width, height);
 
-    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    grayscaleAndStretch(pixels.data);
-    ctx.putImageData(pixels, 0, 0);
+    const gray = toGray(ctx.getImageData(0, 0, width, height).data);
+    const bounds = findBrightBounds(gray, width, height);
 
-    return canvas;
+    const out = document.createElement('canvas');
+    out.width = bounds.width;
+    out.height = bounds.height;
+    const outCtx = out.getContext('2d');
+    if (!outCtx) throw new Error('Could not get a 2D canvas context');
+
+    const pixels = ctx.getImageData(bounds.x, bounds.y, bounds.width, bounds.height);
+    stretchGray(pixels.data);
+    outCtx.putImageData(pixels, 0, 0);
+
+    return out;
   } finally {
     if (typeof image !== 'string') URL.revokeObjectURL(src);
   }
+}
+
+/**
+ * Rec. 601 luma of RGBA pixel data, one byte per pixel.
+ *
+ * @param data
+ */
+function toGray(data: Uint8ClampedArray): Uint8ClampedArray {
+  const gray = new Uint8ClampedArray(data.length / 4);
+  for (let i = 0, g = 0; i < data.length; i += 4, g++) {
+    gray[g] = ((data[i] ?? 0) * 0.299 + (data[i + 1] ?? 0) * 0.587 + (data[i + 2] ?? 0) * 0.114) | 0;
+  }
+  return gray;
 }
 
 /**
@@ -108,28 +140,19 @@ async function preprocess(image: Image): Promise<HTMLCanvasElement> {
  *
  * @param data
  */
-function grayscaleAndStretch(data: Uint8ClampedArray) {
-  if (data instanceof Uint8ClampedArray) {
-    let min = 255;
-    let max = 0;
-    const gray = new Uint8ClampedArray(data.length / 4);
+function stretchGray(data: Uint8ClampedArray) {
+  const gray = toGray(data);
+  let min = 255;
+  let max = 0;
+  for (const v of gray) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
 
-    for (let i = 0, g = 0; i < data.length; i += 4, g++) {
-      // Rec. 601 luma.
-      const lum = ((data[i] ?? 0) * 0.299 + (data[i + 1] ?? 0) * 0.587 + (data[i + 2] ?? 0) * 0.114) | 0;
-      gray[g] = lum;
-      if (lum < min) min = lum;
-      if (lum > max) max = lum;
-    }
-
-    const range = max - min || 1;
-    for (let i = 0, g = 0; i < data.length; i += 4, g++) {
-      const v = (((gray[g] ?? 0) - min) * 255) / range;
-
-      data[i] = data[i + 1] = data[i + 2] = v;
-    }
-  } else {
-    throw new Error();
+  const range = max - min || 1;
+  for (let i = 0, g = 0; i < data.length; i += 4, g++) {
+    const v = (((gray[g] ?? 0) - min) * 255) / range;
+    data[i] = data[i + 1] = data[i + 2] = v;
   }
 }
 

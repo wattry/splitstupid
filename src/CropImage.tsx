@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react'
 import Cropper from 'react-easy-crop'
-import type { Area } from 'react-easy-crop'
+import type { Area, MediaSize } from 'react-easy-crop'
 import { getCroppedBlob } from './lib/cropImage.js'
 
 interface CropImageProps {
@@ -23,6 +23,15 @@ interface CropImageProps {
 export default function CropImage({ src, crop, zoom, onCropChange, onZoomChange, onConfirm, onCancel }: CropImageProps) {
   const [areaPixels, setAreaPixels] = useState<Area | null>(null)
   const [busy, setBusy] = useState(false)
+  // Crop box matches the image's own shape, so at zoom 1 the whole photo
+  // (including a tall receipt) fits inside it; the user zooms in to trim.
+  const [aspect, setAspect] = useState<number | undefined>(undefined)
+
+  const onMediaLoaded = useCallback((media: MediaSize) => {
+    if (media.naturalWidth && media.naturalHeight) {
+      setAspect(media.naturalWidth / media.naturalHeight)
+    }
+  }, [])
 
   const onCropComplete = useCallback((_area: Area, pixels: Area) => {
     setAreaPixels(pixels)
@@ -44,6 +53,8 @@ export default function CropImage({ src, crop, zoom, onCropChange, onZoomChange,
           image={src}
           crop={crop}
           zoom={zoom}
+          aspect={aspect}
+          onMediaLoaded={onMediaLoaded}
           minZoom={1}
           maxZoom={5}
           restrictPosition={false}
