@@ -1,5 +1,5 @@
 // Bump this on each deploy to invalidate old caches.
-const CACHE = 'splitstupid-v1';
+const CACHE = 'splitstupid-v2';
 
 // App shell + icons worth precaching. Hashed JS/CSS are cached at runtime.
 const PRECACHE = [
@@ -7,13 +7,13 @@ const PRECACHE = [
   '/index.html',
   '/manifest.webmanifest',
   '/favicon.ico',
-  '/icon.svg',
-  '/favicon/favicon.svg',
-  '/favicon/favicon-16.png',
-  '/favicon/favicon-32.png',
-  '/favicon/apple-touch-icon.png',
-  '/favicon/icon-192.png',
-  '/favicon/icon-512.png',
+  '/icons/icon.svg',
+  '/icons/favicon-16.png',
+  '/icons/favicon-32.png',
+  '/icons/apple-touch-icon.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-512-maskable.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -34,7 +34,7 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
-  const url = new URL(request);
+  const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
   // Navigation: network-first, fall back to cached shell when offline.
