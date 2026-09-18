@@ -31,6 +31,72 @@ describe('parseLineItems', () => {
     ])
   })
 
+  it('reads the quantity past OCR junk at the line start', () => {
+    expect(parseLineItems('ae 2 Blood Orange Margarita $24.00')).toEqual([
+      { units: 2, desc: 'Blood Orange Margarita', lineTotal: 24.0 },
+    ])
+    expect(parseLineItems('RE TEA 1 Lucca’s Lemonade $11.00')).toEqual([
+      { units: 1, desc: 'Lucca’s Lemonade', lineTotal: 11.0 },
+    ])
+    expect(parseLineItems('ets 1 Spaghetti Con Gamberetti $23.00')).toEqual([
+      { units: 1, desc: 'Spaghetti Con Gamberetti', lineTotal: 23.0 },
+    ])
+  })
+
+  it('ignores junk digits not followed by a word', () => {
+    // "08" is OCR noise; the real quantity is the 1 before the item name.
+    expect(parseLineItems('“08 1 Linguine with Basil Pesto $15.00')).toEqual([
+      { units: 1, desc: 'Linguine with Basil Pesto', lineTotal: 15.0 },
+    ])
+  })
+
+  it('defaults units to 1 when the quantity is fused into junk', () => {
+    expect(parseLineItems('E21 Garlic Bread $7.50')).toEqual([
+      { units: 1, desc: 'E21 Garlic Bread', lineTotal: 7.5 },
+    ])
+  })
+
+  it('joins a wrapped item so its quantity is kept', () => {
+    const text = [
+      '2 Migration Brewing Straight Outta',
+      'Portland IPA $12.00',
+    ].join('\n')
+    expect(parseLineItems(text)).toEqual([
+      { units: 2, desc: 'Migration Brewing Straight Outta Portland IPA', lineTotal: 12.0 },
+    ])
+  })
+
+  it('does not merge header lines into the first item', () => {
+    const text = ['Pastini - City Center', '1 Martini $11.00'].join('\n')
+    expect(parseLineItems(text)).toEqual([
+      { units: 1, desc: 'Martini', lineTotal: 11.0 },
+    ])
+  })
+
+  it('does not merge when the priced line already has a quantity', () => {
+    const text = ['2 Migration Brewing Straight Outta', '1 Beer 5.00'].join('\n')
+    expect(parseLineItems(text)).toEqual([
+      { units: 1, desc: 'Beer', lineTotal: 5.0 },
+    ])
+  })
+
+  it('does not merge across an intervening non-item line', () => {
+    const text = [
+      '2 Migration Brewing Straight Outta',
+      'Guest Count: 4',
+      'Portland IPA $12.00',
+    ].join('\n')
+    expect(parseLineItems(text)).toEqual([
+      { units: 1, desc: 'Portland IPA', lineTotal: 12.0 },
+    ])
+  })
+
+  it('keeps numbers inside the item name out of the quantity', () => {
+    expect(parseLineItems('1 Coke 12 oz 3.00')).toEqual([
+      { units: 1, desc: 'Coke 12 oz', lineTotal: 3.0 },
+    ])
+  })
+
   it('skips tax / total / date lines', () => {
     const text = [
       '2 Fries 8.00',

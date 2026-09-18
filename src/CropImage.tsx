@@ -5,17 +5,22 @@ import { getCroppedBlob } from './lib/cropImage.js'
 
 interface CropImageProps {
   src: string;
+  /** Controlled framing (lives in the parent so a rescan can restore it). */
+  crop: { x: number; y: number };
+  zoom: number;
+  onCropChange: (crop: { x: number; y: number }) => void;
+  onZoomChange: (zoom: number) => void;
   onConfirm: (blob: Blob) => void;
   onCancel: () => void;
 }
 
 /**
  * Full-screen crop step. Lets the user drag/zoom to frame the part of the
- * receipt to scan, then produces a cropped JPEG Blob.
+ * receipt to scan, then produces a cropped JPEG Blob. Crop position and zoom
+ * are controlled by the parent so reopening the same image (rescan) starts
+ * from where the user left off.
  */
-export default function CropImage({ src, onConfirm, onCancel }: CropImageProps) {
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
+export default function CropImage({ src, crop, zoom, onCropChange, onZoomChange, onConfirm, onCancel }: CropImageProps) {
   const [areaPixels, setAreaPixels] = useState<Area | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -42,8 +47,8 @@ export default function CropImage({ src, onConfirm, onCancel }: CropImageProps) 
           minZoom={1}
           maxZoom={5}
           restrictPosition={false}
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
+          onCropChange={onCropChange}
+          onZoomChange={onZoomChange}
           onCropComplete={onCropComplete}
         />
       </div>
@@ -54,7 +59,7 @@ export default function CropImage({ src, onConfirm, onCancel }: CropImageProps) 
         max={5}
         step={0.1}
         value={zoom}
-        onChange={(e) => setZoom(Number(e.target.value))}
+        onChange={(e) => onZoomChange(Number(e.target.value))}
         aria-label="Zoom"
       />
       <div className="camera__actions">

@@ -278,6 +278,15 @@ body {
   color: var(--muted);
 }
 
+.scan-preview__save {
+  margin-left: auto;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.scan-preview__save:hover { color: var(--accent); }
+
 .scan-preview__close {
   border: none;
   background: transparent;

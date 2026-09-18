@@ -27,8 +27,12 @@ const DATE_LIKE = /\d{1,2}[/-]\d{1,2}/;
 // space after it). Both "$13.00" and "13.00" are accepted.
 const PRICE = /\$?\s?\d+\.\d{2}/;
 const PRICE_G = /\$?\s?\d+\.\d{2}/g;
-// Leading integer quantity (used for the units field).
-const LEADING_QTY = /^(\d{1,2})\s+/;
+// Quantity: first standalone 1–2 digit integer that's followed by a word.
+// Not anchored to line start — OCR often emits junk ("ae", "RE TEA", "“08")
+// before the real quantity. The word lookahead keeps junk digits (followed by
+// another number, not a name) from being mistaken for it, and taking the FIRST
+// match keeps numbers inside the item name ("Coke 12 oz") out of the quantity.
+const QTY_BEFORE_WORD = /(?:^|\s)(\d{1,2})\s+(?=[A-Za-z])/;
 // Any leading number (integer or decimal) followed by space — stripped from the
 // description so a quantity like "2" or "2.00" doesn't bleed into the item name.
 const LEADING_NUM = /^\s*\d+(?:\.\d+)?\s+/;
@@ -39,15 +43,29 @@ export function parseLineItems(text?: string | null): ParsedLineItem[] {
   if (!text) return [];
 
   const items: ParsedLineItem[] = [];
+  // A price-less line that starts like an item ("2 Migration Brewing…") is a
+  // wrapped item name: printers break long names, leaving the quantity and the
+  // name's start on a line of their own. Held for one line only — anything
+  // else in between clears it.
+  let pending: string | null = null;
   for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim();
+    let line = rawLine.trim();
     if (!line) continue;
     if (SKIP_LINE.test(line)) continue;
     if (DATE_LIKE.test(line)) continue;
     if (LONG_DIGITS.test(line)) continue;
 
     const prices = line.match(PRICE_G);
-    if (!prices) continue;
+    if (!prices) {
+      pending = QTY_BEFORE_WORD.test(line) ? line : null;
+      continue;
+    }
+
+    // Priced line without its own quantity + a pending wrapped start → join.
+    if (pending && !QTY_BEFORE_WORD.test(line.slice(0, line.search(PRICE)))) {
+      line = `${pending} ${line}`;
+    }
+    pending = null;
 
     // The price sits in the rightmost column, so the LAST token is the line
     // total — this also means a leading quantity can never be mistaken for it.
@@ -56,12 +74,19 @@ export function parseLineItems(text?: string | null): ParsedLineItem[] {
     const lineTotal = toNumber(lastPrice);
     if (!Number.isFinite(lineTotal) || lineTotal <= 0) continue;
 
-    // Leading integer → prepopulate units.
-    const qtyMatch = line.match(LEADING_QTY);
+    // Quantity is searched only before the first price so a price can never
+    // be read as a quantity.
+    const firstPriceIdx = line.search(PRICE);
+    const beforePrice = firstPriceIdx >= 0 ? line.slice(0, firstPriceIdx) : line;
+    const qtyMatch = QTY_BEFORE_WORD.exec(beforePrice);
     const units = qtyMatch?.[1] ? parseInt(qtyMatch[1], 10) || 1 : 1;
 
-    // Description = text after any leading quantity, before the first price.
-    const rest = line.replace(LEADING_NUM, '');
+    // Description = text after the quantity (dropping any junk before it),
+    // before the first price. No quantity → keep the line minus any bare
+    // leading number.
+    const rest = qtyMatch
+      ? line.slice(qtyMatch.index + qtyMatch[0].length)
+      : line.replace(LEADING_NUM, '');
     const priceIdx = rest.search(PRICE);
     const desc = (priceIdx >= 0 ? rest.slice(0, priceIdx) : rest)
       .replace(/\$/g, '')

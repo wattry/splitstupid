@@ -34,6 +34,14 @@ export interface ParsedLineItem {
   lineTotal: number;
 }
 
+/** Whole-bill totals parsed out of OCR'd receipt text (absent = not found). */
+export interface ParsedTotals {
+  subtotal?: number;
+  tax?: number;
+  tip?: number;
+  total?: number;
+}
+
 /** Selected state tax entry as held in form state. */
 export interface StateTaxSelection {
   state: string;

@@ -7,7 +7,7 @@ import {
 } from './lib/calculate.js';
 import ScanReceipt from './ScanReceipt.js';
 import ItemRows, { rowOwed } from './ItemRows.js';
-import type { Item, ItemFields } from './types.js';
+import type { Item, ItemFields, ParsedTotals } from './types.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 
 import { login, splitClient } from './lib/splitwise.js';
@@ -44,6 +44,13 @@ export default function App() {
     if (fields.yours === undefined) row.yours = row.units;
     return row;
   }
+
+  // Prefill the whole-bill fields from a receipt scan; missing fields untouched.
+  const applyTotals = ({ subtotal, tax, tip }: ParsedTotals) => {
+    if (subtotal !== undefined) setBillSubtotal(String(subtotal));
+    if (tax !== undefined) setTotalTax(String(tax));
+    if (tip !== undefined) setTipAmount(String(tip));
+  };
 
   // true => Price column is per single unit; false => Price is total for all units.
   const [perUnit, setPerUnit] = useState(false);
@@ -134,6 +141,8 @@ export default function App() {
           setItems={setItems}
           perUnit={perUnit}
           makeRow={makeRow}
+          onTotals={applyTotals}
+          hasTotals={Boolean(billSubtotal || totalTax || tipAmount)}
         />
 
         <div className="field toggle">

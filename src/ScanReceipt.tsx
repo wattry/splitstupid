@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, Dispatch, ReactElement, SetStateAction } from 'react';
 import { scanReceipt } from './lib/ocr.js';
 import { parseLineItems } from './lib/parseLineItems.js';
+import { parseTotals } from './lib/parseTotals.js';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import CameraCapture from './CameraCapture.js';
 import CropImage from './CropImage.js';
-import type { Item, MakeRow } from './types.js';
+import type { Item, MakeRow, ParsedTotals } from './types.js';
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -14,6 +15,10 @@ interface ScanReceiptProps {
   perUnit: boolean;
   setItems: Dispatch<SetStateAction<Item[]>>;
   makeRow: MakeRow;
+  /** Receives subtotal/tax/tip parsed from the receipt's totals lines. */
+  onTotals: (totals: ParsedTotals) => void;
+  /** True when the subtotal/tax/tip fields already hold user-entered values. */
+  hasTotals: boolean;
 };
 
 /**
@@ -29,7 +34,9 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     items,
     setItems,
     perUnit,
-    makeRow
+    makeRow,
+    onTotals,
+    hasTotals
   } = props;
 
   const uploadRef = useRef<HTMLInputElement>(null)
@@ -37,6 +44,10 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
   const [progress, setProgress] = useState(0)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cropSrc, setCropSrc] = useState<string | null>(null) // object URL pending crop
+  const [lastSrc, setLastSrc] = useState<string | null>(null) // original image object URL, kept so the user can rescan
+  // Crop framing, kept across rescans of the same image; reset per new image.
+  const [crop, setCrop] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
   const [preview, setPreview] = useState<string | null>(null) // preprocessed image data URL
   const [expanded, setExpanded] = useState(false) // preview lightbox open
 
@@ -58,16 +69,21 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
   )
 
   // Hand an image off to the crop step. Accepts a File (upload) or Blob (camera).
+  // The object URL outlives the crop step so "Rescan" can reopen the same image;
+  // it's only revoked when a new image replaces it (browser frees it on unload).
   const openCrop = (imageLike: Blob) => {
-    setCropSrc(URL.createObjectURL(imageLike))
+    const url = URL.createObjectURL(imageLike)
+    setLastSrc((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return url
+    })
+    // Fresh image — start the framing over.
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
+    setCropSrc(url)
   }
 
-  const closeCrop = () => {
-    setCropSrc((url) => {
-      if (url) URL.revokeObjectURL(url)
-      return null
-    })
-  }
+  const closeCrop = () => setCropSrc(null)
 
   // OCR an image (cropped Blob) and replace the item rows.
   const processImage = async (image: Blob) => {
@@ -81,6 +97,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         onPreview: setPreview,
       })
       const parsed = parseLineItems(text)
+      const totals = parseTotals(text)
 
       if (parsed.length === 0) {
         setStatus('error')
@@ -88,12 +105,14 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
       }
 
       if (
-        hasContent &&
+        (hasContent || hasTotals) &&
         !window.confirm('Replace your current items with the scanned ones?')
       ) {
         setStatus('idle')
         return
       }
+
+      onTotals(totals)
 
       setItems(
         parsed.map(({ units, desc, lineTotal }) =>
@@ -144,6 +163,17 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
           <UploadIcon />
           {scanning ? `Scanning… ${Math.round(progress * 100)}%` : 'Upload'}
         </button>
+        {lastSrc && (
+          <button
+            type="button"
+            className="scan-btn"
+            onClick={() => setCropSrc(lastSrc)}
+            disabled={scanning}
+          >
+            <RescanIcon />
+            Rescan
+          </button>
+        )}
         <button
           type="button"
           className="scan-btn scan-btn--camera"
@@ -180,6 +210,13 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
           </button>
           <figcaption>
             Processed image — tap to enlarge
+            <a
+              className="scan-preview__save"
+              href={preview}
+              download="receipt-processed.jpg"
+            >
+              Save
+            </a>
             <button
               type="button"
               className="scan-preview__close"
@@ -227,7 +264,15 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
       )}
 
       {cropSrc && (
-        <CropImage src={cropSrc} onConfirm={onCropConfirm} onCancel={closeCrop} />
+        <CropImage
+          src={cropSrc}
+          crop={crop}
+          zoom={zoom}
+          onCropChange={setCrop}
+          onZoomChange={setZoom}
+          onConfirm={onCropConfirm}
+          onCancel={closeCrop}
+        />
       )}
     </div>
   )
@@ -249,6 +294,25 @@ function UploadIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  )
+}
+
+function RescanIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="23 4 23 10 17 10" />
+      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
     </svg>
   )
 }

@@ -8,13 +8,21 @@
  *
  * Receipt OCR accuracy is improved two ways:
  *   1. Preprocessing — upscale small images, grayscale, boost contrast.
- *   2. Engine params — treat the image as one uniform text block (PSM 6) at a
- *      fixed 300 DPI, which suits receipts better than the default auto mode.
+ *   2. Engine params — treat the image as one ragged column of text (PSM 4) at
+ *      a fixed 300 DPI. A/B tested against PSM 6 on real receipt photos:
+ *      PSM 6 reads the table surface around the receipt as garbage tokens;
+ *      PSM 4 tracks the receipt column cleanly. A character whitelist drops
+ *      glyphs that can't appear on a receipt (smart quotes, brackets).
  */
 
 // Upscale anything narrower than this (px) — tesseract wants ~300 DPI text.
 
 const MIN_WIDTH = 1500 as const;
+
+// Characters a receipt can plausibly contain — everything else is OCR noise.
+// ":" matters: without it "7:08 PM" reads as "7.08", which looks like a price.
+const CHAR_WHITELIST =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789$.,':/#&- ";
 
 type Image = File | Blob | string;
 
@@ -50,8 +58,10 @@ export async function scanReceipt(image: File | Blob | string, opts: ScanReceipt
 
   try {
     await worker.setParameters({
-      tessedit_pageseg_mode: PSM.SINGLE_BLOCK, // '6' — one uniform block of text
+      tessedit_pageseg_mode: PSM.SINGLE_COLUMN, // '4' — one ragged column
       user_defined_dpi: '300',
+      preserve_interword_spaces: '1',
+      tessedit_char_whitelist: CHAR_WHITELIST,
     });
     const { data } = await worker.recognize(prepared);
     return data.text;
