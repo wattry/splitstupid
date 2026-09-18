@@ -442,16 +442,16 @@ export default function App() {
               // style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
               type="button"
               className="action-btn"
-              onClick={saveForm}>
-              Save
+              onClick={() => importRef.current?.click()}
+            >
+              Import
             </button>
             <button
               // style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
               type="button"
               className="action-btn"
-              onClick={() => importRef.current?.click()}
-            >
-              Import
+              onClick={saveForm}>
+              Save
             </button>
             <button type="button" className="action-btn" onClick={shareLink}>
               {shared || 'Share'}
