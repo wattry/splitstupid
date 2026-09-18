@@ -181,7 +181,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
           disabled={scanning}
         >
           <CameraIcon />
-          Take Photo
+          Take
         </button>
       </div>
 

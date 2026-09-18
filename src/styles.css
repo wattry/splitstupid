@@ -671,6 +671,20 @@ body {
 
 .action-btn:hover { background: var(--accent); color: #fff; }
 
+a.action-btn {
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
+}
+
+.action-btn[aria-disabled='true'] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* Pay / Request row inside the Venmo modal. */
+.venmo__links { display: flex; gap: 10px; }
+
 @keyframes pop {
   from { transform: scale(0.92); opacity: 0.4; }
   to { transform: scale(1); opacity: 1; }

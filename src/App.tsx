@@ -13,6 +13,7 @@ import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 
 import { login, splitClient } from './lib/splitwise.js';
 import { encodeState, decodeState } from './lib/shareLink.js';
+import { VenmoModal } from './components/inputs/VenmoModal.js';
 
 const Split = () => {
   const onClick = async () => {
@@ -29,6 +30,7 @@ const Split = () => {
 };
 
 export default function App() {
+  const [billName, setBillName] = useState<string>('');
   const [billSubtotal, setBillSubtotal] = useState<string>('');
   const [totalTax, setTotalTax] = useState<string>('');
   const [tipAmount, setTipAmount] = useState<string>('');
@@ -162,6 +164,9 @@ export default function App() {
     tipAmt: parseFloat(tipAmount),
   });
 
+  // Note attached to a Venmo payment: the bill name, or the app name.
+  const venmoNote = billName.trim() || 'Split Stoopid';
+
   return (
     <main className="app">
       <section className="card">
@@ -178,6 +183,18 @@ export default function App() {
           onTotals={applyTotals}
           hasTotals={Boolean(billSubtotal || totalTax || tipAmount)}
         />
+
+        <div className="field">
+          <label htmlFor="bill_name">Name</label>
+          <input
+            id="bill_name"
+            type="text"
+            autoComplete="off"
+            placeholder="Dinner at Thai Place"
+            value={billName}
+            onChange={(e) => setBillName(e.target.value)}
+          />
+        </div>
 
         <div className="field toggle">
           <span className="field__label">Line Item Pricing</span>
@@ -315,6 +332,10 @@ export default function App() {
               accept="application/json,.json"
               onChange={importForm}
               hidden
+            />
+            <VenmoModal
+              amount={result.total}
+              note={venmoNote}
             />
             <Split />
           </div>
