@@ -87,37 +87,24 @@ body {
 .hint { font-size: 0.8rem; color: var(--accent); }
 .hint--muted { color: var(--muted); }
 
-.field__inline {
-  display: flex;
-  align-items: stretch;
-  gap: 8px;
-}
-.field__inline input { flex: 1; }
-
-.feecalc { position: relative; }
-
-.feecalc__toggle {
-  height: 100%;
-  padding: 0 14px;
-  border-radius: 14px;
+/* Floating 🧮 button that opens the taxes & fees calculator modal. */
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
   border: 1px solid rgba(123, 47, 247, 0.25);
-  background: rgba(255, 255, 255, 0.85);
-  font-size: 1.1rem;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  font-size: 1.5rem;
   cursor: pointer;
 }
-.feecalc__toggle:hover { border-color: var(--accent); }
+.fab:hover { border-color: var(--accent); }
 
-.feecalc__panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 10;
-  width: 240px;
-  padding: 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(123, 47, 247, 0.25);
-  background: #fff;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+.feecalc {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -610,6 +597,20 @@ body {
 @keyframes pop {
   from { transform: scale(0.92); opacity: 0.4; }
   to { transform: scale(1); opacity: 1; }
+}
+
+.footer {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Looks like plain text; still a working link. */
+.footer__link {
+  color: inherit;
+  text-decoration: none;
+  cursor: default;
 }
 
 @media (max-width: 460px) {

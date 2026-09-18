@@ -216,19 +216,16 @@ export default function App() {
 
         <div className="field">
           <label htmlFor="total_tax">Total Taxes & Fees ($)</label>
-          <div className="field__inline">
-            <input
-              id="total_tax"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="1"
-              placeholder="0.00"
-              value={totalTax}
-              onChange={(e) => setTotalTax(e.target.value)}
-            />
-            <FeeCalculator onApply={setTotalTax} />
-          </div>
+          <input
+            id="total_tax"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="1"
+            placeholder="0.00"
+            value={totalTax}
+            onChange={(e) => setTotalTax(e.target.value)}
+          />
           {subNum > 0 && <span className="hint hint--muted">
             {taxPct.toFixed(2)}%
           </span>}
@@ -317,8 +314,16 @@ export default function App() {
             />
             <Split />
           </div>
+
+          <footer className="footer">
+            <a className="footer__link" href="https://postnesia.app/">
+              © {new Date().getFullYear()} Ryan Wattrus
+            </a>
+          </footer>
         </div>
       </section>
+
+      <FeeCalculator onApply={setTotalTax} />
     </main>
   );
 }
