@@ -32,10 +32,19 @@ describe('buildShareText', () => {
     expect(text).not.toContain('Tax (');
   });
 
-  it('drops tax and tip lines when zero and falls back to the app name', () => {
+  it('keeps tax and tip lines at 0.00% when zero, like the breakdown, and falls back to the app name', () => {
     expect(
       buildShareText({ name: '  ', taxPct: 0, tipPct: 0, ...totals, taxAmt: 0, tipAmt: 0 })
-    ).toBe(['Split Stoopid', 'Your Total: $42.50', 'After Tax: $46.33', 'What U Owe: $54.33'].join('\n'));
+    ).toBe(
+      [
+        'Split Stoopid',
+        'Your Total: $42.50',
+        'Tax (0.00%): +$0.00',
+        'After Tax: $46.33',
+        'Tip (0.00%): +$0.00',
+        'What U Owe: $54.33',
+      ].join('\n')
+    );
   });
 });
 
