@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { money } from '../../lib/calculate.js';
-import { venmoLink } from '../../lib/venmo.js';
+import { venmoLink, detectPlatform } from '../../lib/venmo.js';
 
 interface Props {
   /** Amount to pay or request. */
@@ -16,8 +16,9 @@ interface Props {
 export const VenmoModal = ({ amount, note }: Props) => {
   const [open, setOpen] = useState(false);
   const ready = amount > 0;
+  const platform = detectPlatform(navigator.userAgent);
   const href = (txn: 'pay' | 'charge') =>
-    ready ? venmoLink({ txn, amount, note }) : undefined;
+    ready ? venmoLink({ txn, amount, note }, platform) : undefined;
 
   return (
     <>
@@ -44,7 +45,7 @@ export const VenmoModal = ({ amount, note }: Props) => {
                 className="action-btn"
                 href={href('pay')}
                 aria-disabled={!ready}
-                target="_blank"
+                target={platform === 'web' ? '_blank' : undefined}
                 rel="noopener noreferrer"
               >
                 Pay
@@ -53,7 +54,7 @@ export const VenmoModal = ({ amount, note }: Props) => {
                 className="action-btn"
                 href={href('charge')}
                 aria-disabled={!ready}
-                target="_blank"
+                target={platform === 'web' ? '_blank' : undefined}
                 rel="noopener noreferrer"
               >
                 Request
