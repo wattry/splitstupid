@@ -5,7 +5,7 @@ const totals = { subtotal: 42.5, taxAmt: 3.83, afterTax: 46.33, tipAmt: 8, total
 
 describe('billTitle', () => {
   it('appends the app name to the bill name', () => {
-    expect(billTitle(' Dinner ')).toBe('Dinner Split Stoopid');
+    expect(billTitle(' Dinner ')).toBe('Dinner, Split Stoopid');
   });
   it('is just the app name when there is no bill name', () => {
     expect(billTitle('  ')).toBe('Split Stoopid');
@@ -16,7 +16,7 @@ describe('buildShareText', () => {
   it('lists every total with the bill name on top', () => {
     expect(buildShareText({ name: 'Dinner', taxPct: 9.01, tipPct: 18.82, ...totals })).toBe(
       [
-        'Dinner Split Stoopid',
+        'Dinner, Split Stoopid',
         'Your Total: $42.50',
         'Tax (9.01%): +$3.83',
         'After Tax: $46.33',
