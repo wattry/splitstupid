@@ -22,7 +22,11 @@ export const VenmoModal = ({ amount, note }: Props) => {
 
   return (
     <>
-      <button type="button" className="action-btn" onClick={() => setOpen(true)}>
+      <button
+        style={{ display: 'none' }} // hide this it's not working on mobile
+        type="button"
+        className="action-btn"
+        onClick={() => setOpen(true)}>
         Venmo
       </button>
 
