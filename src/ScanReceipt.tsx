@@ -163,13 +163,14 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
       <div className="scan-actions">
         <button
           type="button"
-          className="scan-btn"
-          onClick={() => uploadRef.current?.click()}
+          className="scan-btn scan-btn--camera"
+          onClick={() => setCameraOpen(true)}
           disabled={scanning}
         >
-          <UploadIcon />
-          {scanning ? `Scanning… ${Math.round(progress * 100)}%` : 'Upload'}
+          <CameraIcon />
+          Take
         </button>
+
         {lastSrc && (
           <button
             type="button"
@@ -183,12 +184,12 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         )}
         <button
           type="button"
-          className="scan-btn scan-btn--camera"
-          onClick={() => setCameraOpen(true)}
+          className="scan-btn"
+          onClick={() => uploadRef.current?.click()}
           disabled={scanning}
         >
-          <CameraIcon />
-          Take
+          <UploadIcon />
+          {scanning ? `Scanning… ${Math.round(progress * 100)}%` : 'Upload'}
         </button>
       </div>
 

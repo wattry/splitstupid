@@ -453,7 +453,7 @@ export default function App() {
               onClick={saveForm}>
               Save
             </button>
-            <button type="button" className="action-btn" onClick={shareLink}>
+            <button type="button" className="scan-btn" onClick={shareLink}>
               {shared || 'Share'}
             </button>
             <input
