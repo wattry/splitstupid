@@ -105,9 +105,8 @@ export default function App() {
   // precomputed URL so the share call stays inside the click's user activation.
   const shareLink = async () => {
     const url = shareUrl || (await buildShareUrl());
-    const title = billName.trim() || 'Split Stoopid';
     const text = buildShareText({ name: billName, taxPct, tipPct, hasFees, ...result });
-    const outcome = await shareBill({ title, text, url });
+    const outcome = await shareBill({ text, url });
     if (outcome === 'shared' || outcome === 'copied') {
       setShared(outcome === 'shared' ? 'Shared' : 'Link Copied');
       setTimeout(() => setShared(''), 1500);
@@ -327,7 +326,7 @@ export default function App() {
           </dl>
 
           <div className="total">
-            <span className="total__label">What I Owe</span>
+            <span className="total__label">What U Owe</span>
             <span key={result.total} className="total__value">
               {money(result.total)}
             </span>

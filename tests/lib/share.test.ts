@@ -12,7 +12,7 @@ describe('buildShareText', () => {
         'Tax (9.01%): +$3.83',
         'After Tax: $46.33',
         'Tip (18.82%): +$8.00',
-        'What I Owe: $54.33',
+        'What U Owe: $54.33',
       ].join('\n')
     );
   });
@@ -26,12 +26,12 @@ describe('buildShareText', () => {
   it('drops tax and tip lines when zero and falls back to the app name', () => {
     expect(
       buildShareText({ name: '  ', taxPct: 0, tipPct: 0, ...totals, taxAmt: 0, tipAmt: 0 })
-    ).toBe(['Split Stoopid', 'Your Total: $42.50', 'After Tax: $46.33', 'What I Owe: $54.33'].join('\n'));
+    ).toBe(['Split Stoopid', 'Your Total: $42.50', 'After Tax: $46.33', 'What U Owe: $54.33'].join('\n'));
   });
 });
 
 describe('shareBill', () => {
-  const data = { title: 'Dinner', text: 'summary', url: 'https://x.test/#s=abc' };
+  const data = { text: 'summary', url: 'https://x.test/#s=abc' };
 
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -43,7 +43,9 @@ describe('shareBill', () => {
     expect(await shareBill(data)).toBe('shared');
     // Link goes inside the text after a blank line; a separate `url` field
     // would be glued straight onto the text by the share sheet.
-    expect(share).toHaveBeenCalledWith({ title: 'Dinner', text: 'summary\n\nhttps://x.test/#s=abc' });
+    // No `title`: targets that honor it would show the bill name twice, since
+    // the summary text already starts with it.
+    expect(share).toHaveBeenCalledWith({ text: 'summary\n\nhttps://x.test/#s=abc' });
   });
 
   it('reports cancelled when the user closes the sheet', async () => {

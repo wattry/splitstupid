@@ -30,7 +30,6 @@ export function buildShareText(t: ShareTextInput): string {
 }
 
 export interface ShareData {
-  title: string;
   text: string;
   url: string;
 }
@@ -40,8 +39,10 @@ export type ShareOutcome = 'shared' | 'cancelled' | 'copied' | 'failed';
 export async function shareBill(data: ShareData): Promise<ShareOutcome> {
   const nav = navigator as Partial<Navigator>;
   // Share sheets glue a separate `url` onto `text` with a space, so put the
-  // link in the text ourselves after a blank line.
-  const payload = { title: data.title, text: `${data.text}\n\n${data.url}` };
+  // link in the text ourselves after a blank line. No `title`: the text
+  // already starts with the bill name and targets that honor `title` would
+  // show it twice.
+  const payload = { text: `${data.text}\n\n${data.url}` };
   if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare(payload))) {
     try {
       await nav.share(payload);
