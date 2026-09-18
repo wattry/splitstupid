@@ -304,7 +304,7 @@ body {
   color: var(--accent);
 }
 
-.scan-actions { display: flex; gap: 10px; }
+.scan-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
 .scan-btn {
   display: inline-flex;
@@ -312,6 +312,7 @@ body {
   justify-content: center;
   gap: 8px;
   flex: 1;
+  min-width: 0;
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(123, 47, 247, 0.25);
@@ -411,9 +412,6 @@ body {
 }
 
 .scan-preview__close:hover { color: var(--accent); }
-
-/* Upload button is a <label> wrapping the file input; mirror disabled look. */
-.scan-btn--off { opacity: 0.7; pointer-events: none; }
 
 /* Thumbnails of the photos queued for one scan. Column count is set inline. */
 .photo-grid {

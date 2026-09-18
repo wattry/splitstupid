@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactElement } from 'react';
 import type { Area } from 'react-easy-crop';
 import { scanPhotos, mergeScans } from './lib/scanPhotos.js';
@@ -67,6 +67,19 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
   const [preview, setPreview] = useState<string | null>(null) // last preprocessed image data URL
   const [expanded, setExpanded] = useState(false) // preview lightbox open
   const [capHint, setCapHint] = useState(false) // "only 9 photos" notice
+  const uploadRef = useRef<HTMLInputElement>(null)
+
+  // Mirrors `photos` for the unmount cleanup below, which must see the latest list.
+  const photosRef = useRef(photos)
+  photosRef.current = photos
+
+  // Revoke every photo's object URL when the component unmounts.
+  useEffect(() => {
+    return () => {
+      photosRef.current.forEach((p) => URL.revokeObjectURL(p.src))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Close the lightbox on Escape.
   useEffect(() => {
@@ -94,15 +107,13 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
 
   // Append images (File from upload, Blob from camera) up to the cap.
   const addPhotos = (images: Blob[]) => {
-    setPhotos((prev) => {
-      const room = MAX_PHOTOS - prev.length
-      if (images.length > room) setCapHint(true)
-      const added = images.slice(0, Math.max(room, 0)).map((img) => ({
-        id: crypto.randomUUID(),
-        src: URL.createObjectURL(img),
-      }))
-      return [...prev, ...added]
-    })
+    const room = MAX_PHOTOS - photos.length
+    if (images.length > room) setCapHint(true)
+    const added = images.slice(0, Math.max(room, 0)).map((img) => ({
+      id: crypto.randomUUID(),
+      src: URL.createObjectURL(img),
+    }))
+    setPhotos((prev) => [...prev, ...added])
   }
 
   const removePhoto = (id: string) => {
@@ -202,19 +213,24 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
           <CameraIcon />
           Take
         </button>
-        <label className={`scan-btn scan-btn--camera${scanning || full ? ' scan-btn--off' : ''}`}>
+        <button
+          type="button"
+          className="scan-btn scan-btn--camera"
+          onClick={() => uploadRef.current?.click()}
+          disabled={scanning || full}
+        >
           <UploadIcon />
           Upload
-          {/* Upload: any images from the device, several at once. */}
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            disabled={scanning || full}
-            onChange={onFiles}
-          />
-        </label>
+        </button>
+        {/* Upload: any images from the device, several at once. */}
+        <input
+          ref={uploadRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={onFiles}
+        />
         {photos.length > 0 && (
           <button
             type="button"
