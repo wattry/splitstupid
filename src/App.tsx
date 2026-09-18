@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   calculate,
   round2,
@@ -11,6 +11,7 @@ import type { Item, ItemFields, ParsedTotals } from './types.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 
 import { login, splitClient } from './lib/splitwise.js';
+import { encodeState, decodeState } from './lib/shareLink.js';
 
 const Split = () => {
   const onClick = async () => {
@@ -55,7 +56,38 @@ export default function App() {
   // true => Price column is per single unit; false => Price is total for all units.
   const [perUnit, setPerUnit] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shared, setShared] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+
+  // Populate the form from a shared link (#s=...), then strip the hash so
+  // refreshes and later edits don't resurrect stale data.
+  useEffect(() => {
+    const encoded = window.location.hash.match(/^#s=(.+)$/)?.[1];
+    if (!encoded) return;
+    decodeState(encoded).then((data) => {
+      if (!data) return;
+      setBillSubtotal(data.billSubtotal);
+      setTotalTax(data.totalTax);
+      setTipAmount(data.tipAmount);
+      setPerUnit(data.perUnit);
+      setItems(data.items);
+    });
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Copy a link carrying the whole form (minus any photo) to the clipboard.
+  const shareLink = async () => {
+    try {
+      const encoded = await encodeState({ billSubtotal, totalTax, tipAmount, perUnit, items });
+      const url = `${window.location.origin}${window.location.pathname}#s=${encoded}`;
+      await navigator.clipboard.writeText(url);
+      setShared(true);
+      setTimeout(() => setShared(false), 1500);
+    } catch {
+      // Clipboard unavailable (e.g. insecure context) — silently ignore.
+    }
+  }
 
   // Flip the toggle, converting each row's Price so the amount owed stays put.
   const togglePerUnit = () => {
@@ -157,7 +189,7 @@ export default function App() {
             <span className={!perUnit ? 'toggle__on' : ''}>Total Per Item</span>
             <span className={perUnit ? 'toggle__on' : ''}>Per Item</span>
           </button>
-          <span className="field__label">Are  line items listed as a totals or per item?</span>
+          <span className="field__label">Are line items a total for all items or a price for one?</span>
         </div>
 
         <ItemRows
@@ -264,6 +296,9 @@ export default function App() {
           <div className="actions">
             <button type="button" className="action-btn" onClick={saveForm}>
               Save
+            </button>
+            <button type="button" className="action-btn" onClick={shareLink}>
+              {shared ? 'Link Copied' : 'Share'}
             </button>
             <button
               type="button"
