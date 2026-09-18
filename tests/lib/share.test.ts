@@ -35,7 +35,9 @@ describe('shareBill', () => {
     const share = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { share, canShare: () => true });
     expect(await shareBill(data)).toBe('shared');
-    expect(share).toHaveBeenCalledWith(data);
+    // Link goes inside the text after a blank line; a separate `url` field
+    // would be glued straight onto the text by the share sheet.
+    expect(share).toHaveBeenCalledWith({ title: 'Dinner', text: 'summary\n\nhttps://x.test/#s=abc' });
   });
 
   it('reports cancelled when the user closes the sheet', async () => {

@@ -35,9 +35,12 @@ export type ShareOutcome = 'shared' | 'cancelled' | 'copied' | 'failed';
 
 export async function shareBill(data: ShareData): Promise<ShareOutcome> {
   const nav = navigator as Partial<Navigator>;
-  if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare(data))) {
+  // Share sheets glue a separate `url` onto `text` with a space, so put the
+  // link in the text ourselves after a blank line.
+  const payload = { title: data.title, text: `${data.text}\n\n${data.url}` };
+  if (typeof nav.share === 'function' && (!nav.canShare || nav.canShare(payload))) {
     try {
-      await nav.share(data);
+      await nav.share(payload);
       return 'shared';
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled';
