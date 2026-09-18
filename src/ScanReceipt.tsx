@@ -5,6 +5,8 @@ import { parseLineItems } from './lib/parseLineItems.js';
 import { parseTotals } from './lib/parseTotals.js';
 import { scanWarnings } from './lib/scanWarnings.js';
 import { exportFileName } from './lib/exportName.js';
+import { getCroppedBlob } from './lib/cropImage.js';
+import type { Area } from 'react-easy-crop';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import CameraCapture from './CameraCapture.js';
 import CropImage from './CropImage.js';
@@ -150,9 +152,11 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     openCrop(blob)
   }
 
-  const onCropConfirm = (blob: Blob) => {
+  const onCropConfirm = async (area: Area) => {
+    if (!cropSrc) return
+    const blob = await getCroppedBlob(cropSrc, area)
     closeCrop()
-    processImage(blob)
+    if (blob) processImage(blob)
   }
 
   const scanning = status === 'scanning'
