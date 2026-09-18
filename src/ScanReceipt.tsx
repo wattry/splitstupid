@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactElement } from 'react';
 import type { Area } from 'react-easy-crop';
+import { usePostHog } from '@posthog/react';
 import { scanPhotos, mergeScans } from './lib/scanPhotos.js';
 import { scanWarnings } from './lib/scanWarnings.js';
 import { exportFileName } from './lib/exportName.js';
@@ -56,6 +57,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     hasTotals
   } = props;
 
+  const posthog = usePostHog() // undefined outside the prod PostHogProvider
   const [photos, setPhotos] = useState<Photo[]>([])
   const [status, setStatus] = useState('idle') // 'idle' | 'scanning' | 'error'
   const [progress, setProgress] = useState({ index: 0, fraction: 0 })
@@ -155,6 +157,22 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     setProgress({ index: 0, fraction: 0 })
     setPreview(null)
 
+    // Usage metric: is multi-photo scanning used, and does it work?
+    const started = performance.now()
+    const track = (
+      outcome: 'ok' | 'no_items' | 'error',
+      found: { items: number; totals: string[] } = { items: 0, totals: [] }
+    ) => {
+      posthog?.capture('receipt_scanned', {
+        photo_count: photos.length,
+        cropped_count: photos.filter((p) => p.crop).length,
+        outcome,
+        items_found: found.items,
+        totals_found: found.totals,
+        duration_ms: Math.round(performance.now() - started),
+      })
+    }
+
     try {
       const texts = await scanPhotos(
         photos.map((p) => (p.crop ? { src: p.src, area: p.crop.area } : { src: p.src })),
@@ -165,7 +183,13 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
       )
       const { totals, items: parsed } = mergeScans(texts)
 
+      const found = {
+        items: parsed.length,
+        totals: Object.keys(totals).filter((k) => totals[k as keyof ParsedTotals] !== undefined),
+      }
+
       if (parsed.length === 0) {
+        track('no_items', found)
         setStatus('error')
         return
       }
@@ -182,9 +206,11 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         ),
         scanWarnings(totals, parsed)
       )
+      track('ok', found)
       setStatus('idle')
     } catch (err) {
       console.error('Receipt scan failed:', err)
+      track('error')
       setStatus('error')
     }
   }
