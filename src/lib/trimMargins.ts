@@ -2,9 +2,11 @@
  * Find the bright (receipt paper) region of a grayscale image so the darker
  * table/background around it can be trimmed before OCR.
  *
- * Works on per-column and per-row mean brightness: the receipt is a bright
- * band, the surroundings are darker. Printed text rows dent the row means but
- * don't affect the outer edges, which is all we look for.
+ * Works on the fraction of paper-bright pixels per column and per row: the
+ * receipt is a band where most pixels are paper, the surroundings are dark
+ * throughout. Counting pixels rather than averaging brightness means a row of
+ * dense print (still mostly paper between the glyphs) is never mistaken for
+ * background, so text on the first or last line of a tight crop survives.
  */
 
 export interface Bounds {
@@ -27,6 +29,8 @@ interface TrimOptions {
 
 const DEFAULT_PAD = 8;
 const DEFAULT_MIN_FRACTION = 0.4;
+/** A row/column counts as paper when at least this share of its pixels are bright. */
+const PAPER_SHARE = 0.25;
 
 /**
  * @param gray one byte per pixel, row-major
@@ -45,21 +49,31 @@ export function findBrightBounds(
   const full: Bounds = { x: 0, y: 0, width, height };
   if (width === 0 || height === 0) return full;
 
-  const colSum = new Float64Array(width);
-  const rowSum = new Float64Array(height);
+  // Paper vs. not: midpoint between the darkest and brightest pixel values.
+  let min = 255;
+  let max = 0;
+  for (const v of gray) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  const bright = (min + max) / 2;
+
+  const colCount = new Uint32Array(width);
+  const rowCount = new Uint32Array(height);
   for (let y = 0; y < height; y++) {
     const row = y * width;
     for (let x = 0; x < width; x++) {
-      const v = gray[row + x] ?? 0;
-      colSum[x] = (colSum[x] ?? 0) + v;
-      rowSum[y] = (rowSum[y] ?? 0) + v;
+      if ((gray[row + x] ?? 0) >= bright) {
+        colCount[x] = (colCount[x] ?? 0) + 1;
+        rowCount[y] = (rowCount[y] ?? 0) + 1;
+      }
     }
   }
-  const colMean = Array.from(colSum, (s) => s / height);
-  const rowMean = Array.from(rowSum, (s) => s / width);
+  const colShare = Array.from(colCount, (c) => c / height);
+  const rowShare = Array.from(rowCount, (c) => c / width);
 
-  const [x0, x1] = brightSpan(colMean);
-  const [y0, y1] = brightSpan(rowMean);
+  const [x0, x1] = paperSpan(colShare);
+  const [y0, y1] = paperSpan(rowShare);
 
   if (x1 - x0 < width * minFraction || y1 - y0 < height * minFraction) return full;
 
@@ -73,18 +87,11 @@ export function findBrightBounds(
   };
 }
 
-/** First and one-past-last index whose mean is at or above the midpoint. */
-function brightSpan(means: number[]): [number, number] {
-  let min = Infinity;
-  let max = -Infinity;
-  for (const m of means) {
-    if (m < min) min = m;
-    if (m > max) max = m;
-  }
-  const threshold = (min + max) / 2;
+/** First and one-past-last index whose paper share reaches PAPER_SHARE. */
+function paperSpan(shares: number[]): [number, number] {
   let start = 0;
-  while (start < means.length && (means[start] ?? 0) < threshold) start += 1;
-  let end = means.length;
-  while (end > start && (means[end - 1] ?? 0) < threshold) end -= 1;
+  while (start < shares.length && (shares[start] ?? 0) < PAPER_SHARE) start += 1;
+  let end = shares.length;
+  while (end > start && (shares[end - 1] ?? 0) < PAPER_SHARE) end -= 1;
   return [start, end];
 }

@@ -129,3 +129,10 @@ describe('parseLineItems', () => {
     ])
   })
 })
+
+describe('pound-priced receipts', () => {
+  it('reads a £ price and keeps the currency sign out of the description', () => {
+    const items = parseLineItems('1 Diet Coke                        £3.75');
+    expect(items).toEqual([{ units: 1, desc: 'Diet Coke', lineTotal: 3.75 }]);
+  });
+});

@@ -15,7 +15,7 @@
 
 import type { ParsedTotals } from '../types.js';
 
-const PRICE_G = /\$?\s?\d+\.\d{2}/g;
+const PRICE_G = /[$£]?\s?\d+\.\d{2}/g;
 
 // Ordered: a line is claimed by the first matching field, so SUBTOTAL must be
 // tested before TOTAL ("Subtotal 8.00" contains the word "total").
