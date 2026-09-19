@@ -68,3 +68,37 @@ describe('findBrightBounds', () => {
     expect(b).toEqual({ x: 20, y: 0, width: 60, height: 40 });
   });
 });
+
+describe('findBrightBounds with printed rows at the edges', () => {
+  /** Paper everywhere; rows in `textRows` alternate ink/paper pixels. */
+  function printed(width: number, height: number, textRows: number[]): Uint8ClampedArray {
+    const gray = new Uint8ClampedArray(width * height).fill(230);
+    for (const y of textRows) {
+      for (let x = 0; x < width; x++) gray[y * width + x] = x % 2 === 0 ? 20 : 230;
+    }
+    return gray;
+  }
+
+  it('keeps a line of text on the last rows of a tightly cropped receipt', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => 90 + i);
+    const gray = printed(60, 100, rows);
+    const b = findBrightBounds(gray, 60, 100, { pad: 0 });
+    expect(b).toEqual({ x: 0, y: 0, width: 60, height: 100 });
+  });
+
+  it('keeps a line of text on the first rows of a tightly cropped receipt', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => i);
+    const gray = printed(60, 100, rows);
+    const b = findBrightBounds(gray, 60, 100, { pad: 0 });
+    expect(b).toEqual({ x: 0, y: 0, width: 60, height: 100 });
+  });
+
+  it('still trims a dark background below printed rows', () => {
+    const width = 60;
+    const height = 100;
+    const gray = printed(width, height, [80, 81, 82, 83]);
+    for (let y = 85; y < height; y++) for (let x = 0; x < width; x++) gray[y * width + x] = 30;
+    const b = findBrightBounds(gray, width, height, { pad: 0 });
+    expect(b).toEqual({ x: 0, y: 0, width, height: 85 });
+  });
+});
