@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Dispatch, SetStateAction, ReactElement } from 'react';
 import type { Item, MakeRow } from './types.js';
+import { useSwipeToDelete } from './hooks/useSwipeToDelete.js';
 
 export type { Item } from './types.js';
 
@@ -60,10 +61,12 @@ export default function ItemRows(
       return next
     }))
 
-  const remove = (id: string) => {
-    const next = items.filter((it) => it.id !== id)
-    setItems(next.length ? next : [makeRow()])
-  }
+  // Functional update: the swipe hook calls this after a short exit animation,
+  // so it must not rely on the `items` captured when the gesture started.
+  const remove = (id: string) => setItems((prev) => {
+    const next = prev.filter((it) => it.id !== id)
+    return next.length ? next : [makeRow()]
+  })
 
   const add = () => setItems([...items, makeRow()])
 
@@ -75,7 +78,7 @@ export default function ItemRows(
   return (
     <div className="field">
       <span className="field__label">
-        Your items
+        Total line items
         {filled > 0 && <span className="field__count"> · {filled}</span>}
       </span>
 
@@ -89,58 +92,13 @@ export default function ItemRows(
         </div>
 
         {items.map((it) => (
-          <div className="items__row" key={it.id} id={it.id}>
-            <div className="items__grid">
-              <input
-                className="items__num"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={it.units}
-                onChange={(e) => update(it.id, 'units', e.target.value)}
-                aria-label="Units on receipt"
-              />
-              <input
-                className="items__num"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={it.yours}
-                onChange={(e) => update(it.id, 'yours', e.target.value)}
-                aria-label="How many you had"
-              />
-              <input
-                className="items__desc"
-                type="text"
-                placeholder="item"
-                value={it.desc}
-                onChange={(e) => update(it.id, 'desc', e.target.value)}
-                aria-label="Description"
-              />
-              <input
-                className="items__price"
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-                value={it.price}
-                onChange={(e) => update(it.id, 'price', e.target.value)}
-                aria-label={perUnit ? 'Price each' : 'Total for all units'}
-              />
-              <button
-                type="button"
-                className="items__remove"
-                onClick={() => remove(it.id)}
-                aria-label="Remove item"
-              >
-                &times;
-              </button>
-            </div>
-            <span className="items__owe">you owe {money(rowOwed(it, perUnit))}</span>
-          </div>
+          <ItemRow
+            key={it.id}
+            item={it}
+            perUnit={perUnit}
+            update={update}
+            remove={remove}
+          />
         ))}
       </div>
 
@@ -158,4 +116,81 @@ export default function ItemRows(
       </span>
     </div>
   )
+}
+
+interface ItemRowProps {
+  item: Item;
+  perUnit: boolean;
+  update: (id: string, field: string, value: unknown) => void;
+  remove: (id: string) => void;
+}
+
+/**
+ * One editable line item. On touch devices the whole row swipes left to
+ * delete; on pointer devices the × button does the job.
+ */
+function ItemRow({ item: it, perUnit, update, remove }: ItemRowProps): ReactElement {
+  const swipe = useSwipeToDelete(() => remove(it.id));
+
+  return (
+    <div
+      className={`items__row${swipe.leaving ? ' items__row--leaving' : ''}`}
+      id={it.id}
+      {...swipe.handlers}
+    >
+      <div className="items__backdrop" aria-hidden="true" style={{ opacity: swipe.progress }}>
+        Delete
+      </div>
+      <div className="items__grid" style={swipe.style}>
+        <input
+          className="items__num"
+          type="number"
+          inputMode="numeric"
+          min="0"
+          step="1"
+          value={it.units}
+          onChange={(e) => update(it.id, 'units', e.target.value)}
+          aria-label="Units on receipt"
+        />
+        <input
+          className="items__num"
+          type="number"
+          inputMode="numeric"
+          min="0"
+          step="1"
+          value={it.yours}
+          onChange={(e) => update(it.id, 'yours', e.target.value)}
+          aria-label="How many you had"
+        />
+        <input
+          className="items__desc"
+          type="text"
+          placeholder="item"
+          value={it.desc}
+          onChange={(e) => update(it.id, 'desc', e.target.value)}
+          aria-label="Description"
+        />
+        <input
+          className="items__price"
+          type="number"
+          inputMode="decimal"
+          min="0"
+          step="0.01"
+          placeholder="0.00"
+          value={it.price}
+          onChange={(e) => update(it.id, 'price', e.target.value)}
+          aria-label={perUnit ? 'Price each' : 'Total for all units'}
+        />
+        <button
+          type="button"
+          className="items__remove"
+          onClick={() => remove(it.id)}
+          aria-label="Remove item"
+        >
+          &times;
+        </button>
+      </div>
+      <span className="items__owe">you owe {money(rowOwed(it, perUnit))}</span>
+    </div>
+  );
 }
