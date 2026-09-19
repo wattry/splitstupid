@@ -2,8 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   calculate,
   round2,
-  money,
-  percent
+  money
 } from './lib/calculate.js';
 import ScanReceipt from './ScanReceipt.js';
 import ItemRows, { rowOwed } from './ItemRows.js';
@@ -12,27 +11,12 @@ import { Calculator } from './components/inputs/Calculator.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 import { TipHelper } from './components/inputs/TipHelper.js';
 
-import { login, splitClient } from './lib/splitwise.js';
 import { scannedBill } from './lib/formState.js';
 import { exportFileName } from './lib/exportName.js';
 import { encodeState, decodeState } from './lib/shareLink.js';
 import { billTitle, buildShareText, shareBill } from './lib/share.js';
 import { reconcile } from './lib/reconcile.js';
 import { VenmoModal } from './components/inputs/VenmoModal.js';
-
-const Split = () => {
-  const onClick = async () => {
-    await login();
-  };
-  return (<button
-    style={{ display: 'none' }}
-    type="button"
-    className="action-btn"
-    onClick={onClick}
-  >
-    Splitwise
-  </button>);
-};
 
 export default function App() {
   const [billName, setBillName] = useState<string>('');
@@ -113,6 +97,7 @@ export default function App() {
     history.replaceState(null, '', window.location.pathname + window.location.search);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   // Link carrying the whole form (minus any photo); shared and put in the Venmo note.
   const buildShareUrl = async () => {
@@ -243,15 +228,6 @@ export default function App() {
           <p className="subtitle">Figure out what you actually owe</p>
         </header>
 
-        <ScanReceipt
-          items={items}
-          billName={billName}
-          perUnit={perUnit}
-          makeRow={makeRow}
-          onScanned={applyScan}
-          hasTotals={Boolean(billSubtotal || totalTax || tipAmount)}
-        />
-
         <div className="field">
           <label htmlFor="bill_name">Name</label>
           <input
@@ -264,6 +240,15 @@ export default function App() {
           />
         </div>
 
+        <ScanReceipt
+          items={items}
+          billName={billName}
+          perUnit={perUnit}
+          makeRow={makeRow}
+          onScanned={applyScan}
+          hasTotals={Boolean(billSubtotal || totalTax || tipAmount)}
+        />
+
         <div className="field toggle">
           <span className="field__label">Line Item Pricing</span>
           <button
@@ -273,10 +258,10 @@ export default function App() {
             aria-checked={perUnit}
             onClick={togglePerUnit}
           >
-            <span className={!perUnit ? 'toggle__on' : ''}>Total Per Item</span>
-            <span className={perUnit ? 'toggle__on' : ''}>Per Item</span>
+            <span className={!perUnit ? 'toggle__on' : ''}>Total Item Price</span>
+            <span className={perUnit ? 'toggle__on' : ''}>Per Item Price</span>
           </button>
-          <span className="field__label">Are line items a Total for all or a price for one?</span>
+          <span className="field__label">Are lines showing a total for all items or the price for a single item?</span>
         </div>
 
         <ItemRows
@@ -482,7 +467,6 @@ export default function App() {
               amount={result.total}
               note={venmoNote}
             />
-            <Split />
           </div>
 
           <footer className="footer">
