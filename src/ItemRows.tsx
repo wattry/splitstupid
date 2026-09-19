@@ -2,6 +2,8 @@ import React from 'react';
 import type { Dispatch, SetStateAction, ReactElement } from 'react';
 import type { Item, MakeRow } from './types.js';
 import { useSwipeToDelete } from './hooks/useSwipeToDelete.js';
+import ReconcileRow from './components/ReconcileRow.js';
+import type { Reconciliation } from './lib/reconcile.js';
 
 export type { Item } from './types.js';
 
@@ -10,6 +12,10 @@ interface ItemRowsProps {
   setItems: Dispatch<SetStateAction<Item[]>>;
   perUnit: boolean;
   makeRow: MakeRow;
+  reconciliation: Reconciliation;
+  /** After a scan, hide the Yours column until the rows match the Sub Total. */
+  locked: boolean;
+  onContinue: () => void;
 };
 
 const money = (n: number) => `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`
@@ -50,7 +56,10 @@ export default function ItemRows(
     items,
     setItems,
     perUnit,
-    makeRow
+    makeRow,
+    reconciliation,
+    locked,
+    onContinue
   } = props;
   const update = (id: string, field: string, value: unknown) =>
     setItems(items.map((it) => {
@@ -82,10 +91,10 @@ export default function ItemRows(
         {filled > 0 && <span className="field__count"> · {filled}</span>}
       </span>
 
-      <div className="items">
+      <div className={`items${locked ? ' items--locked' : ''}`}>
         <div className="items__head">
           <span>Total</span>
-          <span>Yours</span>
+          {!locked && <span>Yours</span>}
           <span>Description</span>
           <span>{perUnit ? 'Each' : 'Total'}</span>
           <span aria-hidden="true" />
@@ -96,11 +105,16 @@ export default function ItemRows(
             key={it.id}
             item={it}
             perUnit={perUnit}
+            locked={locked}
             update={update}
             remove={remove}
           />
         ))}
       </div>
+
+      {filled > 0 && (
+        <ReconcileRow reconciliation={reconciliation} locked={locked} onContinue={onContinue} />
+      )}
 
       <div className="items__actions">
         <button type="button" className="items__add" onClick={add}>
@@ -121,6 +135,7 @@ export default function ItemRows(
 interface ItemRowProps {
   item: Item;
   perUnit: boolean;
+  locked: boolean;
   update: (id: string, field: string, value: unknown) => void;
   remove: (id: string) => void;
 }
@@ -129,7 +144,7 @@ interface ItemRowProps {
  * One editable line item. On touch devices the whole row swipes left to
  * delete; on pointer devices the × button does the job.
  */
-function ItemRow({ item: it, perUnit, update, remove }: ItemRowProps): ReactElement {
+function ItemRow({ item: it, perUnit, locked, update, remove }: ItemRowProps): ReactElement {
   const swipe = useSwipeToDelete(() => remove(it.id));
 
   return (
@@ -152,7 +167,7 @@ function ItemRow({ item: it, perUnit, update, remove }: ItemRowProps): ReactElem
           onChange={(e) => update(it.id, 'units', e.target.value)}
           aria-label="Units on receipt"
         />
-        <input
+        {!locked && <input
           className="items__num"
           type="number"
           inputMode="numeric"
@@ -161,7 +176,7 @@ function ItemRow({ item: it, perUnit, update, remove }: ItemRowProps): ReactElem
           value={it.yours}
           onChange={(e) => update(it.id, 'yours', e.target.value)}
           aria-label="How many you had"
-        />
+        />}
         <input
           className="items__desc"
           type="text"
@@ -190,7 +205,7 @@ function ItemRow({ item: it, perUnit, update, remove }: ItemRowProps): ReactElem
           &times;
         </button>
       </div>
-      <span className="items__owe">you owe {money(rowOwed(it, perUnit))}</span>
+      {!locked && <span className="items__owe">you owe {money(rowOwed(it, perUnit))}</span>}
     </div>
   );
 }
