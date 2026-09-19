@@ -416,10 +416,6 @@ export default function App() {
               <dd>+ {money(result.tipAmt)}</dd>
             </div>
             <hr />
-            {result.effectiveTip > 0 && <div className="row">
-              <dt>Actual Tip % on Total</dt>
-              <dd>{percent(result.effectiveTip)}</dd>
-            </div>}
           </dl>
 
           <div className="total">
