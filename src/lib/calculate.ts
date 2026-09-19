@@ -62,7 +62,7 @@ export function calculate(calculateInput: CalculateInput): CalculateOutput {
   // Apply each ratio to this user's share.
   const taxAmt = subtotal * taxRate;
   const tipAmt = subtotal * tipRate;
-  // "Actual Tip % on Total": tip measured against "Your Total" (the subtotal).
+  // "Actual Tip % on Total": tip measured against "Sub Total" (the subtotal).
   const effectiveTip = tipRate;
 
   const afterTax = subtotal + taxAmt;

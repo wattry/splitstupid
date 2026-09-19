@@ -8,7 +8,9 @@
  *
  * Receipt OCR accuracy is improved two ways:
  *   1. Preprocessing — upscale small images, grayscale, trim the dark
- *      table/background around the receipt, boost contrast.
+ *      table/background around the receipt, then a percentile contrast
+ *      stretch and gamma lift (see enhance.ts) so paper goes white and ink
+ *      stays black.
  *   2. Engine params — treat the image as one ragged column of text (PSM 4) at
  *      a fixed 300 DPI. A/B tested against PSM 6 on real receipt photos:
  *      PSM 6 reads the table surface around the receipt as garbage tokens;
@@ -17,6 +19,7 @@
  */
 
 import { findBrightBounds } from './trimMargins.js';
+import { enhanceGray } from './enhance.js';
 
 // Upscale anything narrower than this (px) — tesseract wants ~300 DPI text.
 
@@ -75,12 +78,12 @@ export async function scanReceipt(image: File | Blob | string, opts: ScanReceipt
 
 /**
  * Clean up a receipt image for OCR: upscale if small, grayscale, trim dark
- * margins around the receipt, and stretch contrast. Returns a canvas
- * tesseract can read directly.
+ * margins around the receipt, then stretch contrast and lift exposure.
+ * Returns a canvas tesseract can read directly.
  *
  * Order matters: margins are found on the full grayscale image, then the
- * contrast stretch runs on the trimmed region only, so a dark table doesn't
- * dominate the min/max and wash out faint print.
+ * enhancement runs on the trimmed region only, so a dark table doesn't
+ * dominate the histogram and wash out faint print.
  *
  * @param image
  * @returns A promise containing a canvas element
@@ -111,7 +114,7 @@ async function preprocess(image: Image): Promise<HTMLCanvasElement> {
     if (!outCtx) throw new Error('Could not get a 2D canvas context');
 
     const pixels = ctx.getImageData(bounds.x, bounds.y, bounds.width, bounds.height);
-    stretchGray(pixels.data);
+    writeGray(pixels.data, enhanceGray(toGray(pixels.data)));
     outCtx.putImageData(pixels, 0, 0);
 
     return out;
@@ -134,25 +137,14 @@ function toGray(data: Uint8ClampedArray): Uint8ClampedArray {
 }
 
 /**
- * In-place grayscale + contrast stretch on RGBA pixel data. Maps the darkest
- * pixel to 0 and the lightest to 255 so faint receipt print gets pushed toward
- * solid black-on-white without a hard threshold (which can erase weak text).
+ * Write one-byte-per-pixel gray values back into RGBA pixel data in place.
  *
- * @param data
+ * @param data RGBA destination
+ * @param gray source, one byte per pixel
  */
-function stretchGray(data: Uint8ClampedArray) {
-  const gray = toGray(data);
-  let min = 255;
-  let max = 0;
-  for (const v of gray) {
-    if (v < min) min = v;
-    if (v > max) max = v;
-  }
-
-  const range = max - min || 1;
+function writeGray(data: Uint8ClampedArray, gray: Uint8ClampedArray) {
   for (let i = 0, g = 0; i < data.length; i += 4, g++) {
-    const v = (((gray[g] ?? 0) - min) * 255) / range;
-    data[i] = data[i + 1] = data[i + 2] = v;
+    data[i] = data[i + 1] = data[i + 2] = gray[g] ?? 0;
   }
 }
 

@@ -24,7 +24,7 @@ export function billTitle(name: string): string {
 
 /** Plain-text summary of the totals, one per line, bill title on top. */
 export function buildShareText(t: ShareTextInput): string {
-  const lines = [billTitle(t.name), `Your Total: ${money(t.subtotal)}`];
+  const lines = [billTitle(t.name), `Sub Total: ${money(t.subtotal)}`];
   lines.push(`${t.hasFees ? 'Tax + Fees' : 'Tax'} (${t.taxPct.toFixed(2)}%): +${money(t.taxAmt)}`);
   lines.push(`After Tax: ${money(t.afterTax)}`);
   lines.push(`Tip (${t.tipPct.toFixed(2)}%): +${money(t.tipAmt)}`);
