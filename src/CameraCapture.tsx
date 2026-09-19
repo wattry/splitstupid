@@ -1,17 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react'
 
 interface CameraCaptureProps {
+  /** Photos already taken this session, shown as a counter. */
+  count: number;
+  /** Cap on photos; Capture is disabled once reached. */
+  max: number;
   onCapture: (blob: Blob) => void;
+  /** "Done": close the overlay, keeping whatever was captured. */
   onClose: () => void;
 }
 
 /**
  * Live camera capture overlay. Requests photo access via getUserMedia, shows a
- * preview, and on "Capture" grabs a still frame as a JPEG Blob.
+ * preview, and on "Capture" grabs a still frame as a JPEG Blob. Stays open so the user can take several photos; "Done" closes it.
  *
  * Works on desktop and mobile over a secure context (HTTPS / localhost).
  */
-export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
+export default function CameraCapture({ count, max, onCapture, onClose }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [error, setError] = useState('')
@@ -73,11 +78,20 @@ export default function CameraCapture({ onCapture, onClose }: CameraCaptureProps
           <video ref={videoRef} className="camera__video" autoPlay playsInline muted />
         )}
       </div>
+      <p className="camera__hint">
+        {count === 0 ? 'Take a photo of the receipt' : `${count}/${max} photos`}
+        {count >= max ? ' — limit reached' : ''}
+      </p>
       <div className="camera__actions">
         <button type="button" className="scan-btn scan-btn--camera" onClick={onClose}>
-          Cancel
+          {count === 0 ? 'Cancel' : 'Done'}
         </button>
-        <button type="button" className="scan-btn" onClick={capture} disabled={!!error}>
+        <button
+          type="button"
+          className="scan-btn"
+          onClick={capture}
+          disabled={!!error || count >= max}
+        >
           Capture
         </button>
       </div>

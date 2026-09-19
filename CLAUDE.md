@@ -24,7 +24,7 @@ Single-page React 19 bill-splitting app (no router, no server-rendered code). Tw
 
 ### Receipt scan flow
 
-Upload or camera capture (`CameraCapture.tsx`) → crop (`CropImage.tsx`, react-easy-crop) → OCR → parse line items (`src/lib/parseLineItems.ts`) → replace item rows in `App`. Two OCR backends exist in `src/lib/`:
+Upload (multiple) or camera capture (`CameraCapture.tsx`, stays open for several shots) → up to 9 photos in a thumbnail grid in `ScanReceipt.tsx` → optional per-photo crop (`CropImage.tsx`, react-easy-crop, returns a pixel `Area`) → `src/lib/scanPhotos.ts` OCRs each photo in order and merges line items (`parseLineItems.ts`) and totals (`parseTotals.ts`, first photo wins per field) → replace item rows in `App`. Two OCR backends exist in `src/lib/`:
 - `ocr.ts` — in-browser tesseract.js. Dynamically imported so the wasm/lang assets stay out of the main bundle (fetched from CDN on first scan). Preprocesses (upscale, grayscale, contrast) and uses PSM 6 / 300 DPI.
 - `tabscan.ts` — TabScanner API client (POST image for token, poll for result), reached through the worker proxy.
 

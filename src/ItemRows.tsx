@@ -69,9 +69,15 @@ export default function ItemRows(
 
   const clear = () => setItems([makeRow()])
 
+  // Rows with real content; the blank starter row doesn't count.
+  const filled = items.filter((it) => it.desc.trim() || (parseFloat(it.price) || 0) > 0).length
+
   return (
     <div className="field">
-      <span className="field__label">Your items</span>
+      <span className="field__label">
+        Your items
+        {filled > 0 && <span className="field__count"> · {filled}</span>}
+      </span>
 
       <div className="items">
         <div className="items__head">

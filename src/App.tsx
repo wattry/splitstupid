@@ -226,7 +226,7 @@ export default function App() {
       <section className="card">
         <header className="card__head">
           <h1 className="title">Split Stoopid</h1>
-          <p className="subtitle">figure out what you actually owe</p>
+          <p className="subtitle">Figure out what you actually owe</p>
         </header>
 
         <ScanReceipt
@@ -397,7 +397,7 @@ export default function App() {
         <div className="result">
           <dl className="breakdown">
             <div className="row">
-              <dt>Your Total</dt>
+              <dt>Sub Total</dt>
               <dd>{money(result.subtotal)}</dd>
             </div>
             <hr />
@@ -416,10 +416,6 @@ export default function App() {
               <dd>+ {money(result.tipAmt)}</dd>
             </div>
             <hr />
-            {result.effectiveTip > 0 && <div className="row">
-              <dt>Actual Tip % on Total</dt>
-              <dd>{percent(result.effectiveTip)}</dd>
-            </div>}
           </dl>
 
           <div className="total">

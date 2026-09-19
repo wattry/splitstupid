@@ -17,7 +17,7 @@ describe('buildShareText', () => {
     expect(buildShareText({ name: 'Dinner', taxPct: 9.01, tipPct: 18.82, ...totals })).toBe(
       [
         'Dinner, Split Stoopid',
-        'Your Total: $42.50',
+        'Sub Total: $42.50',
         'Tax (9.01%): +$3.83',
         'After Tax: $46.33',
         'Tip (18.82%): +$8.00',
@@ -38,7 +38,7 @@ describe('buildShareText', () => {
     ).toBe(
       [
         'Split Stoopid',
-        'Your Total: $42.50',
+        'Sub Total: $42.50',
         'Tax (0.00%): +$0.00',
         'After Tax: $46.33',
         'Tip (0.00%): +$0.00',

@@ -26,7 +26,6 @@ interface CalculateOutput {
   tipAmt: number;
   total: number;
   afterTax: number;
-  effectiveTip: number;
 }
 
 /**
@@ -62,13 +61,10 @@ export function calculate(calculateInput: CalculateInput): CalculateOutput {
   // Apply each ratio to this user's share.
   const taxAmt = subtotal * taxRate;
   const tipAmt = subtotal * tipRate;
-  // "Actual Tip % on Total": tip measured against "Your Total" (the subtotal).
-  const effectiveTip = tipRate;
-
   const afterTax = subtotal + taxAmt;
   const total = afterTax + tipAmt;
 
-  return { subtotal, taxAmt, tipAmt, total, afterTax, effectiveTip };
+  return { subtotal, taxAmt, tipAmt, total, afterTax };
 }
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;

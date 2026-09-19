@@ -1,28 +1,28 @@
 import React, { useState, useCallback } from 'react'
 import Cropper from 'react-easy-crop'
 import type { Area, MediaSize } from 'react-easy-crop'
-import { getCroppedBlob } from './lib/cropImage.js'
 
 interface CropImageProps {
   src: string;
-  /** Controlled framing (lives in the parent so a rescan can restore it). */
+  /** Controlled framing (lives in the parent so reopening restores it). */
   crop: { x: number; y: number };
   zoom: number;
   onCropChange: (crop: { x: number; y: number }) => void;
   onZoomChange: (zoom: number) => void;
-  onConfirm: (blob: Blob) => void;
+  /** Receives the crop rectangle in source-image pixels. */
+  onConfirm: (area: Area) => void;
   onCancel: () => void;
 }
 
 /**
  * Full-screen crop step. Lets the user drag/zoom to frame the part of the
- * receipt to scan, then produces a cropped JPEG Blob. Crop position and zoom
- * are controlled by the parent so reopening the same image (rescan) starts
- * from where the user left off.
+ * receipt to scan and hands back the pixel rectangle; the caller crops the
+ * image later, when it is actually scanned. Crop position and zoom are
+ * controlled by the parent so reopening the same photo starts from where the
+ * user left off.
  */
 export default function CropImage({ src, crop, zoom, onCropChange, onZoomChange, onConfirm, onCancel }: CropImageProps) {
   const [areaPixels, setAreaPixels] = useState<Area | null>(null)
-  const [busy, setBusy] = useState(false)
   // Crop box matches the image's own shape, so at zoom 1 the whole photo
   // (including a tall receipt) fits inside it; the user zooms in to trim.
   const [aspect, setAspect] = useState<number | undefined>(undefined)
@@ -36,14 +36,6 @@ export default function CropImage({ src, crop, zoom, onCropChange, onZoomChange,
   const onCropComplete = useCallback((_area: Area, pixels: Area) => {
     setAreaPixels(pixels)
   }, [])
-
-  const confirm = async () => {
-    if (!areaPixels) return
-    setBusy(true)
-    const blob = await getCroppedBlob(src, areaPixels)
-    if (blob) onConfirm(blob)
-    else setBusy(false)
-  }
 
   return (
     <div className="camera" role="dialog" aria-label="Crop the receipt">
@@ -74,21 +66,16 @@ export default function CropImage({ src, crop, zoom, onCropChange, onZoomChange,
         aria-label="Zoom"
       />
       <div className="camera__actions">
-        <button
-          type="button"
-          className="scan-btn scan-btn--camera"
-          onClick={onCancel}
-          disabled={busy}
-        >
+        <button type="button" className="scan-btn scan-btn--camera" onClick={onCancel}>
           Cancel
         </button>
         <button
           type="button"
           className="scan-btn"
-          onClick={confirm}
-          disabled={!areaPixels || busy}
+          onClick={() => areaPixels && onConfirm(areaPixels)}
+          disabled={!areaPixels}
         >
-          {busy ? 'Cropping…' : 'Scan This'}
+          Use Crop
         </button>
       </div>
     </div>

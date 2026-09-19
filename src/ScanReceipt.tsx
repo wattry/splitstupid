@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactElement } from 'react';
-import { scanReceipt } from './lib/ocr.js';
-import { parseLineItems } from './lib/parseLineItems.js';
-import { parseTotals } from './lib/parseTotals.js';
+import type { Area } from 'react-easy-crop';
+import { usePostHog } from '@posthog/react';
+import { scanPhotos, mergeScans } from './lib/scanPhotos.js';
 import { scanWarnings } from './lib/scanWarnings.js';
 import { exportFileName } from './lib/exportName.js';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -11,6 +11,17 @@ import CropImage from './CropImage.js';
 import type { Item, MakeRow, ParsedTotals } from './types.js';
 
 const round2 = (n: number) => Math.round(n * 100) / 100
+
+/** Most photos one scan may hold; the grid is sized for a 3x3. */
+export const MAX_PHOTOS = 9
+
+interface Photo {
+  id: string;
+  /** Object URL of the original image; revoked when the photo is removed. */
+  src: string;
+  /** Saved crop framing; absent means scan the whole photo. */
+  crop?: { area: Area; x: number; y: number; zoom: number };
+}
 
 interface ScanReceiptProps {
   items: Item[];
@@ -28,10 +39,10 @@ interface ScanReceiptProps {
 };
 
 /**
- * "Scan Receipt" controls. Offers two ways to supply the image — upload an
- * existing photo, or take a new one with the camera. Either path goes through a
- * crop step, then OCRs the cropped region, parses qty/desc/price line items,
- * and hands them to the parent to replace the bill (asking first if the form
+ * "Scan Receipt" controls. The user collects up to MAX_PHOTOS photos of one
+ * bill — uploaded or taken with the camera — into a thumbnail grid, optionally
+ * crops any of them, then taps Scan once. Every photo is OCR'd in order and
+ * the merged line items and totals replace the bill (asking first if the form
  * already has content).
  *
  * @param props
@@ -46,17 +57,31 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     hasTotals
   } = props;
 
-  const uploadRef = useRef<HTMLInputElement>(null)
+  const posthog = usePostHog() // undefined outside the prod PostHogProvider
+  const [photos, setPhotos] = useState<Photo[]>([])
   const [status, setStatus] = useState('idle') // 'idle' | 'scanning' | 'error'
-  const [progress, setProgress] = useState(0)
+  const [progress, setProgress] = useState({ index: 0, fraction: 0 })
   const [cameraOpen, setCameraOpen] = useState(false)
-  const [cropSrc, setCropSrc] = useState<string | null>(null) // object URL pending crop
-  const [lastSrc, setLastSrc] = useState<string | null>(null) // original image object URL, kept so the user can rescan
-  // Crop framing, kept across rescans of the same image; reset per new image.
+  const [cropId, setCropId] = useState<string | null>(null) // photo open in the crop step
+  // Live framing while the crop step is open; seeded from the photo's saved crop.
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
-  const [preview, setPreview] = useState<string | null>(null) // preprocessed image data URL
+  const [preview, setPreview] = useState<string | null>(null) // last preprocessed image data URL
   const [expanded, setExpanded] = useState(false) // preview lightbox open
+  const [capHint, setCapHint] = useState(false) // "only 9 photos" notice
+  const uploadRef = useRef<HTMLInputElement>(null)
+
+  // Mirrors `photos` for the unmount cleanup below, which must see the latest list.
+  const photosRef = useRef(photos)
+  photosRef.current = photos
+
+  // Revoke every photo's object URL when the component unmounts.
+  useEffect(() => {
+    return () => {
+      photosRef.current.forEach((p) => URL.revokeObjectURL(p.src))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Close the lightbox on Escape.
   useEffect(() => {
@@ -70,52 +95,102 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     return () => window.removeEventListener('keydown', onKey);
   }, [expanded])
 
+  // Auto-hide the cap notice.
+  useEffect(() => {
+    if (!capHint) return
+    const t = window.setTimeout(() => setCapHint(false), 4000)
+    return () => window.clearTimeout(t)
+  }, [capHint])
+
   // True when the user already has real item content worth protecting.
   const hasContent = items.some(
     (it) => String(it.desc).trim() || parseFloat(it.price) > 0
   )
 
-  // Hand an image off to the crop step. Accepts a File (upload) or Blob (camera).
-  // The object URL outlives the crop step so "Rescan" can reopen the same image;
-  // it's only revoked when a new image replaces it (browser frees it on unload).
-  const openCrop = (imageLike: Blob) => {
-    const url = URL.createObjectURL(imageLike)
-    setLastSrc((prev) => {
-      if (prev) URL.revokeObjectURL(prev)
-      return url
-    })
-    // Fresh image — start the framing over.
-    setCrop({ x: 0, y: 0 })
-    setZoom(1)
-    setCropSrc(url)
+  // Append images (File from upload, Blob from camera) up to the cap.
+  const addPhotos = (images: Blob[]) => {
+    const room = MAX_PHOTOS - photos.length
+    if (images.length > room) setCapHint(true)
+    const added = images.slice(0, Math.max(room, 0)).map((img) => ({
+      id: crypto.randomUUID(),
+      src: URL.createObjectURL(img),
+    }))
+    setPhotos((prev) => [...prev, ...added])
   }
 
-  const closeCrop = () => setCropSrc(null)
+  const removePhoto = (id: string) => {
+    setPhotos((prev) => {
+      const gone = prev.find((p) => p.id === id)
+      if (gone) URL.revokeObjectURL(gone.src)
+      return prev.filter((p) => p.id !== id)
+    })
+  }
 
-  // OCR an image (cropped Blob) and replace the item rows.
-  const processImage = async (image: Blob) => {
+  const openCrop = (photo: Photo) => {
+    setCrop(photo.crop ? { x: photo.crop.x, y: photo.crop.y } : { x: 0, y: 0 })
+    setZoom(photo.crop?.zoom ?? 1)
+    setCropId(photo.id)
+  }
+
+  const closeCrop = () => setCropId(null)
+
+  const onCropConfirm = (area: Area) => {
+    setPhotos((prev) =>
+      prev.map((p) =>
+        p.id === cropId ? { ...p, crop: { area, x: crop.x, y: crop.y, zoom } } : p
+      )
+    )
+    closeCrop()
+  }
+
+  // OCR every photo in order and replace the bill with the merged result.
+  const scanAll = async () => {
+    if (photos.length === 0) return
+    if (
+      (hasContent || hasTotals) &&
+      !window.confirm('Replace your current bill with the scanned one?')
+    ) {
+      return
+    }
+
     setStatus('scanning')
-    setProgress(0)
+    setProgress({ index: 0, fraction: 0 })
     setPreview(null)
 
-    try {
-      const text = await scanReceipt(image, {
-        onProgress: setProgress,
-        onPreview: setPreview,
+    // Usage metric: is multi-photo scanning used, and does it work?
+    const started = performance.now()
+    const track = (
+      outcome: 'ok' | 'no_items' | 'error',
+      found: { items: number; totals: string[] } = { items: 0, totals: [] }
+    ) => {
+      posthog?.capture('receipt_scanned', {
+        photo_count: photos.length,
+        cropped_count: photos.filter((p) => p.crop).length,
+        outcome,
+        items_found: found.items,
+        totals_found: found.totals,
+        duration_ms: Math.round(performance.now() - started),
       })
-      const parsed = parseLineItems(text)
-      const totals = parseTotals(text)
+    }
 
-      if (parsed.length === 0) {
-        setStatus('error')
-        return
+    try {
+      const texts = await scanPhotos(
+        photos.map((p) => (p.crop ? { src: p.src, area: p.crop.area } : { src: p.src })),
+        {
+          onProgress: (index, fraction) => setProgress({ index, fraction }),
+          onPreview: setPreview,
+        }
+      )
+      const { totals, items: parsed } = mergeScans(texts)
+
+      const found = {
+        items: parsed.length,
+        totals: Object.keys(totals).filter((k) => totals[k as keyof ParsedTotals] !== undefined),
       }
 
-      if (
-        (hasContent || hasTotals) &&
-        !window.confirm('Replace your current bill with the scanned one?')
-      ) {
-        setStatus('idle')
+      if (parsed.length === 0) {
+        track('no_items', found)
+        setStatus('error')
         return
       }
 
@@ -124,7 +199,6 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         parsed.map(({ units, desc, lineTotal }) =>
           makeRow({
             units: String(units),
-            // Yours defaults to the full quantity; user trims it down.
             desc,
             // Price column follows the toggle: per-unit, or total for all units.
             price: String(perUnit ? round2(lineTotal / units) : lineTotal),
@@ -132,30 +206,25 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         ),
         scanWarnings(totals, parsed)
       )
+      track('ok', found)
       setStatus('idle')
     } catch (err) {
       console.error('Receipt scan failed:', err)
+      track('error')
       setStatus('error')
     }
   }
 
-  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = '' // let the user re-pick the same file later
-    if (file) openCrop(file)
-  }
-
-  const onCapture = (blob: Blob) => {
-    setCameraOpen(false)
-    openCrop(blob)
-  }
-
-  const onCropConfirm = (blob: Blob) => {
-    closeCrop()
-    processImage(blob)
+  const onFiles = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = '' // let the user re-pick the same files later
+    if (files.length) addPhotos(files)
   }
 
   const scanning = status === 'scanning'
+  const full = photos.length >= MAX_PHOTOS
+  const cropping = photos.find((p) => p.id === cropId)
+  const columns = photos.length <= 1 ? 1 : photos.length <= 4 ? 2 : 3
 
   return (
     <div className="field">
@@ -165,45 +234,81 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
           type="button"
           className="scan-btn scan-btn--camera"
           onClick={() => setCameraOpen(true)}
-          disabled={scanning}
+          disabled={scanning || full}
         >
           <CameraIcon />
           Take
         </button>
-
-        {lastSrc && (
+        <button
+          type="button"
+          className="scan-btn scan-btn--camera"
+          onClick={() => uploadRef.current?.click()}
+          disabled={scanning || full}
+        >
+          <UploadIcon />
+          Upload
+        </button>
+        {/* Upload: any images from the device, several at once. */}
+        <input
+          ref={uploadRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={onFiles}
+        />
+        {photos.length > 0 && (
           <button
             type="button"
             className="scan-btn"
-            onClick={() => setCropSrc(lastSrc)}
+            onClick={scanAll}
             disabled={scanning}
           >
-            <RescanIcon />
-            Rescan
+            <ScanIcon />
+            {scanning
+              ? `${progress.index + 1} of ${photos.length}… ${Math.round(progress.fraction * 100)}%`
+              : photos.length === 1 ? 'Scan' : `Scan ${photos.length}`}
           </button>
         )}
-        <button
-          type="button"
-          className="scan-btn"
-          onClick={() => uploadRef.current?.click()}
-          disabled={scanning}
-        >
-          <UploadIcon />
-          {scanning ? `Scanning… ${Math.round(progress * 100)}%` : 'Upload'}
-        </button>
       </div>
 
-      {/* Upload: any image from the device. */}
-      <input
-        ref={uploadRef}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={onFile}
-      />
+      {capHint && (
+        <span className="hint">Up to {MAX_PHOTOS} photos per scan — extras were skipped.</span>
+      )}
 
       {status === 'error' && (
         <span className="hint">Couldn’t read prices — type them manually.</span>
+      )}
+
+      {photos.length > 0 && (
+        <ul className="photo-grid" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+          {photos.map((photo, i) => (
+            <li
+              key={photo.id}
+              className={`photo-grid__cell${progress.index === i && scanning ? ' photo-grid__cell--busy' : ''}`}
+            >
+              <button
+                type="button"
+                className="photo-grid__open"
+                onClick={() => openCrop(photo)}
+                disabled={scanning}
+                aria-label={`Crop photo ${i + 1}`}
+              >
+                <img src={photo.src} alt={`Receipt photo ${i + 1}`} />
+              </button>
+              {photo.crop && <span className="photo-grid__badge">cropped</span>}
+              <button
+                type="button"
+                className="photo-grid__remove"
+                onClick={() => removePhoto(photo.id)}
+                disabled={scanning}
+                aria-label={`Remove photo ${i + 1}`}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
 
       {preview && (
@@ -268,12 +373,17 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
       )}
 
       {cameraOpen && (
-        <CameraCapture onCapture={onCapture} onClose={() => setCameraOpen(false)} />
+        <CameraCapture
+          count={photos.length}
+          max={MAX_PHOTOS}
+          onCapture={(blob) => addPhotos([blob])}
+          onClose={() => setCameraOpen(false)}
+        />
       )}
 
-      {cropSrc && (
+      {cropping && (
         <CropImage
-          src={cropSrc}
+          src={cropping.src}
           crop={crop}
           zoom={zoom}
           onCropChange={setCrop}
@@ -283,6 +393,28 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         />
       )}
     </div>
+  )
+}
+
+function ScanIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+      <line x1="7" y1="12" x2="17" y2="12" />
+    </svg>
   )
 }
 
@@ -302,25 +434,6 @@ function UploadIcon() {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  )
-}
-
-function RescanIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="23 4 23 10 17 10" />
-      <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
     </svg>
   )
 }
