@@ -23,10 +23,11 @@ const SKIP_LINE =
 
 const LONG_DIGITS = /\d{5,}/;
 const DATE_LIKE = /\d{1,2}[/-]\d{1,2}/;
-// A price token: a decimal amount, with an optional leading "$" (and optional
-// space after it). Both "$13.00" and "13.00" are accepted.
-const PRICE = /\$?\s?\d+\.\d{2}/;
-const PRICE_G = /\$?\s?\d+\.\d{2}/g;
+// A price token: a decimal amount, with an optional leading currency sign
+// ($ or £, and optional space after it). "$13.00", "£13.00" and "13.00" all
+// match.
+const PRICE = /[$£]?\s?\d+\.\d{2}/;
+const PRICE_G = /[$£]?\s?\d+\.\d{2}/g;
 // Quantity: first standalone 1–2 digit integer that's followed by a word.
 // Not anchored to line start — OCR often emits junk ("ae", "RE TEA", "“08")
 // before the real quantity. The word lookahead keeps junk digits (followed by
@@ -89,7 +90,7 @@ export function parseLineItems(text?: string | null): ParsedLineItem[] {
       : line.replace(LEADING_NUM, '');
     const priceIdx = rest.search(PRICE);
     const desc = (priceIdx >= 0 ? rest.slice(0, priceIdx) : rest)
-      .replace(/\$/g, '')
+      .replace(/[$£]/g, '')
       .trim();
 
     items.push({ units, desc, lineTotal });

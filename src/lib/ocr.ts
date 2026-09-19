@@ -27,8 +27,10 @@ const MIN_WIDTH = 1500 as const;
 
 // Characters a receipt can plausibly contain — everything else is OCR noise.
 // ":" matters: without it "7:08 PM" reads as "7.08", which looks like a price.
+// "£" matters too: with it missing, tesseract forces "£3.75" into the nearest
+// allowed glyphs and mangles the digits next to it ("$3.7h"), losing the line.
 const CHAR_WHITELIST =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789$.,':/#&- ";
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789$£.,':/#&- ";
 
 type Image = File | Blob | string;
 
