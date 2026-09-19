@@ -13,20 +13,14 @@ Package manager is pnpm.
 - `pnpm lint` / `pnpm lint:fix` — ESLint over `src/**/*.ts` (config in `eslint.config.ts`)
 - `pnpm typecheck` — `tsc --noEmit`
 
-Worker (in `worker/`): deploy with `wrangler deploy`; secrets set via `wrangler secret put IPSTACK_KEY` and `wrangler secret put TABSCANNER_KEY`.
 
 ## Architecture
 
-Single-page React 19 bill-splitting app (no router, no server-rendered code). Two deployables:
-
-1. **Frontend** — Vite static site. Entry `src/main.tsx` → `src/App.tsx`, which owns all form state (subtotal, tax, tip, item rows, per-unit toggle) and passes it down. Pure calculation logic lives in `src/lib/` and is what the tests in `tests/lib/` cover.
-2. **CORS proxy** — Cloudflare Worker in `worker/src/index.js`. The static site can't hold secrets or add CORS headers, so the worker forwards a fixed allowlist of routes (`/ipstack`, `/tabscan/process`, `/tabscan/result/:id`) to upstream APIs, injecting secret keys server-side. It is deliberately NOT an open proxy; allowed origins are in `worker/wrangler.toml` (`ALLOWED_ORIGINS`).
+Single-page React 19 bill-splitting app (no router, no server-rendered code, no backend). Vite static site. Entry `src/main.tsx` → `src/App.tsx`, which owns all form state (subtotal, tax, tip, item rows, per-unit toggle) and passes it down. Pure calculation logic lives in `src/lib/` and is what the tests in `tests/lib/` cover.
 
 ### Receipt scan flow
 
-Upload (multiple) or camera capture (`CameraCapture.tsx`, stays open for several shots) → up to 9 photos in a thumbnail grid in `ScanReceipt.tsx` → optional per-photo crop (`CropImage.tsx`, react-easy-crop, returns a pixel `Area`) → `src/lib/scanPhotos.ts` OCRs each photo in order and merges line items (`parseLineItems.ts`) and totals (`parseTotals.ts`, first photo wins per field) → replace item rows in `App`. Two OCR backends exist in `src/lib/`:
-- `ocr.ts` — in-browser tesseract.js. Dynamically imported so the wasm/lang assets stay out of the main bundle (fetched from CDN on first scan). Preprocesses (upscale, grayscale, contrast) and uses PSM 6 / 300 DPI.
-- `tabscan.ts` — TabScanner API client (POST image for token, poll for result), reached through the worker proxy.
+Upload (multiple) or camera capture (`CameraCapture.tsx`, stays open for several shots) → up to 9 photos in a thumbnail grid in `ScanReceipt.tsx` → optional per-photo crop (`CropImage.tsx`, react-easy-crop, returns a pixel `Area`) → `src/lib/scanPhotos.ts` OCRs each photo in order and merges line items (`parseLineItems.ts`) and totals (`parseTotals.ts`, first photo wins per field) → replace item rows in `App`. OCR is `src/lib/ocr.ts`: in-browser tesseract.js. Dynamically imported so the wasm/lang assets stay out of the main bundle (fetched from CDN on first scan). Preprocesses (upscale, grayscale, contrast) and uses PSM 6 / 300 DPI.
 
 ### Calculation model
 
@@ -35,6 +29,6 @@ Upload (multiple) or camera capture (`CameraCapture.tsx`, stays open for several
 ### Conventions
 
 - TypeScript ESM throughout; relative imports use explicit `.js` extensions even in `.tsx`/`.ts` files.
-- Client env vars are Vite-style (`VITE_TAB_SCAN_KEY`, `VITE_SPLIT_WISE_KEY`, `VITE_SPLIT_WISE_SECRET`), loaded via dotenv in `vite.config.ts`.
+- Client env vars are Vite-style (`VITE_POSTHOG_KEY`), loaded via dotenv in `vite.config.ts`.
 - Manual chunk splitting in `vite.config.ts`: `react-vendor`, `observability` (PostHog), `image-processing` (tesseract, crop/zoom libs). Keep heavy new deps in a matching chunk or dynamically import them.
 - Tests live in `tests/` (mirroring `src/lib/`), not next to source; Vitest globals are enabled and setup is `tests/setup.ts`.

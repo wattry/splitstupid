@@ -41,9 +41,3 @@ export interface ParsedTotals {
   tip?: number;
   total?: number;
 }
-
-/** Selected state tax entry as held in form state. */
-export interface StateTaxSelection {
-  state: string;
-  value: number | string;
-}
