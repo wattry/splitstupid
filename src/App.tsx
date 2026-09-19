@@ -17,6 +17,7 @@ import { scannedBill } from './lib/formState.js';
 import { exportFileName } from './lib/exportName.js';
 import { encodeState, decodeState } from './lib/shareLink.js';
 import { billTitle, buildShareText, shareBill } from './lib/share.js';
+import { reconcile } from './lib/reconcile.js';
 import { VenmoModal } from './components/inputs/VenmoModal.js';
 
 const Split = () => {
@@ -66,9 +67,15 @@ export default function App() {
   // Sanity-check messages from the last scan. Shown once, at import; later
   // edits are the user's call, so they are never recomputed.
   const [scanWarnings, setScanWarnings] = useState<string[]>([]);
+  // After a scan the split controls stay hidden until the line items add up to
+  // the Sub Total (or the user chooses to continue anyway). Unlocking is
+  // one-way: later edits never hide anything again. Hand-typed bills, imports
+  // and shared links start unlocked.
+  const [locked, setLocked] = useState(false);
   const applyScan = (totals: ParsedTotals, rows: Item[], warnings: string[]) => {
     const bill = scannedBill(totals, rows);
     setScanWarnings(warnings);
+    setLocked(true);
     setBillName(bill.billName);
     setBillSubtotal(bill.billSubtotal);
     setTotalTax(bill.totalTax);
@@ -206,6 +213,13 @@ export default function App() {
   const taxPct = subNum > 0 ? ((parseFloat(totalTax) || 0) / subNum) * 100 : 0;
   const tipPct = subNum > 0 ? ((parseFloat(tipAmount) || 0) / subNum) * 100 : 0;
 
+  // Do the rows' full line totals add up to the Sub Total? Shown live under the
+  // items; while locked, a balanced bill unlocks the split controls.
+  const reconciliation = reconcile(items, perUnit, billSubtotal);
+  useEffect(() => {
+    if (locked && reconciliation.status === 'balanced') setLocked(false);
+  }, [locked, reconciliation.status]);
+
   // Each row owes the amount attributable to the user under the current mode.
   const prices = items.map((it) => rowOwed(it, perUnit));
   const result = calculate({
@@ -270,6 +284,9 @@ export default function App() {
           setItems={setItems}
           perUnit={perUnit}
           makeRow={makeRow}
+          reconciliation={reconciliation}
+          locked={locked}
+          onContinue={() => setLocked(false)}
         />
         {scanWarnings.length > 0 && (
           <div className="scan-warnings" role="alert">
@@ -347,6 +364,7 @@ export default function App() {
           </span>}
         </div>
 
+        {!locked && <>
         <div className="field switch">
           <label className="switch__row" htmlFor="split_even">
             <span className="field__label">Split Even</span>
@@ -473,6 +491,7 @@ export default function App() {
             </a>
           </footer>
         </div>
+        </>}
       </section>
 
       <Calculator />

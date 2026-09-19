@@ -10,10 +10,8 @@ describe('scanWarnings', () => {
     ).toEqual([])
   })
 
-  it('warns when line items do not add up to the printed subtotal', () => {
-    expect(scanWarnings({ subtotal: 42.1 }, [item(20), item(21.5)])).toEqual([
-      'Line items add up to $41.50 but the receipt says subtotal $42.10. A line may have been misread.',
-    ])
+  it('leaves the line-items-vs-subtotal check to the live reconcile row', () => {
+    expect(scanWarnings({ subtotal: 42.1 }, [item(20), item(21.5)])).toEqual([])
   })
 
   it('warns when subtotal + tax + tip does not match the printed total', () => {
@@ -37,7 +35,7 @@ describe('scanWarnings', () => {
     expect(scanWarnings({ total: 99 }, [item(5)])).toEqual([])
   })
 
-  it('reports both problems at once', () => {
-    expect(scanWarnings({ subtotal: 10, tax: 1, total: 20 }, [item(5)])).toHaveLength(2)
+  it('only reports the total mismatch when line items are also off', () => {
+    expect(scanWarnings({ subtotal: 10, tax: 1, total: 20 }, [item(5)])).toHaveLength(1)
   })
 })

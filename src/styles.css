@@ -636,6 +636,37 @@ body {
   padding-right: 24px;
 }
 
+/* Live check: do the rows' full line totals equal the Sub Total field? */
+.reconcile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.reconcile--unknown { color: var(--muted); background: rgba(107, 91, 138, 0.08); }
+.reconcile--balanced { color: #1a7f4b; background: rgba(26, 127, 75, 0.1); }
+.reconcile--off { color: #c0262d; background: rgba(192, 38, 45, 0.1); }
+.reconcile__continue {
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+/* Yours column hidden until the bill reconciles after a scan */
+.items--locked .items__head,
+.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 20px; }
+
 /* Split Even slider switch */
 .switch__row {
   display: flex;
@@ -923,6 +954,8 @@ a.action-btn {
 @media (hover: none) and (pointer: coarse) {
   .items__head,
   .items__grid { grid-template-columns: 40px 40px 1fr 80px; }
+  .items--locked .items__head,
+  .items--locked .items__grid { grid-template-columns: 40px 1fr 80px; }
   .items__remove,
   .items__head span:last-child { display: none; }
   .items__owe { padding-right: 4px; }
