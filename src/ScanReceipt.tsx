@@ -2,12 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactElement } from 'react';
 import type { Area } from 'react-easy-crop';
 import { usePostHog } from '@posthog/react';
-import { scanPhotos, mergeScans } from './lib/scanPhotos.js';
+import { scanPhotos, mergeScans, joinScanTexts } from './lib/scanPhotos.js';
 import { scanWarnings } from './lib/scanWarnings.js';
 import { exportFileName } from './lib/exportName.js';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import CameraCapture from './CameraCapture.js';
 import CropImage from './CropImage.js';
+import { ScanText } from './components/ScanText.js';
 import type { Item, MakeRow, ParsedTotals } from './types.js';
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -68,6 +69,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
   const [zoom, setZoom] = useState(1)
   const [preview, setPreview] = useState<string | null>(null) // last preprocessed image data URL
   const [expanded, setExpanded] = useState(false) // preview lightbox open
+  const [scanText, setScanText] = useState<string | null>(null) // raw OCR text of the last scan
   const [capHint, setCapHint] = useState(false) // "only 9 photos" notice
   const uploadRef = useRef<HTMLInputElement>(null)
 
@@ -156,6 +158,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     setStatus('scanning')
     setProgress({ index: 0, fraction: 0 })
     setPreview(null)
+    setScanText(null)
 
     // Usage metric: is multi-photo scanning used, and does it work?
     const started = performance.now()
@@ -181,6 +184,9 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
           onPreview: setPreview,
         }
       )
+      // Kept before parsing: when nothing parses, the raw text is what the
+      // user needs to see.
+      setScanText(joinScanTexts(texts))
       const { totals, items: parsed } = mergeScans(texts)
 
       const found = {
@@ -341,6 +347,8 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
           </figcaption>
         </figure>
       )}
+
+      {scanText && <ScanText text={scanText} onHide={() => setScanText(null)} />}
 
       {expanded && preview && (
         <div
