@@ -29,9 +29,10 @@ const DATE_LIKE = /\d{1,2}[/-]\d{1,2}/;
 // it) and cents, or a bare decimal with cents; or, at the end of the line
 // only, a signed amount without cents so a hand-typed "$112" counts (mid-line
 // "£1 SHIFT" is OCR junk, not a price). A bare integer is never a price — it
-// would clash with quantities.
-const PRICE = /[$£]\s?\d+(?:\.\d{2}|(?=\s*$))|\d+\.\d{2}/;
-const PRICE_G = /[$£]\s?\d+(?:\.\d{2}|(?=\s*$))|\d+\.\d{2}/g;
+// would clash with quantities. OCR sometimes gaps the cents ("$30. 00"),
+// so a space after the dot is tolerated; toNumber drops it.
+const PRICE = /[$£]\s?\d+(?:\.\s?\d{2}|(?=\s*$))|\d+\.\s?\d{2}/;
+const PRICE_G = /[$£]\s?\d+(?:\.\s?\d{2}|(?=\s*$))|\d+\.\s?\d{2}/g;
 // Quantity: first standalone 1–2 digit integer that's followed by a word.
 // Not anchored to line start — OCR often emits junk ("ae", "RE TEA", "“08")
 // before the real quantity. The word lookahead keeps junk digits (followed by

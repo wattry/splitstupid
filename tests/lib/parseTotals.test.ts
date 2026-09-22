@@ -73,3 +73,9 @@ describe('hand-typed whole-dollar totals', () => {
     expect(parseTotals('Sub Total: $363\nTip: $30')).toEqual({ subtotal: 363, tip: 30 });
   });
 });
+
+describe('OCR gap between the dot and the cents', () => {
+  it('reads "$30. 00" as 30', () => {
+    expect(parseTotals('Tip:                                   $30. 00')).toEqual({ tip: 30 });
+  });
+});

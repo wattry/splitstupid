@@ -182,3 +182,9 @@ describe('hand-typed whole-dollar prices', () => {
     expect(parseLineItems('2 Beer 52')).toEqual([]);
   });
 });
+
+describe('OCR gap between the dot and the cents', () => {
+  it('reads "$12. 50" as 12.5', () => {
+    expect(parseLineItems('Soup   $12. 50')).toEqual([{ units: 1, desc: 'Soup', lineTotal: 12.5 }]);
+  });
+});
