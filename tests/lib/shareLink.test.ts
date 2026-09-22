@@ -4,6 +4,7 @@ import type { SavedState } from '../../src/lib/shareLink.js';
 
 const state: SavedState = {
   billName: 'Thai night',
+  note: '',
   billSubtotal: '42.50',
   totalTax: '3.83',
   tipAmount: '8.00',
@@ -151,6 +152,7 @@ describe('encodeState / decodeState', () => {
     // Valid encoding of a JSON payload that is not a SavedState.
     const bogus = await encodeState({
       billName: '',
+      note: '',
       billSubtotal: '1',
       totalTax: '',
       tipAmount: '',
@@ -161,5 +163,20 @@ describe('encodeState / decodeState', () => {
       items: [],
     });
     expect(await decodeState(bogus)).toBeNull();
+  });
+});
+
+describe('note', () => {
+  it('round-trips a note', async () => {
+    const decoded = await decodeState(await encodeState({ ...state, note: 'Cash only, pay by Friday' }));
+    expect(decoded!.note).toBe('Cash only, pay by Friday');
+  });
+
+  it('decodes a missing note as blank and omits it from the link when blank', async () => {
+    const decoded = await decodeState(await encodeState({ ...state, note: '' }));
+    expect(decoded!.note).toBe('');
+    const withNote = await encodeState({ ...state, note: 'x'.repeat(40) });
+    const without = await encodeState({ ...state, note: '' });
+    expect(without.length).toBeLessThan(withNote.length);
   });
 });

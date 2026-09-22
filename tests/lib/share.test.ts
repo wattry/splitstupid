@@ -13,6 +13,16 @@ describe('billTitle', () => {
 });
 
 describe('buildShareText', () => {
+  it('appends the note after the totals, separated by a blank line', () => {
+    const text = buildShareText({ name: 'Dinner', taxPct: 9.01, tipPct: 18.82, note: 'Cash only', ...totals });
+    expect(text.endsWith('What U Owe: $54.33\n\nCash only')).toBe(true);
+  });
+
+  it('adds nothing for a blank note', () => {
+    const text = buildShareText({ name: 'Dinner', taxPct: 9.01, tipPct: 18.82, note: '  ', ...totals });
+    expect(text.endsWith('What U Owe: $54.33')).toBe(true);
+  });
+
   it('lists every total with the bill name on top', () => {
     expect(buildShareText({ name: 'Dinner', taxPct: 9.01, tipPct: 18.82, ...totals })).toBe(
       [

@@ -9,6 +9,8 @@ import type { Item } from '../types.js';
 
 export interface SavedState {
   billName: string;
+  /** Free-text note shown with the bill; travels with the link. */
+  note: string;
   billSubtotal: string;
   totalTax: string;
   tipAmount: string;
@@ -27,6 +29,8 @@ interface Payload {
   v: 1;
   /** Bill name; omitted when blank to keep the link short. */
   n?: string;
+  /** Note; omitted when blank. */
+  o?: string;
   s: string;
   x: string;
   t: string;
@@ -79,6 +83,7 @@ export async function encodeState(state: SavedState): Promise<string> {
   const payload: Payload = {
     v: 1,
     ...(state.billName ? { n: state.billName } : {}),
+    ...(state.note.trim() ? { o: state.note } : {}),
     s: state.billSubtotal,
     x: state.totalTax,
     t: state.tipAmount,
@@ -103,9 +108,10 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     );
     const data: unknown = JSON.parse(new TextDecoder().decode(await pump(inflated)));
     if (typeof data !== 'object' || data === null) return null;
-    const { v, n, s, x, t, p, e, z, m, i } = data as Record<string, unknown>;
+    const { v, n, o, s, x, t, p, e, z, m, i } = data as Record<string, unknown>;
     if (v !== 1) return null;
     if (n !== undefined && typeof n !== 'string') return null;
+    if (o !== undefined && typeof o !== 'string') return null;
     if (typeof s !== 'string' || typeof x !== 'string' || typeof t !== 'string') return null;
     if (typeof p !== 'boolean') return null;
     if (e !== undefined && typeof e !== 'boolean') return null;
@@ -114,6 +120,7 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     if (!Array.isArray(i) || i.length === 0 || !i.every(isPackedItem)) return null;
     return {
       billName: n ?? '',
+      note: o ?? '',
       billSubtotal: s,
       totalTax: x,
       tipAmount: t,

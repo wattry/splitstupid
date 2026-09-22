@@ -15,6 +15,8 @@ export interface ShareTextInput {
   total: number;
   /** True when the tax figure was built from itemised fees. */
   hasFees?: boolean;
+  /** Free-text note; appended after the totals when not blank. */
+  note?: string;
 }
 
 /** "Dinner, Split Stoopid", or just "Split Stoopid" when the bill has no name. */
@@ -29,6 +31,8 @@ export function buildShareText(t: ShareTextInput): string {
   lines.push(`After Tax: ${money(t.afterTax)}`);
   lines.push(`Tip (${t.tipPct.toFixed(2)}%): +${money(t.tipAmt)}`);
   lines.push(`What U Owe: ${money(t.total)}`);
+  const note = t.note?.trim();
+  if (note) lines.push('', note);
   return lines.join('\n');
 }
 
