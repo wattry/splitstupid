@@ -20,7 +20,7 @@ Single-page React 19 bill-splitting app (no router, no server-rendered code, no 
 
 ### Receipt scan flow
 
-Upload (multiple) or camera capture (`CameraCapture.tsx`, stays open for several shots) → up to 9 photos in a thumbnail grid in `ScanReceipt.tsx` → optional per-photo crop (`CropImage.tsx`, react-easy-crop, returns a pixel `Area`) → `src/lib/scanPhotos.ts` OCRs each photo in order and merges line items (`parseLineItems.ts`) and totals (`parseTotals.ts`, first photo wins per field) → replace item rows in `App`. OCR is `src/lib/ocr.ts`: in-browser tesseract.js. Dynamically imported so the wasm/lang assets stay out of the main bundle (fetched from CDN on first scan). Preprocesses (upscale, grayscale, contrast) and uses PSM 6 / 300 DPI.
+Upload (multiple) or camera capture (`CameraCapture.tsx`, stays open for several shots) → up to 9 photos in a thumbnail grid in `ScanReceipt.tsx` → optional per-photo crop (`CropImage.tsx`, react-easy-crop, returns a pixel `Area`) → `src/lib/scanPhotos.ts` OCRs each photo in order and merges line items (`parseLineItems.ts`) and totals (`parseTotals.ts`, first photo wins per field) → replace item rows in `App`. OCR is `src/lib/ocr.ts`: in-browser tesseract.js. Dynamically imported so the wasm/lang assets stay out of the main bundle (fetched from CDN on first scan). Preprocesses (upscale, grayscale, trim margins, contrast), then runs two tesseract passes (PSM 4 single column and PSM 6 single block) at 300 DPI and keeps the one with more priced lines (`ocrScore.ts`): PSM 4 can drop a right-hand price column, PSM 6 reads background texture as words.
 
 ### Calculation model
 

@@ -2,8 +2,10 @@
  * Parse OCR'd receipt text into structured line items.
  *
  * Each kept line becomes { units, desc, lineTotal } where:
- *   - units     = leading integer on the line (defaults to 1 if none)
- *   - desc      = text between the units and the first price token
+ *   - units     = leading integer on the line ("2 Roast Beef  52.00"), else a
+ *                 lone integer just before the price ("Cuvee Brut  4  117.60",
+ *                 the Item/Qty/Price layout), else 1
+ *   - desc      = the line minus the quantity and the price tokens
  *   - lineTotal = last price token on the line (the total for all units)
  *
  * Per-unit price (lineTotal / units) is derived later, by whoever builds the
@@ -19,7 +21,7 @@
 import type { ParsedLineItem } from '../types.js';
 
 const SKIP_LINE =
-  /total|subtotal|sub-total|\btax\b|change|\bcash\b|\bcard\b|credit|debit|balance|\btip\b|gratuity|\bdate\b|\btel\b|phone|visa|mastercard|amex|acct|account|\bauth\b|\bref\b|invoice|receipt|order\s*#|server|table/i;
+  /total|subtotal|sub-total|\btax\b|change|\bcash\b|\bcard\b|credit|debit|balance|\btip\b|gratuity|\bdate\b|\btel\b|phone|visa|mastercard|amex|acct|account|\bauth\b|\bref\b|invoice|receipt|order\s*#|server|table|original price|regular price|reg\.? price/i;
 
 const LONG_DIGITS = /\d{5,}/;
 const DATE_LIKE = /\d{1,2}[/-]\d{1,2}/;
@@ -34,9 +36,16 @@ const PRICE_G = /[$£]?\s?\d+\.\d{2}/g;
 // another number, not a name) from being mistaken for it, and taking the FIRST
 // match keeps numbers inside the item name ("Coke 12 oz") out of the quantity.
 const QTY_BEFORE_WORD = /(?:^|\s)(\d{1,2})\s+(?=[A-Za-z])/;
-// Any leading number (integer or decimal) followed by space — stripped from the
-// description so a quantity like "2" or "2.00" doesn't bleed into the item name.
-const LEADING_NUM = /^\s*\d+(?:\.\d+)?\s+/;
+// A 1–2 digit integer at the very start of the line is a quantity whatever
+// follows it (even OCR junk like "5£1"); a longer number there is a name.
+const QTY_AT_START = /^(\d{1,2})\s+/;
+// Quantity in the Item/Qty/Price layout: a lone 1–2 digit integer as the last
+// thing before the price. Matched against the text before the first price.
+const QTY_BEFORE_PRICE = /\s(\d{1,2})\s*$/;
+// A leading decimal like "2.00 " is a quantity written as a number, never part
+// of a name or the price. (A bare leading integer such as a wine's vintage
+// year is left in the name unless it was taken as the quantity.)
+const LEADING_DECIMAL = /^\s*\d+\.\d+\s+/;
 
 const toNumber = (token: string) => Number(token.replace(/[^\d.]/g, ''));
 
@@ -76,22 +85,23 @@ export function parseLineItems(text?: string | null): ParsedLineItem[] {
     if (!Number.isFinite(lineTotal) || lineTotal <= 0) continue;
 
     // Quantity is searched only before the first price so a price can never
-    // be read as a quantity.
-    const firstPriceIdx = line.search(PRICE);
-    const beforePrice = firstPriceIdx >= 0 ? line.slice(0, firstPriceIdx) : line;
-    const qtyMatch = QTY_BEFORE_WORD.exec(beforePrice);
-    const units = qtyMatch?.[1] ? parseInt(qtyMatch[1], 10) || 1 : 1;
+    // be read as a quantity. A leading quantity wins; otherwise look for one
+    // sitting just before the price (Item / Qty / Price columns).
+    // A leading decimal ("2.00 Margarita $13.00") is a quantity, not a price
+    // or a name: drop it before splitting the line around the price.
+    const body = line.replace(LEADING_DECIMAL, '');
+    const firstPriceIdx = body.search(PRICE);
+    const beforePrice = firstPriceIdx >= 0 ? body.slice(0, firstPriceIdx) : body;
+    const leading = QTY_AT_START.exec(beforePrice) ?? QTY_BEFORE_WORD.exec(beforePrice);
+    const trailing = leading ? null : QTY_BEFORE_PRICE.exec(beforePrice);
+    const qtyToken = leading?.[1] ?? trailing?.[1];
+    const units = qtyToken ? parseInt(qtyToken, 10) || 1 : 1;
 
-    // Description = text after the quantity (dropping any junk before it),
-    // before the first price. No quantity → keep the line minus any bare
-    // leading number.
-    const rest = qtyMatch
-      ? line.slice(qtyMatch.index + qtyMatch[0].length)
-      : line.replace(LEADING_NUM, '');
-    const priceIdx = rest.search(PRICE);
-    const desc = (priceIdx >= 0 ? rest.slice(0, priceIdx) : rest)
-      .replace(/[$£]/g, '')
-      .trim();
+    // Description = what's left before the price once the quantity is gone.
+    let rest = beforePrice;
+    if (leading) rest = rest.slice(leading.index + leading[0].length);
+    else if (trailing) rest = rest.slice(0, trailing.index);
+    const desc = rest.replace(/[$£]/g, '').trim();
 
     items.push({ units, desc, lineTotal });
   }
