@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeScans, scanPhotos } from '../../src/lib/scanPhotos.js'
+import { joinScanTexts, mergeScans, scanPhotos } from '../../src/lib/scanPhotos.js'
 
 describe('mergeScans', () => {
   it('returns nothing for no photos', () => {
@@ -47,3 +47,17 @@ describe('scanPhotos', () => {
     expect(progress).toEqual([[0, 0], [0, 0.5], [1, 0], [1, 0.5]])
   })
 })
+
+describe('joinScanTexts', () => {
+  it('returns a single photo\'s text untouched', () => {
+    expect(joinScanTexts(['2 Beer   52.00\nTotal 52.00'])).toBe('2 Beer   52.00\nTotal 52.00');
+  });
+
+  it('labels each photo when there are several, keeping their text verbatim', () => {
+    expect(joinScanTexts(['a  b', 'c'])).toBe('--- Photo 1 of 2 ---\na  b\n\n--- Photo 2 of 2 ---\nc');
+  });
+
+  it('is empty with no photos', () => {
+    expect(joinScanTexts([])).toBe('');
+  });
+});

@@ -87,3 +87,15 @@ export async function scanPhotos(
   }
   return texts;
 }
+
+/**
+ * The raw OCR text of every photo as one copyable document. Whitespace is
+ * kept verbatim so the receipt's columns still line up in a monospace view;
+ * several photos are separated by a labelled divider line.
+ */
+export function joinScanTexts(texts: string[]): string {
+  if (texts.length <= 1) return texts[0] ?? '';
+  return texts
+    .map((text, i) => `--- Photo ${i + 1} of ${texts.length} ---\n${text}`)
+    .join('\n\n');
+}

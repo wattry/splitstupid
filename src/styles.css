@@ -414,6 +414,77 @@ body {
 
 .scan-preview__close:hover { color: var(--accent); }
 
+/* Raw OCR text: collapsed block under the processed image, modal when tapped. */
+.scan-text {
+  margin: 12px 0 0;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(123, 47, 247, 0.2);
+}
+
+.scan-text__open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: zoom-in;
+}
+
+.scan-text__body {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 7.5em;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: 0.72rem/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.scan-text__body--full {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+.scan-text figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.scan-text__copy {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.scan-text__copy:hover { color: var(--accent); }
+
+.scan-text__card { max-width: 560px; }
+
+.scan-text__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 /* Thumbnails of the photos queued for one scan. Column count is set inline. */
 .photo-grid {
   display: grid;
