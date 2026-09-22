@@ -25,11 +25,13 @@ const SKIP_LINE =
 
 const LONG_DIGITS = /\d{5,}/;
 const DATE_LIKE = /\d{1,2}[/-]\d{1,2}/;
-// A price token: a decimal amount, with an optional leading currency sign
-// ($ or £, and optional space after it). "$13.00", "£13.00" and "13.00" all
-// match.
-const PRICE = /[$£]?\s?\d+\.\d{2}/;
-const PRICE_G = /[$£]?\s?\d+\.\d{2}/g;
+// A price token: an amount with a currency sign ($ or £, optional space after
+// it) and cents, or a bare decimal with cents; or, at the end of the line
+// only, a signed amount without cents so a hand-typed "$112" counts (mid-line
+// "£1 SHIFT" is OCR junk, not a price). A bare integer is never a price — it
+// would clash with quantities.
+const PRICE = /[$£]\s?\d+(?:\.\d{2}|(?=\s*$))|\d+\.\d{2}/;
+const PRICE_G = /[$£]\s?\d+(?:\.\d{2}|(?=\s*$))|\d+\.\d{2}/g;
 // Quantity: first standalone 1–2 digit integer that's followed by a word.
 // Not anchored to line start — OCR often emits junk ("ae", "RE TEA", "“08")
 // before the real quantity. The word lookahead keeps junk digits (followed by

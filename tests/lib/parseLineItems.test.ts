@@ -170,3 +170,15 @@ describe('leading quantity before a mangled token', () => {
     expect(items).toEqual([{ units: 1, desc: '51 SHIFT Charity Donation', lineTotal: 1 }]);
   });
 });
+
+describe('hand-typed whole-dollar prices', () => {
+  it('accepts a signed amount without cents', () => {
+    expect(parseLineItems('2025 Dundee Hills Estate   4  $112')).toEqual([
+      { units: 4, desc: '2025 Dundee Hills Estate', lineTotal: 112 },
+    ]);
+  });
+
+  it('still needs cents when there is no currency sign, so a quantity is never a price', () => {
+    expect(parseLineItems('2 Beer 52')).toEqual([]);
+  });
+});

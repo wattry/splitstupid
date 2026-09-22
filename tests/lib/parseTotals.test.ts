@@ -67,3 +67,9 @@ describe('parseTotals', () => {
     expect(parseTotals(text)).toEqual({ subtotal: 8.0 })
   })
 })
+
+describe('hand-typed whole-dollar totals', () => {
+  it('accepts a signed amount without cents', () => {
+    expect(parseTotals('Sub Total: $363\nTip: $30')).toEqual({ subtotal: 363, tip: 30 });
+  });
+});
