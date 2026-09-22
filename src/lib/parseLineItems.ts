@@ -25,11 +25,14 @@ const SKIP_LINE =
 
 const LONG_DIGITS = /\d{5,}/;
 const DATE_LIKE = /\d{1,2}[/-]\d{1,2}/;
-// A price token: a decimal amount, with an optional leading currency sign
-// ($ or £, and optional space after it). "$13.00", "£13.00" and "13.00" all
-// match.
-const PRICE = /[$£]?\s?\d+\.\d{2}/;
-const PRICE_G = /[$£]?\s?\d+\.\d{2}/g;
+// A price token: an amount with a currency sign ($ or £, optional space after
+// it) and cents, or a bare decimal with cents; or, at the end of the line
+// only, a signed amount without cents so a hand-typed "$112" counts (mid-line
+// "£1 SHIFT" is OCR junk, not a price). A bare integer is never a price — it
+// would clash with quantities. OCR sometimes gaps the cents ("$30. 00"),
+// so a space after the dot is tolerated; toNumber drops it.
+const PRICE = /[$£]\s?\d+(?:\.\s?\d{2}|(?=\s*$))|\d+\.\s?\d{2}/;
+const PRICE_G = /[$£]\s?\d+(?:\.\s?\d{2}|(?=\s*$))|\d+\.\s?\d{2}/g;
 // Quantity: first standalone 1–2 digit integer that's followed by a word.
 // Not anchored to line start — OCR often emits junk ("ae", "RE TEA", "“08")
 // before the real quantity. The word lookahead keeps junk digits (followed by
@@ -82,7 +85,7 @@ export function parseLineItems(text?: string | null): ParsedLineItem[] {
     const lastPrice = prices[prices.length - 1];
     if (!lastPrice) continue;
     const lineTotal = toNumber(lastPrice);
-    if (!Number.isFinite(lineTotal) || lineTotal <= 0) continue;
+    if (!Number.isFinite(lineTotal) || lineTotal < 0) continue;
 
     // Quantity is searched only before the first price so a price can never
     // be read as a quantity. A leading quantity wins; otherwise look for one
@@ -102,6 +105,10 @@ export function parseLineItems(text?: string | null): ParsedLineItem[] {
     if (leading) rest = rest.slice(leading.index + leading[0].length);
     else if (trailing) rest = rest.slice(0, trailing.index);
     const desc = rest.replace(/[$£]/g, '').trim();
+
+    // A comped item ("Popcorn - Club  $0.00") is still an item. A bare zero
+    // with no name is OCR noise.
+    if (lineTotal === 0 && !desc) continue;
 
     items.push({ units, desc, lineTotal });
   }

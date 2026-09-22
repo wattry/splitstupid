@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { joinScanTexts, mergeScans, scanPhotos } from '../../src/lib/scanPhotos.js'
+import { joinScanTexts, mergeScans, scanPhotos, splitScanTexts } from '../../src/lib/scanPhotos.js'
 
 describe('mergeScans', () => {
   it('returns nothing for no photos', () => {
@@ -59,5 +59,19 @@ describe('joinScanTexts', () => {
 
   it('is empty with no photos', () => {
     expect(joinScanTexts([])).toBe('');
+  });
+});
+
+describe('splitScanTexts', () => {
+  it('inverts joinScanTexts for several photos', () => {
+    expect(splitScanTexts(joinScanTexts(['a  b\nc', 'd']))).toEqual(['a  b\nc', 'd']);
+  });
+
+  it('treats text without dividers as one photo', () => {
+    expect(splitScanTexts('2 Beer 52.00\nTotal 52.00')).toEqual(['2 Beer 52.00\nTotal 52.00']);
+  });
+
+  it('drops empty sections left by deleted text', () => {
+    expect(splitScanTexts('--- Photo 1 of 2 ---\n\n\n--- Photo 2 of 2 ---\nd')).toEqual(['d']);
   });
 });

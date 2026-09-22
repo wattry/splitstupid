@@ -99,3 +99,17 @@ export function joinScanTexts(texts: string[]): string {
     .map((text, i) => `--- Photo ${i + 1} of ${texts.length} ---\n${text}`)
     .join('\n\n');
 }
+
+const PHOTO_DIVIDER = /^--- Photo \d+ of \d+ ---$/m;
+
+/**
+ * Inverse of joinScanTexts, for text the user has edited: split it back into
+ * per-photo texts on the divider lines so totals still merge photo by photo.
+ * Text without dividers is one photo; empty sections are dropped.
+ */
+export function splitScanTexts(text: string): string[] {
+  return text
+    .split(PHOTO_DIVIDER)
+    .map((part) => part.replace(/^\n+|\n+$/g, ''))
+    .filter((part) => part.trim().length > 0);
+}

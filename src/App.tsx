@@ -20,6 +20,10 @@ import { VenmoModal } from './components/inputs/VenmoModal.js';
 
 export default function App() {
   const [billName, setBillName] = useState<string>('');
+  // Free text shown with the bill and sent along with the share link/text.
+  const [note, setNote] = useState<string>('');
+  // Raw OCR text of the last scan; shared in the link so others can check it.
+  const [scanText, setScanText] = useState<string>('');
   const [billSubtotal, setBillSubtotal] = useState<string>('');
   const [totalTax, setTotalTax] = useState<string>('');
   // True when the tax total came from more than one itemised fee.
@@ -85,6 +89,8 @@ export default function App() {
     decodeState(encoded).then((data) => {
       if (!data) return;
       setBillName(data.billName);
+      setNote(data.note);
+      setScanText(data.scanText);
       setBillSubtotal(data.billSubtotal);
       setTotalTax(data.totalTax);
       setTipAmount(data.tipAmount);
@@ -102,7 +108,7 @@ export default function App() {
   // Link carrying the whole form (minus any photo); shared and put in the Venmo note.
   const buildShareUrl = async () => {
     const encoded = await encodeState({
-      billName, billSubtotal, totalTax, tipAmount, perUnit, splitEven, partySize, myParty, items,
+      billName, note, scanText, billSubtotal, totalTax, tipAmount, perUnit, splitEven, partySize, myParty, items,
     });
     return `${window.location.origin}${window.location.pathname}#s=${encoded}`;
   };
@@ -114,14 +120,14 @@ export default function App() {
     buildShareUrl().then((url) => { if (live) setShareUrl(url); }).catch(() => {});
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billName, billSubtotal, totalTax, tipAmount, perUnit, splitEven, partySize, myParty, items]);
+  }, [billName, note, scanText, billSubtotal, totalTax, tipAmount, perUnit, splitEven, partySize, myParty, items]);
 
   // Open the device share sheet with the link and a totals summary; browsers
   // without Web Share get the link copied to the clipboard instead. Uses the
   // precomputed URL so the share call stays inside the click's user activation.
   const shareLink = async () => {
     const url = shareUrl || (await buildShareUrl());
-    const text = buildShareText({ name: billName, taxPct, tipPct, hasFees, ...result });
+    const text = buildShareText({ name: billName, note, taxPct, tipPct, hasFees, ...result });
     const outcome = await shareBill({ text, url });
     if (outcome === 'shared' || outcome === 'copied') {
       setShared(outcome === 'shared' ? 'Shared' : 'Link Copied');
@@ -151,7 +157,7 @@ export default function App() {
 
   // Export every input to a JSON file the user can re-import later.
   const saveForm = () => {
-    const data = { version: 1, billSubtotal, totalTax, tipAmount, perUnit, items };
+    const data = { version: 1, billName, note, scanText, billSubtotal, totalTax, tipAmount, perUnit, items };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -170,6 +176,9 @@ export default function App() {
     reader.onload = () => {
       try {
         const data = JSON.parse(String(reader.result));
+        if (typeof data.billName === 'string') setBillName(data.billName);
+        if (typeof data.note === 'string') setNote(data.note);
+        if (typeof data.scanText === 'string') setScanText(data.scanText);
         if (typeof data.billSubtotal === 'string') setBillSubtotal(data.billSubtotal);
         if (typeof data.totalTax === 'string') setTotalTax(data.totalTax);
         if (typeof data.tipAmount === 'string') setTipAmount(data.tipAmount);
@@ -246,6 +255,8 @@ export default function App() {
           perUnit={perUnit}
           makeRow={makeRow}
           onScanned={applyScan}
+          scanText={scanText}
+          setScanText={setScanText}
           hasTotals={Boolean(billSubtotal || totalTax || tipAmount)}
         />
 
@@ -347,6 +358,18 @@ export default function App() {
           {subNum > 0 && <span className="hint hint--muted">
             {tipPct.toFixed(2)}%
           </span>}
+        </div>
+
+        <div className="field">
+          <label htmlFor="bill_note">Note</label>
+          <textarea
+            id="bill_note"
+            rows={2}
+            autoComplete="off"
+            placeholder="Anything the others should know"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
         </div>
 
         {!locked && <>

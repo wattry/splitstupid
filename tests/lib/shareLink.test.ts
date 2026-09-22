@@ -4,6 +4,8 @@ import type { SavedState } from '../../src/lib/shareLink.js';
 
 const state: SavedState = {
   billName: 'Thai night',
+  note: '',
+  scanText: '',
   billSubtotal: '42.50',
   totalTax: '3.83',
   tipAmount: '8.00',
@@ -151,6 +153,8 @@ describe('encodeState / decodeState', () => {
     // Valid encoding of a JSON payload that is not a SavedState.
     const bogus = await encodeState({
       billName: '',
+      note: '',
+      scanText: '',
       billSubtotal: '1',
       totalTax: '',
       tipAmount: '',
@@ -161,5 +165,36 @@ describe('encodeState / decodeState', () => {
       items: [],
     });
     expect(await decodeState(bogus)).toBeNull();
+  });
+});
+
+describe('note', () => {
+  it('round-trips a note', async () => {
+    const decoded = await decodeState(await encodeState({ ...state, note: 'Cash only, pay by Friday' }));
+    expect(decoded!.note).toBe('Cash only, pay by Friday');
+  });
+
+  it('decodes a missing note as blank and omits it from the link when blank', async () => {
+    const decoded = await decodeState(await encodeState({ ...state, note: '' }));
+    expect(decoded!.note).toBe('');
+    const withNote = await encodeState({ ...state, note: 'x'.repeat(40) });
+    const without = await encodeState({ ...state, note: '' });
+    expect(without.length).toBeLessThan(withNote.length);
+  });
+});
+
+describe('scanText', () => {
+  it('round-trips the OCR text with its whitespace intact', async () => {
+    const text = '2 Roast Beef         £52.00\n1 Diet Coke          £3.75';
+    const decoded = await decodeState(await encodeState({ ...state, scanText: text }));
+    expect(decoded!.scanText).toBe(text);
+  });
+
+  it('decodes a missing OCR text as blank and omits it from the link when blank', async () => {
+    const decoded = await decodeState(await encodeState({ ...state, scanText: '' }));
+    expect(decoded!.scanText).toBe('');
+    const withText = await encodeState({ ...state, scanText: 'x'.repeat(40) });
+    const without = await encodeState({ ...state, scanText: '' });
+    expect(without.length).toBeLessThan(withText.length);
   });
 });
