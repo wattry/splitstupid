@@ -85,7 +85,7 @@ export function parseLineItems(text?: string | null): ParsedLineItem[] {
     const lastPrice = prices[prices.length - 1];
     if (!lastPrice) continue;
     const lineTotal = toNumber(lastPrice);
-    if (!Number.isFinite(lineTotal) || lineTotal <= 0) continue;
+    if (!Number.isFinite(lineTotal) || lineTotal < 0) continue;
 
     // Quantity is searched only before the first price so a price can never
     // be read as a quantity. A leading quantity wins; otherwise look for one
@@ -105,6 +105,10 @@ export function parseLineItems(text?: string | null): ParsedLineItem[] {
     if (leading) rest = rest.slice(leading.index + leading[0].length);
     else if (trailing) rest = rest.slice(0, trailing.index);
     const desc = rest.replace(/[$£]/g, '').trim();
+
+    // A comped item ("Popcorn - Club  $0.00") is still an item. A bare zero
+    // with no name is OCR noise.
+    if (lineTotal === 0 && !desc) continue;
 
     items.push({ units, desc, lineTotal });
   }

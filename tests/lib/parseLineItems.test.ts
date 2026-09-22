@@ -188,3 +188,15 @@ describe('OCR gap between the dot and the cents', () => {
     expect(parseLineItems('Soup   $12. 50')).toEqual([{ units: 1, desc: 'Soup', lineTotal: 12.5 }]);
   });
 });
+
+describe('free items', () => {
+  it('keeps a $0.00 line that names an item', () => {
+    expect(parseLineItems('Popcorn - Club      $0.00')).toEqual([
+      { units: 1, desc: 'Popcorn - Club', lineTotal: 0 },
+    ]);
+  });
+
+  it('drops a bare 0.00 with nothing else on the line', () => {
+    expect(parseLineItems('0.00')).toEqual([]);
+  });
+});
