@@ -136,3 +136,37 @@ describe('pound-priced receipts', () => {
     expect(items).toEqual([{ units: 1, desc: 'Diet Coke', lineTotal: 3.75 }]);
   });
 });
+
+describe('description-first layouts (Item  Qty  Price)', () => {
+  it('takes a quantity that sits between the description and the price', () => {
+    const items = parseLineItems('Bluebird Cuvee Brut           4    $117.60');
+    expect(items).toEqual([{ units: 4, desc: 'Bluebird Cuvee Brut', lineTotal: 117.6 }]);
+  });
+
+  it('keeps a leading year in the item name when the quantity comes later', () => {
+    const items = parseLineItems('2025 Dundee Hills Estate      5    $112.00');
+    expect(items).toEqual([{ units: 5, desc: '2025 Dundee Hills Estate', lineTotal: 112 }]);
+  });
+
+  it('defaults to one unit when there is no quantity anywhere', () => {
+    const items = parseLineItems('Castelvetrano Olives        $11.00');
+    expect(items).toEqual([{ units: 1, desc: 'Castelvetrano Olives', lineTotal: 11 }]);
+  });
+
+  it('prefers a leading quantity over a number inside the name', () => {
+    const items = parseLineItems('2 Coke 12 oz 5.00');
+    expect(items).toEqual([{ units: 2, desc: 'Coke 12 oz', lineTotal: 5 }]);
+  });
+
+  it('skips "Original price" lines, which are not items', () => {
+    const items = parseLineItems('Sauvignon Blanc\nOriginal price: $175.00');
+    expect(items).toEqual([]);
+  });
+});
+
+describe('leading quantity before a mangled token', () => {
+  it('still takes a line-start integer as the quantity when OCR junk follows it', () => {
+    const items = parseLineItems('1 5£1 SHIFT Charity Donation       £1.00');
+    expect(items).toEqual([{ units: 1, desc: '51 SHIFT Charity Donation', lineTotal: 1 }]);
+  });
+});

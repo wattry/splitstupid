@@ -20,6 +20,7 @@
 
 import { findBrightBounds } from './trimMargins.js';
 import { enhanceGray } from './enhance.js';
+import { pickBestText } from './ocrScore.js';
 
 // Upscale anything narrower than this (px) — tesseract wants ~300 DPI text.
 
@@ -66,13 +67,21 @@ export async function scanReceipt(image: File | Blob | string, opts: ScanReceipt
 
   try {
     await worker.setParameters({
-      tessedit_pageseg_mode: PSM.SINGLE_COLUMN, // '4' — one ragged column
       user_defined_dpi: '300',
       preserve_interword_spaces: '1',
       tessedit_char_whitelist: CHAR_WHITELIST,
     });
-    const { data } = await worker.recognize(prepared);
-    return data.text;
+    // Two segmentation passes, best one wins (see ocrScore.ts): SINGLE_COLUMN
+    // copes with background around the receipt but can drop a right-hand
+    // price column; SINGLE_BLOCK keeps every column but reads background
+    // texture as words.
+    const passes: string[] = [];
+    for (const mode of [PSM.SINGLE_COLUMN, PSM.SINGLE_BLOCK]) {
+      await worker.setParameters({ tessedit_pageseg_mode: mode });
+      const { data } = await worker.recognize(prepared);
+      passes.push(data.text);
+    }
+    return pickBestText(passes);
   } finally {
     await worker.terminate();
   }
