@@ -3,19 +3,34 @@ import React, { useState } from 'react';
 interface Props {
   /** Raw OCR text, whitespace intact so columns line up in monospace. */
   text: string;
+  /**
+   * Parse the (possibly edited) text into the bill. Returns the number of
+   * line items imported: 0 means none were found and the editor stays open
+   * with a hint.
+   */
+  onImport: (text: string) => number;
   onHide: () => void;
 }
 
-// The receipt as OCR read it. Read-only but selectable, in monospace with
-// whitespace preserved so the printed columns still roughly line up. Shown
-// collapsed under the processed image; tap to open the full text in a modal.
-export function ScanText({ text, onHide }: Props) {
+// The receipt as OCR read it. Under the processed image it's a read-only,
+// selectable monospace block with whitespace preserved so the printed columns
+// still roughly line up. Tapping it opens an editor: fix what OCR got wrong,
+// then Import re-parses the text into line items.
+export function ScanText({ text, onImport, onHide }: Props) {
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(text);
   const [copied, setCopied] = useState(false);
+  const [nothingFound, setNothingFound] = useState(false);
 
-  const copy = async () => {
+  const openEditor = () => {
+    setDraft(text);
+    setNothingFound(false);
+    setOpen(true);
+  };
+
+  const copy = async (value: string) => {
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(value);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -23,11 +38,14 @@ export function ScanText({ text, onHide }: Props) {
     }
   };
 
-  const copyButton = (
-    <button type="button" className="scan-text__copy" onClick={copy}>
-      {copied ? 'Copied' : 'Copy'}
-    </button>
-  );
+  const importDraft = () => {
+    const count = onImport(draft);
+    if (count === 0) {
+      setNothingFound(true);
+      return;
+    }
+    setOpen(false);
+  };
 
   return (
     <>
@@ -35,14 +53,16 @@ export function ScanText({ text, onHide }: Props) {
         <button
           type="button"
           className="scan-text__open"
-          onClick={() => setOpen(true)}
-          aria-label="Expand OCR text"
+          onClick={openEditor}
+          aria-label="Edit OCR text"
         >
           <pre className="scan-text__body">{text}</pre>
         </button>
         <figcaption>
-          OCR text — tap to enlarge
-          {copyButton}
+          OCR text — tap to edit
+          <button type="button" className="scan-text__copy" onClick={() => copy(text)}>
+            {copied ? 'Copied' : 'Copy'}
+          </button>
           <button
             type="button"
             className="scan-preview__close"
@@ -58,13 +78,32 @@ export function ScanText({ text, onHide }: Props) {
         <div
           className="calc"
           role="dialog"
-          aria-label="OCR text"
+          aria-label="Edit OCR text"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
           }}
         >
           <div className="calc__card scan-text__card">
-            <pre className="scan-text__body scan-text__body--full">{text}</pre>
+            <textarea
+              className="scan-text__body scan-text__editor"
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setNothingFound(false);
+              }}
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              aria-label="OCR text"
+            />
+            <div className="scan-text__meta">
+              {nothingFound
+                ? <span className="hint" role="alert">No line items found. A line needs a price like 12.50.</span>
+                : <span className="hint hint--muted">Fix anything OCR misread, then import the lines.</span>}
+              <button type="button" className="scan-text__copy" onClick={() => copy(draft)}>
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
             <div className="scan-text__actions">
               <button
                 type="button"
@@ -73,8 +112,8 @@ export function ScanText({ text, onHide }: Props) {
               >
                 Close
               </button>
-              <button type="button" className="scan-btn" onClick={copy}>
-                {copied ? 'Copied' : 'Copy'}
+              <button type="button" className="scan-btn" onClick={importDraft}>
+                Import
               </button>
             </div>
           </div>

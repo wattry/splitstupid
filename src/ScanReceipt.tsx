@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, ReactElement } from 'react';
 import type { Area } from 'react-easy-crop';
 import { usePostHog } from '@posthog/react';
-import { scanPhotos, mergeScans, joinScanTexts } from './lib/scanPhotos.js';
+import { scanPhotos, mergeScans, joinScanTexts, splitScanTexts } from './lib/scanPhotos.js';
 import { scanWarnings } from './lib/scanWarnings.js';
 import { exportFileName } from './lib/exportName.js';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
@@ -145,36 +145,65 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     closeCrop()
   }
 
+  // Parse OCR text (fresh from a scan, or edited by the user) into the bill.
+  // Returns how many line items were imported; 0 leaves the bill untouched.
+  const importTexts = (
+    texts: string[],
+    source: 'scan' | 'edit',
+    stats: { photo_count: number; cropped_count: number; started: number }
+  ): number => {
+    const { totals, items: parsed } = mergeScans(texts)
+    const found = {
+      items: parsed.length,
+      totals: Object.keys(totals).filter((k) => totals[k as keyof ParsedTotals] !== undefined),
+    }
+    // Usage metric: is multi-photo scanning used, does it work, and do people
+    // fix the text by hand?
+    posthog?.capture('receipt_scanned', {
+      ...stats,
+      source,
+      outcome: parsed.length === 0 ? 'no_items' : 'ok',
+      items_found: found.items,
+      totals_found: found.totals,
+      duration_ms: Math.round(performance.now() - stats.started),
+    })
+    if (parsed.length === 0) return 0
+
+    onScanned(
+      totals,
+      parsed.map(({ units, desc, lineTotal }) =>
+        makeRow({
+          units: String(units),
+          desc,
+          // Price column follows the toggle: per-unit, or total for all units.
+          price: String(perUnit ? round2(lineTotal / units) : lineTotal),
+        })
+      ),
+      scanWarnings(totals, parsed)
+    )
+    return parsed.length
+  }
+
+  const confirmReplace = () =>
+    !(hasContent || hasTotals) ||
+    window.confirm('Replace your current bill with the scanned one?')
+
+  const photoStats = () => ({
+    photo_count: photos.length,
+    cropped_count: photos.filter((p) => p.crop).length,
+    started: performance.now(),
+  })
+
   // OCR every photo in order and replace the bill with the merged result.
   const scanAll = async () => {
     if (photos.length === 0) return
-    if (
-      (hasContent || hasTotals) &&
-      !window.confirm('Replace your current bill with the scanned one?')
-    ) {
-      return
-    }
+    if (!confirmReplace()) return
 
     setStatus('scanning')
     setProgress({ index: 0, fraction: 0 })
     setPreview(null)
     setScanText(null)
-
-    // Usage metric: is multi-photo scanning used, and does it work?
-    const started = performance.now()
-    const track = (
-      outcome: 'ok' | 'no_items' | 'error',
-      found: { items: number; totals: string[] } = { items: 0, totals: [] }
-    ) => {
-      posthog?.capture('receipt_scanned', {
-        photo_count: photos.length,
-        cropped_count: photos.filter((p) => p.crop).length,
-        outcome,
-        items_found: found.items,
-        totals_found: found.totals,
-        duration_ms: Math.round(performance.now() - started),
-      })
-    }
+    const stats = photoStats()
 
     try {
       const texts = await scanPhotos(
@@ -185,40 +214,26 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         }
       )
       // Kept before parsing: when nothing parses, the raw text is what the
-      // user needs to see.
+      // user needs to see (and fix).
       setScanText(joinScanTexts(texts))
-      const { totals, items: parsed } = mergeScans(texts)
-
-      const found = {
-        items: parsed.length,
-        totals: Object.keys(totals).filter((k) => totals[k as keyof ParsedTotals] !== undefined),
-      }
-
-      if (parsed.length === 0) {
-        track('no_items', found)
-        setStatus('error')
-        return
-      }
-
-      onScanned(
-        totals,
-        parsed.map(({ units, desc, lineTotal }) =>
-          makeRow({
-            units: String(units),
-            desc,
-            // Price column follows the toggle: per-unit, or total for all units.
-            price: String(perUnit ? round2(lineTotal / units) : lineTotal),
-          })
-        ),
-        scanWarnings(totals, parsed)
-      )
-      track('ok', found)
-      setStatus('idle')
+      setStatus(importTexts(texts, 'scan', stats) === 0 ? 'error' : 'idle')
     } catch (err) {
       console.error('Receipt scan failed:', err)
-      track('error')
+      posthog?.capture('receipt_scanned', { ...stats, source: 'scan', outcome: 'error', duration_ms: Math.round(performance.now() - stats.started) })
       setStatus('error')
     }
+  }
+
+  // Re-import the OCR text after the user edited it. No "replace?" confirm:
+  // the rows came from this same text moments ago, and re-importing is the
+  // whole point of editing.
+  const importEdited = (text: string): number => {
+    const count = importTexts(splitScanTexts(text), 'edit', photoStats())
+    if (count > 0) {
+      setScanText(text)
+      setStatus('idle')
+    }
+    return count
   }
 
   const onFiles = (e: ChangeEvent<HTMLInputElement>) => {
@@ -348,7 +363,9 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         </figure>
       )}
 
-      {scanText && <ScanText text={scanText} onHide={() => setScanText(null)} />}
+      {scanText && (
+        <ScanText text={scanText} onImport={importEdited} onHide={() => setScanText(null)} />
+      )}
 
       {expanded && preview && (
         <div
