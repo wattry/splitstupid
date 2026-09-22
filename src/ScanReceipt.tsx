@@ -35,6 +35,9 @@ interface ScanReceiptProps {
    * parent replaces the whole bill and shows the warnings.
    */
   onScanned: (totals: ParsedTotals, rows: Item[], warnings: string[]) => void;
+  /** Raw OCR text of the last scan (or from a shared link); '' when none. Owned by App so it travels with the link. */
+  scanText: string;
+  setScanText: (text: string) => void;
   /** True when the subtotal/tax/tip fields already hold user-entered values. */
   hasTotals: boolean;
 };
@@ -55,6 +58,8 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     perUnit,
     makeRow,
     onScanned,
+    scanText,
+    setScanText,
     hasTotals
   } = props;
 
@@ -69,7 +74,6 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
   const [zoom, setZoom] = useState(1)
   const [preview, setPreview] = useState<string | null>(null) // last preprocessed image data URL
   const [expanded, setExpanded] = useState(false) // preview lightbox open
-  const [scanText, setScanText] = useState<string | null>(null) // raw OCR text of the last scan
   const [capHint, setCapHint] = useState(false) // "only 9 photos" notice
   const uploadRef = useRef<HTMLInputElement>(null)
 
@@ -202,7 +206,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     setStatus('scanning')
     setProgress({ index: 0, fraction: 0 })
     setPreview(null)
-    setScanText(null)
+    setScanText('')
     const stats = photoStats()
 
     try {
@@ -364,7 +368,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
       )}
 
       {scanText && (
-        <ScanText text={scanText} onImport={importEdited} onHide={() => setScanText(null)} />
+        <ScanText text={scanText} onImport={importEdited} onHide={() => setScanText('')} />
       )}
 
       {expanded && preview && (

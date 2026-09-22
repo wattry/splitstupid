@@ -11,6 +11,8 @@ export interface SavedState {
   billName: string;
   /** Free-text note shown with the bill; travels with the link. */
   note: string;
+  /** Raw OCR text of the last scan, so recipients can check or re-import it. */
+  scanText: string;
   billSubtotal: string;
   totalTax: string;
   tipAmount: string;
@@ -31,6 +33,8 @@ interface Payload {
   n?: string;
   /** Note; omitted when blank. */
   o?: string;
+  /** OCR text; omitted when blank. */
+  r?: string;
   s: string;
   x: string;
   t: string;
@@ -84,6 +88,7 @@ export async function encodeState(state: SavedState): Promise<string> {
     v: 1,
     ...(state.billName ? { n: state.billName } : {}),
     ...(state.note.trim() ? { o: state.note } : {}),
+    ...(state.scanText.trim() ? { r: state.scanText } : {}),
     s: state.billSubtotal,
     x: state.totalTax,
     t: state.tipAmount,
@@ -108,10 +113,11 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     );
     const data: unknown = JSON.parse(new TextDecoder().decode(await pump(inflated)));
     if (typeof data !== 'object' || data === null) return null;
-    const { v, n, o, s, x, t, p, e, z, m, i } = data as Record<string, unknown>;
+    const { v, n, o, r, s, x, t, p, e, z, m, i } = data as Record<string, unknown>;
     if (v !== 1) return null;
     if (n !== undefined && typeof n !== 'string') return null;
     if (o !== undefined && typeof o !== 'string') return null;
+    if (r !== undefined && typeof r !== 'string') return null;
     if (typeof s !== 'string' || typeof x !== 'string' || typeof t !== 'string') return null;
     if (typeof p !== 'boolean') return null;
     if (e !== undefined && typeof e !== 'boolean') return null;
@@ -121,6 +127,7 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     return {
       billName: n ?? '',
       note: o ?? '',
+      scanText: r ?? '',
       billSubtotal: s,
       totalTax: x,
       tipAmount: t,
