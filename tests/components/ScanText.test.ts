@@ -6,12 +6,12 @@ import { ScanText } from '../../src/components/ScanText.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-function mount(onImport: (t: string) => number) {
+function mount(onImport: (t: string) => number, onSave: (t: string) => void = () => {}) {
   const host = document.createElement('div');
   document.body.appendChild(host);
   const root = createRoot(host);
   act(() => {
-    root.render(React.createElement(ScanText, { text: '1 Beer 5.00', onImport, onHide: () => {} }));
+    root.render(React.createElement(ScanText, { text: '1 Beer 5.00', onImport, onSave, onHide: () => {} }));
   });
   return host;
 }
@@ -31,6 +31,23 @@ describe('ScanText editor', () => {
     });
     click([...host.querySelectorAll('button')].find((b) => b.textContent === 'Import')!);
     expect(onImport).toHaveBeenCalledWith('2 Beer 10.00');
+    expect(host.querySelector('textarea')).toBeNull();
+  });
+
+  it('saves the edited draft without importing and closes', () => {
+    const onImport = vi.fn(() => 2);
+    const onSave = vi.fn();
+    const host = mount(onImport, onSave);
+    click(host.querySelector('.scan-text__open')!);
+    const ta = host.querySelector('textarea')!;
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+      setter.call(ta, 'edited');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    click([...host.querySelectorAll('button')].find((b) => b.textContent === 'Save')!);
+    expect(onSave).toHaveBeenCalledWith('edited');
+    expect(onImport).not.toHaveBeenCalled();
     expect(host.querySelector('textarea')).toBeNull();
   });
 
