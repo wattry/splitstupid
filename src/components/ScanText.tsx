@@ -9,6 +9,8 @@ interface Props {
    * with a hint.
    */
   onImport: (text: string) => number;
+  /** Keep the edited text (it goes into the share link and save file) without touching the rows. */
+  onSave: (text: string) => void;
   onHide: () => void;
 }
 
@@ -16,7 +18,7 @@ interface Props {
 // selectable monospace block with whitespace preserved so the printed columns
 // still roughly line up. Tapping it opens an editor: fix what OCR got wrong,
 // then Import re-parses the text into line items.
-export function ScanText({ text, onImport, onHide }: Props) {
+export function ScanText({ text, onImport, onSave, onHide }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(text);
   const [copied, setCopied] = useState(false);
@@ -36,6 +38,11 @@ export function ScanText({ text, onImport, onHide }: Props) {
     } catch {
       // Clipboard unavailable (e.g. insecure context) — the text is still selectable.
     }
+  };
+
+  const saveDraft = () => {
+    onSave(draft);
+    setOpen(false);
   };
 
   const importDraft = () => {
@@ -99,7 +106,7 @@ export function ScanText({ text, onImport, onHide }: Props) {
             <div className="scan-text__meta">
               {nothingFound
                 ? <span className="hint" role="alert">No line items found. A line needs a price like 12.50.</span>
-                : <span className="hint hint--muted">Fix anything OCR misread, then import the lines.</span>}
+                : <span className="hint hint--muted">Fix anything OCR misread. Save keeps the text; Import rebuilds the lines.</span>}
               <button type="button" className="scan-text__copy" onClick={() => copy(draft)}>
                 {copied ? 'Copied' : 'Copy'}
               </button>
@@ -111,6 +118,9 @@ export function ScanText({ text, onImport, onHide }: Props) {
                 onClick={() => setOpen(false)}
               >
                 Close
+              </button>
+              <button type="button" className="scan-btn scan-btn--ghost" onClick={saveDraft}>
+                Save
               </button>
               <button type="button" className="scan-btn" onClick={importDraft}>
                 Import

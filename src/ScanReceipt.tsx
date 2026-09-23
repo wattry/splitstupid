@@ -368,7 +368,12 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
       )}
 
       {scanText && (
-        <ScanText text={scanText} onImport={importEdited} onHide={() => setScanText('')} />
+        <ScanText
+          text={scanText}
+          onImport={importEdited}
+          onSave={setScanText}
+          onHide={() => setScanText('')}
+        />
       )}
 
       {expanded && preview && (
