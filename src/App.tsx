@@ -190,7 +190,10 @@ export default function App() {
 
   // Export every input to a JSON file the user can re-import later.
   const saveForm = () => {
-    const data = { version: 1, billName, note, scanText, billSubtotal, totalTax, fees, tipAmount, perUnit, items };
+    const data = {
+      version: 1, billName, note, scanText, billSubtotal, totalTax, fees, tipAmount, perUnit, items,
+      participants,
+    };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -218,6 +221,14 @@ export default function App() {
         if (typeof data.tipAmount === 'string') setTipAmount(data.tipAmount);
         if (typeof data.perUnit === 'boolean') setPerUnit(data.perUnit);
         if (Array.isArray(data.items) && data.items.length > 0) setItems(data.items);
+        if (Array.isArray(data.participants)) {
+          const clean = data.participants.filter((p: unknown): p is Participant => {
+            if (typeof p !== 'object' || p === null) return false;
+            const rec = p as Record<string, unknown>;
+            return typeof rec['id'] === 'string' && typeof rec['name'] === 'string';
+          });
+          setParticipants(clean);
+        }
       } catch {
         // Not a valid save file — ignore.
       }
