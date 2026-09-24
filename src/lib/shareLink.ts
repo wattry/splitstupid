@@ -29,8 +29,8 @@ export interface SavedState {
   items: Item[];
 }
 
-/** [units, yours, desc, price] — an Item without its transient id. */
-type PackedItem = [string, string, string, string];
+/** [units, yours, desc, price, assignees?] — an Item without its transient id. */
+type PackedItem = [string, string, string, string] | [string, string, string, string, string[]];
 /** [label, amount] — a Fee without its transient id. */
 type PackedFee = [string, string];
 /** [id, name] — a Participant. Ids are kept: they are the identity. */
@@ -115,7 +115,9 @@ export async function encodeState(state: SavedState): Promise<string> {
     ...(state.participants.length
       ? { u: state.participants.map((p) => [p.id, p.name] as PackedParticipant) }
       : {}),
-    i: state.items.map((it) => [it.units, it.yours, it.desc, it.price]),
+    i: state.items.map((it) => it.assignees?.length
+      ? [it.units, it.yours, it.desc, it.price, it.assignees]
+      : [it.units, it.yours, it.desc, it.price]),
   };
   const json = new TextEncoder().encode(JSON.stringify(payload));
   const deflated = bytesToStream(json).pipeThrough(new CompressionStream('deflate-raw'));
@@ -136,7 +138,9 @@ function isPackedParticipant(value: unknown): value is PackedParticipant {
 }
 
 function isPackedItem(value: unknown): value is PackedItem {
-  return Array.isArray(value) && value.length === 4 && value.every((f) => typeof f === 'string');
+  if (!Array.isArray(value) || value.length < 4 || value.length > 5) return false;
+  if (!value.slice(0, 4).every((f) => typeof f === 'string')) return false;
+  return value.length === 4 || (Array.isArray(value[4]) && value[4].every((f: unknown) => typeof f === 'string'));
 }
 
 /** Decode a shared fragment back into form state, or null if it's garbage. */
@@ -160,6 +164,8 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     if (m !== undefined && typeof m !== 'string') return null;
     if (u !== undefined && (!Array.isArray(u) || !u.every(isPackedParticipant))) return null;
     if (!Array.isArray(i) || i.length === 0 || !i.every(isPackedItem)) return null;
+    const participants = dedupeParticipants((u ?? []).map(([id, name]) => ({ id, name })));
+    const onBill = new Set(participants.map((participant) => participant.id));
     return {
       billName: n ?? '',
       note: o ?? '',
@@ -173,14 +179,11 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
       splitEven: e ?? false,
       partySize: z ?? '4',
       myParty: m ?? '1',
-      participants: dedupeParticipants((u ?? []).map(([id, name]) => ({ id, name }))),
-      items: i.map(([units, yours, desc, price]) => ({
-        id: crypto.randomUUID(),
-        units,
-        yours,
-        desc,
-        price,
-      })),
+      participants,
+      items: i.map(([units, yours, desc, price, who]) => {
+        const kept = (who ?? []).filter((id) => onBill.has(id));
+        return { id: crypto.randomUUID(), units, yours, desc, price, ...(kept.length ? { assignees: kept } : {}) };
+      }),
     };
   } catch {
     return null;

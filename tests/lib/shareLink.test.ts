@@ -222,6 +222,33 @@ describe('encodeState / decodeState', () => {
     const decoded = await decodeState(legacy);
     expect(decoded!.participants).toEqual([{ id: 'id-sam', name: 'Sam' }]);
   });
+
+  it('round-trips item assignees and drops ids that are not on the bill', async () => {
+    const withAssign: SavedState = {
+      ...state,
+      participants: [{ id: 'id-sam', name: 'Sam' }],
+      items: [
+        { id: 'a', units: '1', yours: '1', desc: 'Soup', price: '5', assignees: ['id-sam', 'ghost'] },
+        { id: 'b', units: '1', yours: '1', desc: 'Tea', price: '2' },
+      ],
+    };
+    const decoded = await decodeState(await encodeState(withAssign));
+    expect(decoded!.items[0]!.assignees).toEqual(['id-sam']);
+    expect(decoded!.items[1]!.assignees).toBeUndefined();
+  });
+
+  it('omits the fifth tuple element when a row has no assignees', async () => {
+    const a = await encodeState(state);
+    const b = await encodeState({ ...state, items: state.items.map((it) => ({ ...it, assignees: [] })) });
+    expect(a).toBe(b);
+  });
+
+  it('decodes legacy 4-tuples and rejects a malformed fifth element', async () => {
+    const ok = await encodeLegacy({ v: 1, s: '10', x: '1', t: '2', p: false, i: [['1', '1', 'Soup', '10']] });
+    expect((await decodeState(ok))!.items[0]!.assignees).toBeUndefined();
+    const bad = await encodeLegacy({ v: 1, s: '10', x: '1', t: '2', p: false, i: [['1', '1', 'Soup', '10', 'x']] });
+    expect(await decodeState(bad)).toBeNull();
+  });
 });
 
 describe('fees', () => {

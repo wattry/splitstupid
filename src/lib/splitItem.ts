@@ -1,4 +1,5 @@
 import type { Item, MakeRow } from '../types.js';
+import { assigneesOf } from './assign.js';
 import { round2 } from './calculate.js';
 
 /** Unit count as an integer, or NaN when the field isn't a whole number. */
@@ -34,8 +35,15 @@ export function splitItem(row: Item, count: number, perUnit: boolean, makeRow: M
   const unit = perUnit ? price : round2(price / units);
   const remaining = units - count;
   const yours = parseFloat(row.yours) || 0;
+  const who = assigneesOf(row);
 
-  const singles = Array.from({ length: count }, () => makeRow({ units: '1', yours: '1', desc: row.desc, price: perUnit ? row.price : String(unit) }));
+  const singles = Array.from({ length: count }, () => makeRow({
+    units: '1',
+    yours: '1',
+    desc: row.desc,
+    price: perUnit ? row.price : String(unit),
+    ...(who.length ? { assignees: [...who] } : {}),
+  }));
 
   if (remaining === 0) {
     const last = singles[count - 1];
@@ -48,6 +56,7 @@ export function splitItem(row: Item, count: number, perUnit: boolean, makeRow: M
     units: String(remaining),
     yours: String(Math.min(yours, remaining)),
     price: perUnit ? row.price : String(round2(price - unit * count)),
+    ...(who.length ? { assignees: [...who] } : {}),
   };
 
   return [rest, ...singles];
