@@ -87,8 +87,11 @@ body {
 .hint { font-size: 0.8rem; color: var(--accent); }
 .hint--muted { color: var(--muted); }
 
-/* Floating 🧮 button that opens the taxes & fees calculator modal. */
+/* Floating calculator button that opens the quick-math modal. */
 .fab {
+  display: grid;
+  place-items: center;
+  color: var(--accent);
   position: fixed;
   right: 20px;
   bottom: 20px;
@@ -121,6 +124,9 @@ body {
   border: 1px solid rgba(123, 47, 247, 0.25);
   background: rgba(255, 255, 255, 0.85);
   font-size: 1.1rem;
+  color: var(--accent);
+  display: grid;
+  place-items: center;
   cursor: pointer;
 }
 .feecalc__toggle:hover { border-color: var(--accent); }
@@ -130,7 +136,8 @@ body {
   right: 0;
   top: calc(100% + 6px);
   z-index: 10;
-  width: 240px;
+  width: 300px;
+  max-width: calc(100vw - 32px);
   padding: 14px;
   border-radius: 14px;
   border: 1px solid rgba(123, 47, 247, 0.25);
@@ -165,11 +172,14 @@ body {
 .feecalc__row { display: flex; gap: 8px; align-items: center; }
 .feecalc__row input {
   flex: 1;
+  min-width: 0;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid rgba(123, 47, 247, 0.25);
   font-size: 0.95rem;
 }
+
+.feecalc__row input[type="number"] { flex: 0 0 88px; }
 
 .feecalc__remove {
   border: none;
@@ -201,7 +211,7 @@ body {
   padding-top: 8px;
 }
 
-.feecalc__apply {
+.feecalc__done {
   padding: 8px 14px;
   border: none;
   border-radius: 10px;

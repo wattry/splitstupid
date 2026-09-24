@@ -5,7 +5,8 @@
  * CompressionStream, and the bytes are base64url-encoded — safe to place
  * after `#s=` with no percent-escaping.
  */
-import type { Item } from '../types.js';
+import type { Fee, Item } from '../types.js';
+import { feeInputValue, makeFee } from './fees.js';
 
 export interface SavedState {
   billName: string;
@@ -14,7 +15,8 @@ export interface SavedState {
   /** Raw OCR text of the last scan, so recipients can check or re-import it. */
   scanText: string;
   billSubtotal: string;
-  totalTax: string;
+  /** Itemised taxes and fees. */
+  fees: Fee[];
   tipAmount: string;
   perUnit: boolean;
   /** Split Even: take an even share of the whole bill instead of line items. */
@@ -26,6 +28,8 @@ export interface SavedState {
 
 /** [units, yours, desc, price] — an Item without its transient id. */
 type PackedItem = [string, string, string, string];
+/** [label, amount] — a Fee without its transient id. */
+type PackedFee = [string, string];
 
 interface Payload {
   v: 1;
@@ -36,7 +40,13 @@ interface Payload {
   /** OCR text; omitted when blank. */
   r?: string;
   s: string;
+  /** Taxes & fees total; readers without `f` support still see the sum. */
   x: string;
+  /**
+   * Fee breakdown. Omitted when `x` already says everything: no fees, or
+   * one fee labelled "Tax" (what decoding `x` alone produces).
+   */
+  f?: PackedFee[];
   t: string;
   p: boolean;
   /** Split Even on/off, party size, my party; all omitted when off. */
@@ -90,7 +100,8 @@ export async function encodeState(state: SavedState): Promise<string> {
     ...(state.note.trim() ? { o: state.note } : {}),
     ...(state.scanText.trim() ? { r: state.scanText } : {}),
     s: state.billSubtotal,
-    x: state.totalTax,
+    x: feeInputValue(state.fees),
+    ...(isPlainTax(state.fees) ? {} : { f: state.fees.map((fee) => [fee.label, fee.amount]) }),
     t: state.tipAmount,
     p: state.perUnit,
     ...(state.splitEven ? { e: true, z: state.partySize, m: state.myParty } : {}),
@@ -99,6 +110,15 @@ export async function encodeState(state: SavedState): Promise<string> {
   const json = new TextEncoder().encode(JSON.stringify(payload));
   const deflated = bytesToStream(json).pipeThrough(new CompressionStream('deflate-raw'));
   return toBase64Url(await pump(deflated));
+}
+
+/** True when `x` alone reproduces the fee list: nothing, or a lone "Tax". */
+function isPlainTax(fees: Fee[]): boolean {
+  return fees.length === 0 || (fees.length === 1 && fees[0]!.label === 'Tax');
+}
+
+function isPackedFee(value: unknown): value is PackedFee {
+  return Array.isArray(value) && value.length === 2 && value.every((f) => typeof f === 'string');
 }
 
 function isPackedItem(value: unknown): value is PackedItem {
@@ -113,13 +133,14 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     );
     const data: unknown = JSON.parse(new TextDecoder().decode(await pump(inflated)));
     if (typeof data !== 'object' || data === null) return null;
-    const { v, n, o, r, s, x, t, p, e, z, m, i } = data as Record<string, unknown>;
+    const { v, n, o, r, s, x, f, t, p, e, z, m, i } = data as Record<string, unknown>;
     if (v !== 1) return null;
     if (n !== undefined && typeof n !== 'string') return null;
     if (o !== undefined && typeof o !== 'string') return null;
     if (r !== undefined && typeof r !== 'string') return null;
     if (typeof s !== 'string' || typeof x !== 'string' || typeof t !== 'string') return null;
     if (typeof p !== 'boolean') return null;
+    if (f !== undefined && (!Array.isArray(f) || !f.every(isPackedFee))) return null;
     if (e !== undefined && typeof e !== 'boolean') return null;
     if (z !== undefined && typeof z !== 'string') return null;
     if (m !== undefined && typeof m !== 'string') return null;
@@ -129,7 +150,9 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
       note: o ?? '',
       scanText: r ?? '',
       billSubtotal: s,
-      totalTax: x,
+      fees: f
+        ? f.map(([label, amount]) => makeFee({ label, amount }))
+        : x === '' ? [] : [makeFee({ label: 'Tax', amount: x })],
       tipAmount: t,
       perUnit: p,
       splitEven: e ?? false,

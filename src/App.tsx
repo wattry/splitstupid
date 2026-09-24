@@ -6,9 +6,11 @@ import {
 } from './lib/calculate.js';
 import ScanReceipt from './ScanReceipt.js';
 import ItemRows, { rowOwed } from './ItemRows.js';
-import type { Item, ItemFields, ParsedTotals } from './types.js';
+import type { Fee, Item, ItemFields, ParsedTotals } from './types.js';
 import { Calculator } from './components/inputs/Calculator.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
+import { usePostHog } from '@posthog/react';
+import { collapseFees, feeInputValue, feeTotal, isFeeList, isItemised } from './lib/fees.js';
 import { TipHelper } from './components/inputs/TipHelper.js';
 
 import { scannedBill } from './lib/formState.js';
@@ -19,15 +21,18 @@ import { reconcile } from './lib/reconcile.js';
 import { VenmoModal } from './components/inputs/VenmoModal.js';
 
 export default function App() {
+  const posthog = usePostHog();
   const [billName, setBillName] = useState<string>('');
   // Free text shown with the bill and sent along with the share link/text.
   const [note, setNote] = useState<string>('');
   // Raw OCR text of the last scan; shared in the link so others can check it.
   const [scanText, setScanText] = useState<string>('');
   const [billSubtotal, setBillSubtotal] = useState<string>('');
-  const [totalTax, setTotalTax] = useState<string>('');
-  // True when the tax total came from more than one itemised fee.
-  const [hasFees, setHasFees] = useState(false);
+  // Itemised taxes and fees. The "Total Taxes & Fees" input is a view over
+  // this list; typing into it collapses the list to a single "Tax" fee.
+  const [fees, setFees] = useState<Fee[]>([]);
+  const totalTax = feeInputValue(fees);
+  const hasFees = isItemised(fees);
   const taxLabel = hasFees ? 'Tax + Fees' : 'Tax';
   const [tipAmount, setTipAmount] = useState<string>('');
   const [items, setItems] = useState<Item[]>(() => [makeRow()]);
@@ -66,8 +71,7 @@ export default function App() {
     setLocked(true);
     setBillName(bill.billName);
     setBillSubtotal(bill.billSubtotal);
-    setTotalTax(bill.totalTax);
-    setHasFees(bill.hasFees);
+    setFees(bill.fees);
     setTipAmount(bill.tipAmount);
     setSplitEven(bill.splitEven);
     setPartySize(bill.partySize);
@@ -92,7 +96,7 @@ export default function App() {
       setNote(data.note);
       setScanText(data.scanText);
       setBillSubtotal(data.billSubtotal);
-      setTotalTax(data.totalTax);
+      setFees(data.fees);
       setTipAmount(data.tipAmount);
       setPerUnit(data.perUnit);
       setSplitEven(data.splitEven);
@@ -108,7 +112,7 @@ export default function App() {
   // Link carrying the whole form (minus any photo); shared and put in the Venmo note.
   const buildShareUrl = async () => {
     const encoded = await encodeState({
-      billName, note, scanText, billSubtotal, totalTax, tipAmount, perUnit, splitEven, partySize, myParty, items,
+      billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty, items,
     });
     return `${window.location.origin}${window.location.pathname}#s=${encoded}`;
   };
@@ -117,10 +121,10 @@ export default function App() {
   const [shareUrl, setShareUrl] = useState('');
   useEffect(() => {
     let live = true;
-    buildShareUrl().then((url) => { if (live) setShareUrl(url); }).catch(() => {});
+    buildShareUrl().then((url) => { if (live) setShareUrl(url); }).catch(() => { });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billName, note, scanText, billSubtotal, totalTax, tipAmount, perUnit, splitEven, partySize, myParty, items]);
+  }, [billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty, items]);
 
   // Open the device share sheet with the link and a totals summary; browsers
   // without Web Share get the link copied to the clipboard instead. Uses the
@@ -157,7 +161,7 @@ export default function App() {
 
   // Export every input to a JSON file the user can re-import later.
   const saveForm = () => {
-    const data = { version: 1, billName, note, scanText, billSubtotal, totalTax, tipAmount, perUnit, items };
+    const data = { version: 1, billName, note, scanText, billSubtotal, totalTax, fees, tipAmount, perUnit, items };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -180,7 +184,8 @@ export default function App() {
         if (typeof data.note === 'string') setNote(data.note);
         if (typeof data.scanText === 'string') setScanText(data.scanText);
         if (typeof data.billSubtotal === 'string') setBillSubtotal(data.billSubtotal);
-        if (typeof data.totalTax === 'string') setTotalTax(data.totalTax);
+        if (isFeeList(data.fees)) setFees(data.fees);
+        else if (typeof data.totalTax === 'string') setFees(collapseFees(data.totalTax));
         if (typeof data.tipAmount === 'string') setTipAmount(data.tipAmount);
         if (typeof data.perUnit === 'boolean') setPerUnit(data.perUnit);
         if (Array.isArray(data.items) && data.items.length > 0) setItems(data.items);
@@ -219,7 +224,7 @@ export default function App() {
   const result = calculate({
     items: prices,
     billSubtotal: parseFloat(billSubtotal),
-    totalTax: parseFloat(totalTax),
+    totalTax: feeTotal(fees),
     tipAmt: parseFloat(tipAmount),
     ...(splitEven
       ? { split: { partySize: parseFloat(partySize), myParty: parseFloat(myParty) } }
@@ -237,6 +242,16 @@ export default function App() {
           <p className="subtitle">Figure out what you actually owe</p>
         </header>
 
+        <ScanReceipt
+          items={items}
+          billName={billName}
+          perUnit={perUnit}
+          makeRow={makeRow}
+          onScanned={applyScan}
+          scanText={scanText}
+          setScanText={setScanText}
+          hasTotals={Boolean(billSubtotal || totalTax || tipAmount)}
+        />
         <div className="field">
           <label htmlFor="bill_name">Name</label>
           <input
@@ -248,17 +263,6 @@ export default function App() {
             onChange={(e) => setBillName(e.target.value)}
           />
         </div>
-
-        <ScanReceipt
-          items={items}
-          billName={billName}
-          perUnit={perUnit}
-          makeRow={makeRow}
-          onScanned={applyScan}
-          scanText={scanText}
-          setScanText={setScanText}
-          hasTotals={Boolean(billSubtotal || totalTax || tipAmount)}
-        />
 
         <div className="field toggle">
           <span className="field__label">Line Item Pricing</span>
@@ -324,16 +328,13 @@ export default function App() {
               placeholder="0.00"
               value={totalTax}
               onChange={(e) => {
-                setTotalTax(e.target.value);
-                setHasFees(false);
+                if (fees.length > 1) {
+                  posthog.capture('fee_total_typed_over_breakdown', { collapsed_from: fees.length });
+                }
+                setFees(collapseFees(e.target.value));
               }}
             />
-            <FeeCalculator
-              onApply={(total, count) => {
-                setTotalTax(total);
-                setHasFees(count > 1);
-              }}
-            />
+            <FeeCalculator fees={fees} onChange={setFees} />
           </div>
           {subNum > 0 && <span className="hint hint--muted">
             {taxPct.toFixed(2)}%
@@ -373,131 +374,131 @@ export default function App() {
         </div>
 
         {!locked && <>
-        <div className="field switch">
-          <label className="switch__row" htmlFor="split_even">
-            <span className="field__label">Split Even</span>
-            <input
-              id="split_even"
-              type="checkbox"
-              role="switch"
-              className="switch__input"
-              checked={splitEven}
-              onChange={(e) => toggleSplitEven(e.target.checked)}
-            />
-            <span className="switch__track" aria-hidden="true" />
-          </label>
-          <span className="field__label">Divide the line items evenly across the party</span>
-        </div>
-
-        {splitEven && (
-          <div className="field__inline">
-            <div className="field">
-              <label htmlFor="party_size">Party Size</label>
+          <div className="field switch">
+            <label className="switch__row" htmlFor="split_even">
+              <span className="field__label">Split Even</span>
               <input
-                id="party_size"
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                placeholder="4"
-                value={partySize}
-                onChange={(e) => setPartySize(e.target.value)}
+                id="split_even"
+                type="checkbox"
+                role="switch"
+                className="switch__input"
+                checked={splitEven}
+                onChange={(e) => toggleSplitEven(e.target.checked)}
+              />
+              <span className="switch__track" aria-hidden="true" />
+            </label>
+            <span className="field__label">Divide the line items evenly across the party</span>
+          </div>
+
+          {splitEven && (
+            <div className="field__inline">
+              <div className="field">
+                <label htmlFor="party_size">Party Size</label>
+                <input
+                  id="party_size"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  step="1"
+                  placeholder="4"
+                  value={partySize}
+                  onChange={(e) => setPartySize(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="my_party">My Party</label>
+                <input
+                  id="my_party"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  step="1"
+                  placeholder="2"
+                  value={myParty}
+                  onChange={(e) => setMyParty(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="result">
+            <dl className="breakdown">
+              <div className="row">
+                <dt>Sub Total</dt>
+                <dd>{money(result.subtotal)}</dd>
+              </div>
+              <hr />
+              <div className="row">
+                <dt>{taxLabel} ({taxPct.toFixed(2)}%)</dt>
+                <dd>+ {money(result.taxAmt)}</dd>
+              </div>
+              <hr />
+              <div className="row">
+                <dt>After Tax Total</dt>
+                <dd>{money(result.afterTax)}</dd>
+              </div>
+              <hr />
+              <div className="row">
+                <dt>Tip ({tipPct.toFixed(2)}%)</dt>
+                <dd>+ {money(result.tipAmt)}</dd>
+              </div>
+              <hr />
+            </dl>
+
+            <div className="total">
+              <span className="total__label">What U Owe</span>
+              <span key={result.total} className="total__value">
+                {money(result.total)}
+              </span>
+              <button
+                type="button"
+                className="copy-btn"
+                onClick={copyOwed}
+                aria-label="Copy amount owed"
+              >
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+
+            <div className="actions">
+              <button
+                // style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
+                type="button"
+                className="action-btn"
+                onClick={() => importRef.current?.click()}
+              >
+                Import
+              </button>
+              <button
+                // style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
+                type="button"
+                className="action-btn"
+                onClick={saveForm}>
+                Save
+              </button>
+              <button type="button" className="scan-btn" onClick={shareLink}>
+                {shared || 'Share'}
+              </button>
+              <input
+                // style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
+                ref={importRef}
+                type="file"
+                accept="application/json,.json"
+                onChange={importForm}
+                hidden
+              />
+              <VenmoModal
+                amount={result.total}
+                note={venmoNote}
               />
             </div>
-            <div className="field">
-              <label htmlFor="my_party">My Party</label>
-              <input
-                id="my_party"
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                placeholder="2"
-                value={myParty}
-                onChange={(e) => setMyParty(e.target.value)}
-              />
-            </div>
+
+            <footer className="footer">
+              <a className="footer__link" href="https://postnesia.app/">
+                © {new Date().getFullYear()} Ryan Wattrus
+              </a>
+            </footer>
           </div>
-        )}
-
-        <div className="result">
-          <dl className="breakdown">
-            <div className="row">
-              <dt>Sub Total</dt>
-              <dd>{money(result.subtotal)}</dd>
-            </div>
-            <hr />
-            <div className="row">
-              <dt>{taxLabel} ({taxPct.toFixed(2)}%)</dt>
-              <dd>+ {money(result.taxAmt)}</dd>
-            </div>
-            <hr />
-            <div className="row">
-              <dt>After Tax Total</dt>
-              <dd>{money(result.afterTax)}</dd>
-            </div>
-            <hr />
-            <div className="row">
-              <dt>Tip ({tipPct.toFixed(2)}%)</dt>
-              <dd>+ {money(result.tipAmt)}</dd>
-            </div>
-            <hr />
-          </dl>
-
-          <div className="total">
-            <span className="total__label">What U Owe</span>
-            <span key={result.total} className="total__value">
-              {money(result.total)}
-            </span>
-            <button
-              type="button"
-              className="copy-btn"
-              onClick={copyOwed}
-              aria-label="Copy amount owed"
-            >
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-
-          <div className="actions">
-            <button
-              // style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
-              type="button"
-              className="action-btn"
-              onClick={() => importRef.current?.click()}
-            >
-              Import
-            </button>
-            <button
-              // style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
-              type="button"
-              className="action-btn"
-              onClick={saveForm}>
-              Save
-            </button>
-            <button type="button" className="scan-btn" onClick={shareLink}>
-              {shared || 'Share'}
-            </button>
-            <input
-              // style={{ display: 'none' }} // hide this. With the share feature we don't need to expose these to users
-              ref={importRef}
-              type="file"
-              accept="application/json,.json"
-              onChange={importForm}
-              hidden
-            />
-            <VenmoModal
-              amount={result.total}
-              note={venmoNote}
-            />
-          </div>
-
-          <footer className="footer">
-            <a className="footer__link" href="https://postnesia.app/">
-              © {new Date().getFullYear()} Ryan Wattrus
-            </a>
-          </footer>
-        </div>
         </>}
       </section>
 

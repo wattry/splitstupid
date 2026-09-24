@@ -1,11 +1,12 @@
-import type { Item, MakeRow, ParsedTotals } from '../types.js';
+import type { Fee, Item, MakeRow, ParsedTotals } from '../types.js';
+import { makeFee } from './fees.js';
 
 /** Every bill-level form field that a receipt scan replaces wholesale. */
 export interface BillState {
   billName: string;
   billSubtotal: string;
-  totalTax: string;
-  hasFees: boolean;
+  /** Itemised taxes and fees; the total input is derived from these. */
+  fees: Fee[];
   tipAmount: string;
   splitEven: boolean;
   partySize: string;
@@ -13,11 +14,9 @@ export interface BillState {
   items: Item[];
 }
 
-const blankFields = (): Omit<BillState, 'items'> => ({
+const blankFields = (): Omit<BillState, 'items' | 'fees'> => ({
   billName: '',
   billSubtotal: '',
-  totalTax: '',
-  hasFees: false,
   tipAmount: '',
   splitEven: false,
   partySize: '4',
@@ -26,7 +25,7 @@ const blankFields = (): Omit<BillState, 'items'> => ({
 
 /** A blank bill: the state the app starts in. */
 export function initialBill(makeRow: MakeRow): BillState {
-  return { ...blankFields(), items: [makeRow()] };
+  return { ...blankFields(), fees: [], items: [makeRow()] };
 }
 
 const money = (n: number | undefined) => (n === undefined ? '' : String(n));
@@ -40,7 +39,7 @@ export function scannedBill(totals: ParsedTotals, items: Item[]): BillState {
   return {
     ...blankFields(),
     billSubtotal: money(totals.subtotal),
-    totalTax: money(totals.tax),
+    fees: totals.tax === undefined ? [] : [makeFee({ label: 'Tax', amount: money(totals.tax) })],
     tipAmount: money(totals.tip),
     items,
   };

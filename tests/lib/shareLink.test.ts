@@ -7,7 +7,7 @@ const state: SavedState = {
   note: '',
   scanText: '',
   billSubtotal: '42.50',
-  totalTax: '3.83',
+  fees: [{ id: 'f1', label: 'Tax', amount: '3.83' }],
   tipAmount: '8.00',
   perUnit: true,
   splitEven: false,
@@ -48,7 +48,7 @@ describe('encodeState / decodeState', () => {
     expect(decoded).not.toBeNull();
     expect(decoded!.billName).toBe('Thai night');
     expect(decoded!.billSubtotal).toBe('42.50');
-    expect(decoded!.totalTax).toBe('3.83');
+    expect(decoded!.fees.map(({ id: _id, ...rest }) => rest)).toEqual([{ label: 'Tax', amount: '3.83' }]);
     expect(decoded!.tipAmount).toBe('8.00');
     expect(decoded!.perUnit).toBe(true);
     expect(decoded!.items.map(({ id: _id, ...rest }) => rest)).toEqual(
@@ -156,7 +156,7 @@ describe('encodeState / decodeState', () => {
       note: '',
       scanText: '',
       billSubtotal: '1',
-      totalTax: '',
+      fees: [],
       tipAmount: '',
       perUnit: false,
       splitEven: false,
@@ -165,6 +165,57 @@ describe('encodeState / decodeState', () => {
       items: [],
     });
     expect(await decodeState(bogus)).toBeNull();
+  });
+});
+
+describe('fees', () => {
+  const fees = [
+    { id: 'a', label: 'Tax', amount: '1.50' },
+    { id: 'b', label: 'Service fee', amount: '2' },
+    { id: 'c', label: '', amount: '0.25' },
+  ];
+
+  it('round-trips several labelled fees with fresh ids', async () => {
+    const decoded = await decodeState(await encodeState({ ...state, fees }));
+    expect(decoded!.fees.map(({ id: _id, ...rest }) => rest)).toEqual(
+      fees.map(({ id: _id, ...rest }) => rest)
+    );
+    const ids = decoded!.fees.map((f) => f.id);
+    expect(ids).not.toContain('a');
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it('round-trips no fees', async () => {
+    const decoded = await decodeState(await encodeState({ ...state, fees: [] }));
+    expect(decoded!.fees).toEqual([]);
+  });
+
+  it('keeps a single plain Tax fee out of the breakdown to keep the link short', async () => {
+    const single = await encodeState(state);
+    const named = await encodeState({ ...state, fees: [{ id: 'a', label: 'VAT', amount: '3.83' }] });
+    expect(single.length).toBeLessThan(named.length);
+  });
+
+  it('decodes legacy links carrying only a tax total as a single Tax fee', async () => {
+    const legacy = await encodeLegacy({
+      v: 1, s: '10', x: '1.20', t: '2', p: false, i: [['1', '1', 'Soup', '10']],
+    });
+    const decoded = await decodeState(legacy);
+    expect(decoded!.fees.map(({ id: _id, ...rest }) => rest)).toEqual([{ label: 'Tax', amount: '1.20' }]);
+  });
+
+  it('decodes a legacy blank tax total as no fees', async () => {
+    const legacy = await encodeLegacy({
+      v: 1, s: '10', x: '', t: '2', p: false, i: [['1', '1', 'Soup', '10']],
+    });
+    expect((await decodeState(legacy))!.fees).toEqual([]);
+  });
+
+  it('returns null when the fee breakdown has the wrong shape', async () => {
+    const bad = await encodeLegacy({
+      v: 1, s: '10', x: '1', t: '2', p: false, i: [['1', '1', 'Soup', '10']], f: [['Tax', 1]],
+    });
+    expect(await decodeState(bad)).toBeNull();
   });
 });
 
