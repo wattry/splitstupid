@@ -1133,3 +1133,57 @@ a.action-btn {
   .title { font-size: 1.9rem; }
   .total__value { font-size: 1.7rem; }
 }
+
+/* Manage Friends overlay: search + add on top, checkbox list below. */
+.friends__card { max-width: 420px; max-height: 90vh; display: flex; flex-direction: column; }
+.friends__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.friends__head .calc__title { margin-bottom: 0; }
+.friends__close {
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(123, 47, 247, 0.1);
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.friends__search,
+.friends__add input,
+.friends__editor input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+  color: var(--ink);
+}
+.friends__search { margin-top: 12px; }
+.friends__add { display: flex; gap: 8px; margin-top: 10px; }
+.friends__add input { flex: 1; min-width: 0; }
+.friends__add .scan-btn { flex: 0 0 auto; padding: 10px 16px; }
+.friends__error { margin: 8px 0 0; color: #c2185b; font-size: 0.9rem; }
+.friends__empty { margin: 16px 0 0; color: var(--muted); text-align: center; }
+.friends__list { list-style: none; margin: 12px 0 0; padding: 0; overflow-y: auto; }
+.friends__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  border-bottom: 1px solid rgba(123, 47, 247, 0.12);
+}
+.friends__pick { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; }
+.friends__pick input { width: 20px; height: 20px; accent-color: var(--accent); }
+.friends__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friends__edit {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--accent);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.friends__edit:hover { border-color: rgba(123, 47, 247, 0.25); }
+.friends__editor input { margin: 12px 0 16px; font-size: 1.2rem; }
+.scan-btn--danger { background: #c2185b; border-color: #c2185b; }
