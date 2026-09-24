@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
 import type { Friend, Participant } from '../types.js';
 import { filterFriends, type FriendError, type FriendResult } from '../lib/friends.js';
@@ -38,14 +38,6 @@ export function FriendsManager(props: FriendsManagerProps): ReactElement {
   const { friends, participants, onToggle, onAdd, onRename, onDelete, onClose } = props;
   const [view, setView] = useState<View>({ kind: 'list' });
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   const editing = view.kind === 'edit' ? friends.find((f) => f.id === view.id) : undefined;
 
   return (
@@ -53,11 +45,15 @@ export function FriendsManager(props: FriendsManagerProps): ReactElement {
       className="calc friends"
       role="dialog"
       aria-label="Manage Friends"
+      aria-modal="true"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
     >
-      <div className="calc__card friends__card">
+      <div className="calc__card friends__card" tabIndex={-1} ref={(el) => el?.focus()}>
         {editing ? (
           <EditView
             key={editing.id}
@@ -124,6 +120,9 @@ function ListView({ friends, participants, onToggle, onAdd, onEdit, onClose }: L
         aria-label="Search friends"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && e.currentTarget.value !== '') e.stopPropagation();
+        }}
       />
       <form className="friends__add" onSubmit={add} noValidate>
         <input

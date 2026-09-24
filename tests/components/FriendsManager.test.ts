@@ -110,6 +110,35 @@ describe('FriendsManager list view', () => {
     click(button(host, 'Close'));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('closes on Escape when focus is inside the dialog', () => {
+    const { host, onClose } = mount();
+    act(() => {
+      host.querySelector('[role="dialog"]')!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+      );
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not close on Escape in the search input while it has a query', () => {
+    const { host, onClose } = mount();
+    const input = byLabel(host, 'Search friends');
+    type(input, 'kim');
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('closes on Escape in the search input when it is empty', () => {
+    const { host, onClose } = mount();
+    const input = byLabel(host, 'Search friends');
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
 });
 
 describe('FriendsManager edit view', () => {
