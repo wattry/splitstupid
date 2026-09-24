@@ -26,6 +26,8 @@ body {
 .card {
   width: 100%;
   max-width: 420px;
+  /* Grid item: without this, wide content (long OCR lines) forces the card past the viewport. */
+  min-width: 0;
   padding: 18px;
   border-radius: 24px;
   background: var(--glass);
@@ -464,6 +466,7 @@ body {
   padding: 8px 10px;
   max-height: 7.5em;
   overflow: hidden;
+  overflow-x: auto;
   border-radius: 10px;
   background: #fff;
   color: var(--ink);
