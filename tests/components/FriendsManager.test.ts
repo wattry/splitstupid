@@ -189,6 +189,21 @@ describe('FriendsManager edit view', () => {
     expect(onRename).not.toHaveBeenCalled();
     expect(byLabel(host, 'Search friends')).toBeTruthy();
   });
+
+  it('focuses the edit input, not the card, after opening it', () => {
+    const { host } = mount();
+    click(host.querySelector('.friends__row button[aria-label="Edit Alex Kim"]')!);
+    expect(document.activeElement).toBe(byLabel(host, 'Friend name'));
+  });
+
+  it('keeps focus on the add input after a successful add', () => {
+    const { host } = mount();
+    const input = byLabel(host, 'New friend name');
+    input.focus();
+    type(input, 'Jo');
+    submit(input);
+    expect(document.activeElement).toBe(byLabel(host, 'New friend name'));
+  });
 });
 
 describe('FriendsManager Me row', () => {

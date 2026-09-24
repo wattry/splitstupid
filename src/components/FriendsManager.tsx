@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
 import type { Friend, Me, Participant } from '../types.js';
 import { filterFriends, type FriendError, type FriendResult } from '../lib/friends.js';
@@ -41,6 +41,11 @@ type View = { kind: 'list' } | { kind: 'edit'; id: string } | { kind: 'editMe' }
 export function FriendsManager(props: FriendsManagerProps): ReactElement {
   const { friends, participants, me, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose } = props;
   const [view, setView] = useState<View>({ kind: 'list' });
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    cardRef.current?.focus();
+  }, []);
 
   const editing = view.kind === 'edit' ? friends.find((f) => f.id === view.id) : undefined;
 
@@ -57,7 +62,7 @@ export function FriendsManager(props: FriendsManagerProps): ReactElement {
         if (e.key === 'Escape') onClose();
       }}
     >
-      <div className="calc__card friends__card" tabIndex={-1} ref={(el) => el?.focus()}>
+      <div className="calc__card friends__card" tabIndex={-1} ref={cardRef}>
         {view.kind === 'editMe' ? (
           <EditView
             key="me"
