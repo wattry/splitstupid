@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { initialState, input, type CalcState } from '../../src/lib/calculator.js';
+import { initialState, input, keyToCalcKey, type CalcState } from '../../src/lib/calculator.js';
 
 const press = (keys: string[], from: CalcState = initialState) =>
   keys.reduce((state, key) => input(state, key), from);
@@ -80,5 +80,55 @@ describe('calculator', () => {
 
   it('starts fresh when a digit follows equals', () => {
     expect(press(['2', '+', '3', '=', '4']).display).toBe('4');
+  });
+});
+
+describe('keyToCalcKey', () => {
+  const map = (key: string, mods: Partial<KeyboardEvent> = {}) =>
+    keyToCalcKey({ key, ctrlKey: false, metaKey: false, altKey: false, ...mods } as KeyboardEvent);
+
+  it('passes digits and the decimal point through', () => {
+    expect(map('7')).toBe('7');
+    expect(map('.')).toBe('.');
+  });
+
+  it('passes operators through', () => {
+    expect(map('+')).toBe('+');
+    expect(map('-')).toBe('-');
+    expect(map('*')).toBe('*');
+    expect(map('/')).toBe('/');
+  });
+
+  it('treats x as multiply', () => {
+    expect(map('x')).toBe('*');
+    expect(map('X')).toBe('*');
+  });
+
+  it('evaluates on Enter or =', () => {
+    expect(map('Enter')).toBe('=');
+    expect(map('=')).toBe('=');
+  });
+
+  it('backspaces on Backspace', () => {
+    expect(map('Backspace')).toBe('⌫');
+  });
+
+  it('clears on Escape, Delete or c', () => {
+    expect(map('Escape')).toBe('C');
+    expect(map('Delete')).toBe('C');
+    expect(map('c')).toBe('C');
+    expect(map('C')).toBe('C');
+  });
+
+  it('ignores unrelated keys', () => {
+    expect(map('a')).toBeNull();
+    expect(map('Tab')).toBeNull();
+    expect(map('ArrowLeft')).toBeNull();
+  });
+
+  it('ignores modifier combinations', () => {
+    expect(map('c', { ctrlKey: true })).toBeNull();
+    expect(map('7', { metaKey: true })).toBeNull();
+    expect(map('=', { altKey: true })).toBeNull();
   });
 });

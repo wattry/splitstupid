@@ -55,3 +55,51 @@ describe('Calculator', () => {
     expect(capture).toHaveBeenCalledWith('calculator_closed', { keys_pressed: 1, evaluated: false, via: 'close' });
   });
 });
+
+const type = (key: string) =>
+  act(() => { window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })); });
+
+describe('Calculator keyboard', () => {
+  it('enters and evaluates from the keyboard while open', () => {
+    const { host, capture } = mount();
+    click(host.querySelector('.fab')!);
+    type('1');
+    type('2');
+    type('+');
+    type('3');
+    type('Enter');
+    expect(host.querySelector('.calculator__display')!.textContent).toBe('15');
+    click(host.querySelector('.calculator__close')!);
+    expect(capture).toHaveBeenCalledWith('calculator_closed', { keys_pressed: 5, evaluated: true, via: 'close' });
+  });
+
+  it('prevents the default action of handled keys', () => {
+    const { host } = mount();
+    click(host.querySelector('.fab')!);
+    const e = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true });
+    act(() => { window.dispatchEvent(e); });
+    expect(e.defaultPrevented).toBe(true);
+    const other = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true });
+    act(() => { window.dispatchEvent(other); });
+    expect(other.defaultPrevented).toBe(false);
+  });
+
+  it('closes on Escape once the display is already clear', () => {
+    const { host, capture } = mount();
+    click(host.querySelector('.fab')!);
+    type('4');
+    type('Escape');
+    expect(host.querySelector('.calc')).not.toBeNull();
+    expect(host.querySelector('.calculator__display')!.textContent).toBe('0');
+    type('Escape');
+    expect(host.querySelector('.calc')).toBeNull();
+    expect(capture).toHaveBeenCalledWith('calculator_closed', expect.objectContaining({ via: 'close' }));
+  });
+
+  it('ignores keys while closed', () => {
+    const { host } = mount();
+    type('5');
+    click(host.querySelector('.fab')!);
+    expect(host.querySelector('.calculator__display')!.textContent).toBe('0');
+  });
+});
