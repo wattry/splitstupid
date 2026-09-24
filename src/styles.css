@@ -669,7 +669,7 @@ body {
 .items__head,
 .items__grid {
   display: grid;
-  grid-template-columns: 40px 40px 1fr 80px 24px 20px;
+  grid-template-columns: 40px 40px 1fr 80px 20px 24px 24px;
   gap: 4px;
   align-items: center;
 }
@@ -695,7 +695,7 @@ body {
 
 .items__grid { position: relative; z-index: 1; background: transparent; }
 
-/* Split / Delete buttons uncovered as the row slides left on touch. */
+/* Delete / Assign / Split buttons uncovered as the row slides left on touch. */
 .items__tray {
   position: absolute;
   top: 0;
@@ -724,6 +724,7 @@ body {
 }
 .items__tray-btn--split { background: #2f6df6; }
 .items__tray-btn--delete { background: #e5484d; }
+.items__tray-btn--assign { background: #7b2ff7; }
 
 /* Owe label rides along with the sliding grid. */
 .items__row--open .items__owe { visibility: hidden; }
@@ -814,7 +815,7 @@ body {
 
 /* Yours column hidden until the bill reconciles after a scan */
 .items--locked .items__head,
-.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 24px 20px; }
+.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 20px 24px 24px; }
 
 /* Split Even slider switch */
 .switch__row {
@@ -911,6 +912,19 @@ body {
 }
 .items__split:hover:not(:disabled) { color: var(--accent); }
 .items__split:disabled { opacity: 0.3; cursor: default; }
+
+.items__assign {
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+}
+.items__assign:hover { color: var(--accent); }
 
 .items__actions {
   display: flex;
@@ -1122,6 +1136,7 @@ a.action-btn {
   .items--locked .items__head,
   .items--locked .items__grid { grid-template-columns: 40px 1fr 80px; }
   .items__split,
+  .items__assign,
   .items__remove,
   .items__head span[aria-hidden] { display: none; }
   .items__owe { padding-right: 4px; }

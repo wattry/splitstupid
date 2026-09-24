@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import type { Dispatch, SetStateAction, ReactElement, PointerEvent } from 'react';
 import { usePostHog } from '@posthog/react';
-import type { Item, MakeRow } from './types.js';
+import type { Item, MakeRow, Participant } from './types.js';
 import { useSwipeActions } from './hooks/useSwipeActions.js';
 import ReconcileRow from './components/ReconcileRow.js';
 import { SplitModal } from './components/SplitModal.js';
-import { SplitIcon } from './components/Icons.js';
+import { AssignModal } from './components/AssignModal.js';
+import { AssigneePills } from './components/AssigneePills.js';
+import { ByPerson } from './components/ByPerson.js';
+import { SplitIcon, AssignIcon } from './components/Icons.js';
 import type { Reconciliation } from './lib/reconcile.js';
 import { ACTION_WIDTH } from './lib/swipe.js';
 import { canSplit, maxSplit, splitItem } from './lib/splitItem.js';
+import { assigneesOf, shortLabels, toggleAssignee } from './lib/assign.js';
 
 export type { Item } from './types.js';
 
@@ -21,6 +25,8 @@ interface ItemRowsProps {
   /** After a scan, hide the Yours column until the rows match the Sub Total. */
   locked: boolean;
   onContinue: () => void;
+  participants: Participant[];
+  onManageParticipants: () => void;
 };
 
 const money = (n: number) => `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`
@@ -64,11 +70,18 @@ export default function ItemRows(
     makeRow,
     reconciliation,
     locked,
-    onContinue
+    onContinue,
+    participants,
+    onManageParticipants
   } = props;
   const posthog = usePostHog();
   // Row being split via the Split dialog, if any.
   const [splitting, setSplitting] = useState<Item | null>(null);
+  // Row being assigned via the Assign dialog, if any.
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+  // Live row so the dialog's checkboxes update immediately as they're ticked.
+  const assigning = items.find((it) => it.id === assigningId) ?? null;
+  const labels = shortLabels(participants);
   // Row whose swipe tray is open (touch); at most one at a time.
   const [openId, setOpenId] = useState<string | null>(null);
   const update = (id: string, field: string, value: unknown) =>
@@ -100,6 +113,8 @@ export default function ItemRows(
     posthog.capture('item_split', { count, units: maxSplit(target), per_unit: perUnit })
   }
 
+  const toggle = (id: string) => setItems((prev) => prev.map((it) => (it.id === assigningId ? toggleAssignee(it, id) : it)));
+
   // Rows with real content; the blank starter row doesn't count.
   const filled = items.filter((it) => it.desc.trim() || (parseFloat(it.price) || 0) > 0).length
 
@@ -118,6 +133,7 @@ export default function ItemRows(
           <span>{perUnit ? 'Each' : 'Total'}</span>
           <span aria-hidden="true" />
           <span aria-hidden="true" />
+          <span aria-hidden="true" />
         </div>
 
         {items.map((it) => (
@@ -131,9 +147,24 @@ export default function ItemRows(
             onSplit={setSplitting}
             open={openId === it.id}
             setOpen={(open) => setOpenId(open ? it.id : null)}
+            participants={participants}
+            labels={labels}
+            onAssign={(item) => setAssigningId(item.id)}
           />
         ))}
       </div>
+
+      {assigning && (
+        <AssignModal
+          desc={assigning.desc}
+          participants={participants}
+          assigned={assigneesOf(assigning)}
+          onToggle={toggle}
+          onManage={onManageParticipants}
+          onClose={() => setAssigningId(null)}
+        />
+      )}
+      <ByPerson items={items} participants={participants} />
 
       {splitting && (
         <SplitModal
@@ -175,16 +206,20 @@ interface ItemRowProps {
   /** Whether this row's swipe tray is showing. */
   open: boolean;
   setOpen: (open: boolean) => void;
+  participants: Participant[];
+  labels: Map<string, string>;
+  /** Open the Assign dialog for this row. */
+  onAssign: (item: Item) => void;
 }
 
 /**
  * One editable line item. On touch devices the row swipes left to reveal
- * Split and Delete buttons; on pointer devices the split icon and × button
- * at the end of the row do the job.
+ * Delete, Assign and Split buttons; on pointer devices the assign icon,
+ * split icon and × button at the end of the row do the job.
  */
-function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, setOpen }: ItemRowProps): ReactElement {
+function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, setOpen, participants, labels, onAssign }: ItemRowProps): ReactElement {
   const splittable = canSplit(it);
-  const tray = (splittable ? 2 : 1) * ACTION_WIDTH;
+  const tray = (splittable ? 3 : 2) * ACTION_WIDTH;
   const swipe = useSwipeActions(tray, open, setOpen);
 
   const handlers = {
@@ -200,6 +235,11 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
     onSplit(it);
   };
 
+  const assign = () => {
+    setOpen(false);
+    onAssign(it);
+  };
+
   const del = () => swipe.leave(() => remove(it.id));
 
   return (
@@ -209,14 +249,17 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
       {...handlers}
     >
       <div className="items__tray" style={{ width: tray }}>
+        <button type="button" className="items__tray-btn items__tray-btn--delete" onClick={del}>
+          Delete
+        </button>
+        <button type="button" className="items__tray-btn items__tray-btn--assign" onClick={assign}>
+          Assign
+        </button>
         {splittable && (
           <button type="button" className="items__tray-btn items__tray-btn--split" onClick={split}>
             Split
           </button>
         )}
-        <button type="button" className="items__tray-btn items__tray-btn--delete" onClick={del}>
-          Delete
-        </button>
       </div>
       <div className="items__grid" style={swipe.style}>
         <input
@@ -260,6 +303,23 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
         />
         <button
           type="button"
+          className="items__remove"
+          onClick={() => remove(it.id)}
+          aria-label="Remove item"
+        >
+          &times;
+        </button>
+        <button
+          type="button"
+          className="items__assign"
+          onClick={assign}
+          aria-label="Assign to people"
+          title="Assign"
+        >
+          <AssignIcon />
+        </button>
+        <button
+          type="button"
           className="items__split"
           onClick={split}
           disabled={!splittable}
@@ -268,15 +328,8 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
         >
           <SplitIcon />
         </button>
-        <button
-          type="button"
-          className="items__remove"
-          onClick={() => remove(it.id)}
-          aria-label="Remove item"
-        >
-          &times;
-        </button>
       </div>
+      <AssigneePills ids={assigneesOf(it)} participants={participants} labels={labels} onClick={assign} />
       {!locked && <span className="items__owe">you owe {money(rowOwed(it, perUnit))}</span>}
     </div>
   );

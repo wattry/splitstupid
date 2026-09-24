@@ -408,6 +408,8 @@ export default function App() {
           reconciliation={reconciliation}
           locked={locked}
           onContinue={() => setLocked(false)}
+          participants={participants}
+          onManageParticipants={() => setFriendsOpen(true)}
         />
         {scanWarnings.length > 0 && (
           <div className="scan-warnings" role="alert">
