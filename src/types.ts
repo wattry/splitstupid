@@ -17,6 +17,8 @@ export interface Item {
   desc: string;
   /** Per-unit or line total depending on the parent's `perUnit` flag. */
   price: string;
+  /** Ids of bill participants who had this row; absent means none. Labelling only. */
+  assignees?: string[];
 }
 
 /** Fields accepted when building a row (everything but the generated `id`). */
