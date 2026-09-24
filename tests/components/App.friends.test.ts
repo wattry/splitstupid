@@ -257,4 +257,36 @@ describe('App friends and participants integration', () => {
 
     expect(chipNames(h)).toEqual(['Ryan', 'Jo']);
   });
+
+  it('assigns a row, and unchecking the participant removes the pill and the group', async () => {
+    seedMe('Ryan');
+    const h = mount();
+    await flush();
+    click(button(h, 'Manage Participants (1)'));
+    const nameInput = byLabel(h, 'New friend name');
+    type(nameInput, 'Sam Kim');
+    submit(nameInput);
+    click(button(h, 'Close'));
+    click(h.querySelector('button[aria-label="Assign to people"]')!);
+    const boxes = h.querySelectorAll('.assign__row input[type="checkbox"]');
+    click(boxes[1]!);
+    click(button(h, 'Done'));
+    expect(h.querySelector('.pill')?.textContent).toBe('SK');
+    expect(h.querySelector('.byperson__name')?.textContent).toBe('Sam Kim');
+    click(button(h, 'Manage Participants (2)'));
+    click(h.querySelector('.friends__row:not(.friends__row--me) input[type="checkbox"]')!);
+    click(button(h, 'Close'));
+    expect(h.querySelector('.pill')).toBeNull();
+    expect(h.querySelector('.byperson')).toBeNull();
+  });
+
+  it('a link with assignees restores pills for participants on the bill', async () => {
+    seedMe('Ryan');
+    const st = minimalState([{ id: 'id-sam', name: 'Sam' }]);
+    st.items = [{ ...st.items[0]!, assignees: ['id-sam', 'ghost'] }];
+    window.location.hash = `#s=${await encodeState(st)}`;
+    const h = mount();
+    await flush();
+    expect([...h.querySelectorAll('.pill')].map((p) => p.textContent)).toEqual(['S']);
+  });
 });
