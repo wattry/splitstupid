@@ -304,6 +304,7 @@ export default function App() {
           <ParticipantChips
             participants={participants}
             friends={friends}
+            meId=""
             onRemove={(id) => setParticipants((list) => removeParticipant(list, id))}
             onImport={importFriend}
           />

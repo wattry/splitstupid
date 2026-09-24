@@ -12,7 +12,7 @@ const sam: Friend = { id: 'id-sam', name: 'Sam' };
 const known: Participant = { id: 'id-sam', name: 'Sam' };
 const stranger: Participant = { id: 'id-jo', name: 'Jo' };
 
-function mount(participants: Participant[], friends: Friend[] = [sam]) {
+function mount(participants: Participant[], friends: Friend[] = [sam], meId = 'id-me') {
   const onRemove = vi.fn();
   const onImport = vi.fn<(p: Participant, name?: string) => FriendResult>((p, name) => ({
     ok: true,
@@ -22,7 +22,7 @@ function mount(participants: Participant[], friends: Friend[] = [sam]) {
   const host = document.createElement('div');
   document.body.appendChild(host);
   act(() => {
-    createRoot(host).render(React.createElement(ParticipantChips, { participants, friends, onRemove, onImport }));
+    createRoot(host).render(React.createElement(ParticipantChips, { participants, friends, meId, onRemove, onImport }));
   });
   return { host, onRemove, onImport };
 }
@@ -83,5 +83,13 @@ describe('ParticipantChips', () => {
     click([...host.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!);
     expect(host.querySelector('input')).toBeNull();
     expect(onImport).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders Me without remove or add buttons and with a placeholder when blank', () => {
+    const { host } = mount([{ id: 'id-me', name: '' }, stranger], []);
+    expect([...host.querySelectorAll('.chip__name')].map((el) => el.textContent)).toEqual(['Me', 'Jo']);
+    expect(host.querySelector('button[aria-label="Remove Me from bill"]')).toBeNull();
+    expect(host.querySelector('button[aria-label="Add Me to friends"]')).toBeNull();
+    expect(host.querySelector('button[aria-label="Remove Jo from bill"]')).toBeTruthy();
   });
 });
