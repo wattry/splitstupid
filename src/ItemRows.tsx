@@ -1,9 +1,14 @@
-import React from 'react';
-import type { Dispatch, SetStateAction, ReactElement } from 'react';
+import React, { useState } from 'react';
+import type { Dispatch, SetStateAction, ReactElement, PointerEvent } from 'react';
+import { usePostHog } from '@posthog/react';
 import type { Item, MakeRow } from './types.js';
-import { useSwipeToDelete } from './hooks/useSwipeToDelete.js';
+import { useSwipeActions } from './hooks/useSwipeActions.js';
 import ReconcileRow from './components/ReconcileRow.js';
+import { SplitModal } from './components/SplitModal.js';
+import { SplitIcon } from './components/Icons.js';
 import type { Reconciliation } from './lib/reconcile.js';
+import { ACTION_WIDTH } from './lib/swipe.js';
+import { canSplit, maxSplit, splitItem } from './lib/splitItem.js';
 
 export type { Item } from './types.js';
 
@@ -61,6 +66,11 @@ export default function ItemRows(
     locked,
     onContinue
   } = props;
+  const posthog = usePostHog();
+  // Row being split via the Split dialog, if any.
+  const [splitting, setSplitting] = useState<Item | null>(null);
+  // Row whose swipe tray is open (touch); at most one at a time.
+  const [openId, setOpenId] = useState<string | null>(null);
   const update = (id: string, field: string, value: unknown) =>
     setItems(items.map((it) => {
       if (it.id !== id) return it
@@ -81,6 +91,15 @@ export default function ItemRows(
 
   const clear = () => setItems([makeRow()])
 
+  // Replace the held row with its split-out singles, in place.
+  const split = (count: number) => {
+    if (!splitting) return
+    const target = splitting
+    setSplitting(null)
+    setItems((prev) => prev.flatMap((it) => (it.id === target.id ? splitItem(it, count, perUnit, makeRow) : it)))
+    posthog.capture('item_split', { count, units: maxSplit(target), per_unit: perUnit })
+  }
+
   // Rows with real content; the blank starter row doesn't count.
   const filled = items.filter((it) => it.desc.trim() || (parseFloat(it.price) || 0) > 0).length
 
@@ -98,6 +117,7 @@ export default function ItemRows(
           <span>Description</span>
           <span>{perUnit ? 'Each' : 'Total'}</span>
           <span aria-hidden="true" />
+          <span aria-hidden="true" />
         </div>
 
         {items.map((it) => (
@@ -108,9 +128,21 @@ export default function ItemRows(
             locked={locked}
             update={update}
             remove={remove}
+            onSplit={setSplitting}
+            open={openId === it.id}
+            setOpen={(open) => setOpenId(open ? it.id : null)}
           />
         ))}
       </div>
+
+      {splitting && (
+        <SplitModal
+          max={maxSplit(splitting)}
+          desc={splitting.desc}
+          onSplit={split}
+          onClose={() => setSplitting(null)}
+        />
+      )}
 
       {filled > 0 && (
         <ReconcileRow reconciliation={reconciliation} locked={locked} onContinue={onContinue} />
@@ -138,23 +170,53 @@ interface ItemRowProps {
   locked: boolean;
   update: (id: string, field: string, value: unknown) => void;
   remove: (id: string) => void;
+  /** Open the Split dialog for this row. */
+  onSplit: (item: Item) => void;
+  /** Whether this row's swipe tray is showing. */
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
 
 /**
- * One editable line item. On touch devices the whole row swipes left to
- * delete; on pointer devices the × button does the job.
+ * One editable line item. On touch devices the row swipes left to reveal
+ * Split and Delete buttons; on pointer devices the split icon and × button
+ * at the end of the row do the job.
  */
-function ItemRow({ item: it, perUnit, locked, update, remove }: ItemRowProps): ReactElement {
-  const swipe = useSwipeToDelete(() => remove(it.id));
+function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, setOpen }: ItemRowProps): ReactElement {
+  const splittable = canSplit(it);
+  const tray = (splittable ? 2 : 1) * ACTION_WIDTH;
+  const swipe = useSwipeActions(tray, open, setOpen);
+
+  const handlers = {
+    ...swipe.handlers,
+    // Touching any other row closes the open tray.
+    onPointerDownCapture: (e: PointerEvent<HTMLElement>) => {
+      if (e.pointerType === 'touch' && !open) setOpen(false);
+    },
+  };
+
+  const split = () => {
+    setOpen(false);
+    onSplit(it);
+  };
+
+  const del = () => swipe.leave(() => remove(it.id));
 
   return (
     <div
-      className={`items__row${swipe.leaving ? ' items__row--leaving' : ''}`}
+      className={`items__row${open ? ' items__row--open' : ''}${swipe.dragging ? ' items__row--dragging' : ''}${swipe.leaving ? ' items__row--leaving' : ''}`}
       id={it.id}
-      {...swipe.handlers}
+      {...handlers}
     >
-      <div className="items__backdrop" aria-hidden="true" style={{ opacity: swipe.progress }}>
-        Delete
+      <div className="items__tray" style={{ width: tray }}>
+        {splittable && (
+          <button type="button" className="items__tray-btn items__tray-btn--split" onClick={split}>
+            Split
+          </button>
+        )}
+        <button type="button" className="items__tray-btn items__tray-btn--delete" onClick={del}>
+          Delete
+        </button>
       </div>
       <div className="items__grid" style={swipe.style}>
         <input
@@ -196,6 +258,16 @@ function ItemRow({ item: it, perUnit, locked, update, remove }: ItemRowProps): R
           onChange={(e) => update(it.id, 'price', e.target.value)}
           aria-label={perUnit ? 'Price each' : 'Total for all units'}
         />
+        <button
+          type="button"
+          className="items__split"
+          onClick={split}
+          disabled={!splittable}
+          aria-label="Split units into separate items"
+          title={splittable ? 'Split' : 'Needs 2 or more units'}
+        >
+          <SplitIcon />
+        </button>
         <button
           type="button"
           className="items__remove"

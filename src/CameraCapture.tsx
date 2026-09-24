@@ -1,4 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { cameraError, cameraSupported } from './lib/cameraError.js'
+import type { CameraError } from './lib/cameraError.js'
+import { detectPlatform } from './lib/venmo.js'
 
 interface CameraCaptureProps {
   /** Photos already taken this session, shown as a counter. */
@@ -8,6 +11,8 @@ interface CameraCaptureProps {
   onCapture: (blob: Blob) => void;
   /** "Done": close the overlay, keeping whatever was captured. */
   onClose: () => void;
+  /** "Use Upload": close the overlay and open the file picker instead. */
+  onUpload: () => void;
 }
 
 /**
@@ -15,16 +20,32 @@ interface CameraCaptureProps {
  * preview, and on "Capture" grabs a still frame as a JPEG Blob. Stays open so the user can take several photos; "Done" closes it.
  *
  * Works on desktop and mobile over a secure context (HTTPS / localhost).
+ * Browsers only prompt for permission once; after a "Don't allow" they fail
+ * silently, so failures are turned into per-platform instructions with a
+ * Try again button.
  */
-export default function CameraCapture({ count, max, onCapture, onClose }: CameraCaptureProps) {
+export default function CameraCapture({ count, max, onCapture, onClose, onUpload }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<CameraError | null>(null)
+  // Bumped by "Try again" to re-run the effect that asks for the camera.
+  const [attempt, setAttempt] = useState(0)
+
+  const stop = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop())
+    streamRef.current = null
+  }, [])
 
   useEffect(() => {
     let cancelled = false
+    const platform = detectPlatform(navigator.userAgent)
 
     async function start() {
+      setError(null)
+      if (!cameraSupported(navigator.mediaDevices)) {
+        setError(cameraError(new TypeError('getUserMedia unavailable'), platform))
+        return
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' } },
@@ -40,16 +61,16 @@ export default function CameraCapture({ count, max, onCapture, onClose }: Camera
         }
       } catch (err) {
         console.error('Camera access failed:', err)
-        if (!cancelled) setError('Camera unavailable — check permissions or use Upload.')
+        if (!cancelled) setError(cameraError(err, platform))
       }
     }
 
     start()
     return () => {
       cancelled = true
-      streamRef.current?.getTracks().forEach((t) => t.stop())
+      stop()
     }
-  }, [])
+  }, [attempt, stop])
 
   const capture = () => {
     const video = videoRef.current
@@ -73,7 +94,22 @@ export default function CameraCapture({ count, max, onCapture, onClose }: Camera
     <div className="camera" role="dialog" aria-label="Take a receipt photo">
       <div className="camera__stage">
         {error ? (
-          <p className="camera__error">{error}</p>
+          <div className="camera__error">
+            <p className="camera__error-title">{error.title}</p>
+            <ol>
+              {error.steps.map((step) => <li key={step}>{step}</li>)}
+            </ol>
+            <div className="camera__actions">
+              {error.retry && (
+                <button type="button" className="scan-btn" onClick={() => setAttempt((n) => n + 1)}>
+                  Try again
+                </button>
+              )}
+              <button type="button" className="scan-btn scan-btn--camera" onClick={onUpload}>
+                Use Upload
+              </button>
+            </div>
+          </div>
         ) : (
           <video ref={videoRef} className="camera__video" autoPlay playsInline muted />
         )}

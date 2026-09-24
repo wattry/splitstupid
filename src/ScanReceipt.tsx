@@ -9,6 +9,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import CameraCapture from './CameraCapture.js';
 import CropImage from './CropImage.js';
 import { ScanText } from './components/ScanText.js';
+import { isIOS } from './lib/platform.js';
 import type { Item, MakeRow, ParsedTotals } from './types.js';
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -248,6 +249,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
 
   const scanning = status === 'scanning'
   const full = photos.length >= MAX_PHOTOS
+  const ios = isIOS(navigator.userAgent, navigator.maxTouchPoints)
   const cropping = photos.find((p) => p.id === cropId)
   const columns = photos.length <= 1 ? 1 : photos.length <= 4 ? 2 : 3
 
@@ -255,7 +257,8 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
     <div className="field">
       <span className="field__label">Scan Receipt</span>
       <div className="scan-actions">
-        <button
+        {/* iOS's file picker already offers "Take Photo", so Take would be a duplicate there. */}
+        {!ios && <button
           type="button"
           className="scan-btn scan-btn--camera"
           onClick={() => setCameraOpen(true)}
@@ -263,7 +266,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
         >
           <CameraIcon />
           Take
-        </button>
+        </button>}
         <button
           type="button"
           className="scan-btn scan-btn--camera"
@@ -412,6 +415,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
           max={MAX_PHOTOS}
           onCapture={(blob) => addPhotos([blob])}
           onClose={() => setCameraOpen(false)}
+          onUpload={() => { setCameraOpen(false); uploadRef.current?.click() }}
         />
       )}
 

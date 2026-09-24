@@ -24,15 +24,33 @@ body {
 }
 
 .card {
+  position: relative;
+  isolation: isolate;
   width: 100%;
-  max-width: 420px;
+  max-width: 480px;
+  /* Grid item: without this, wide content (long OCR lines) forces the card past the viewport. */
+  min-width: 0;
   padding: 18px;
   border-radius: 24px;
   background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 20px 60px rgba(27, 16, 51, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/*
+ * The glass blur lives on a pseudo-element, not the card: backdrop-filter
+ * turns its element into the containing block for position: fixed
+ * descendants, which would size the camera / crop / lightbox overlays to
+ * the card instead of the screen.
+ */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .card__head { text-align: center; margin-bottom: 20px; }
@@ -310,6 +328,22 @@ body {
 
 .calc__actions { display: flex; gap: 10px; }
 
+/* Split dialog (long-press a multi-unit row): how many units to split out. */
+.split__count {
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.split__count:focus { outline: none; border-color: var(--accent); }
+
 .scan-btn--ghost {
   background: rgba(123, 47, 247, 0.1);
   color: var(--accent);
@@ -448,6 +482,7 @@ body {
   padding: 8px 10px;
   max-height: 7.5em;
   overflow: hidden;
+  overflow-x: auto;
   border-radius: 10px;
   background: #fff;
   color: var(--ink);
@@ -628,13 +663,13 @@ body {
 
 .lightbox__hint { color: rgba(255, 255, 255, 0.7); font-size: 0.8rem; }
 
-/* Item rows: Units | Yours | Description | Price | remove */
+/* Item rows: Units | Yours | Description | Price | split | remove */
 .items { display: flex; flex-direction: column; gap: 10px; }
 
 .items__head,
 .items__grid {
   display: grid;
-  grid-template-columns: 40px 40px 1fr 80px 20px;
+  grid-template-columns: 40px 40px 1fr 80px 24px 20px;
   gap: 4px;
   align-items: center;
 }
@@ -660,25 +695,38 @@ body {
 
 .items__grid { position: relative; z-index: 1; background: transparent; }
 
-/* Red "Delete" layer revealed as the row slides left on touch. */
-.items__backdrop {
+/* Split / Delete buttons uncovered as the row slides left on touch. */
+.items__tray {
   position: absolute;
-  inset: 0 0 auto 0;
+  top: 0;
+  right: 0;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-right: 14px;
+  display: none;
   border-radius: 12px;
-  background: #e5484d;
+  overflow: hidden;
+  /* Only there while the row is open or being dragged; the grid's gaps would show it otherwise. */
+  visibility: hidden;
+  transition: visibility 0s linear 180ms;
+}
+.items__row--open .items__tray,
+.items__row--dragging .items__tray,
+.items__row--leaving .items__tray { visibility: visible; transition: none; }
+
+.items__tray-btn {
+  flex: 1;
+  border: none;
   color: #fff;
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  opacity: 0;
-  pointer-events: none;
+  cursor: pointer;
 }
+.items__tray-btn--split { background: #2f6df6; }
+.items__tray-btn--delete { background: #e5484d; }
+
+/* Owe label rides along with the sliding grid. */
+.items__row--open .items__owe { visibility: hidden; }
 
 .items__row--leaving {
   overflow: hidden;
@@ -766,7 +814,7 @@ body {
 
 /* Yours column hidden until the bill reconciles after a scan */
 .items--locked .items__head,
-.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 20px; }
+.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 24px 20px; }
 
 /* Split Even slider switch */
 .switch__row {
@@ -850,6 +898,20 @@ body {
 
 .items__remove:hover { color: var(--accent); }
 
+.items__split {
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+}
+.items__split:hover:not(:disabled) { color: var(--accent); }
+.items__split:disabled { opacity: 0.3; cursor: default; }
+
 .items__actions {
   display: flex;
   gap: 8px;
@@ -888,7 +950,7 @@ body {
 .camera {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 65; /* above the floating calculator button (60) */
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -913,7 +975,9 @@ body {
   object-fit: contain;
 }
 
-.camera__error { color: #fff; text-align: center; padding: 24px; }
+.camera__error { color: #fff; text-align: center; padding: 24px; max-width: 360px; margin: 0 auto; }
+.camera__error-title { margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; }
+.camera__error ol { margin: 0 0 18px; padding-left: 22px; text-align: left; line-height: 1.5; }
 
 .camera__hint { margin: 0; color: #fff; text-align: center; font-size: 0.9rem; }
 
@@ -1051,20 +1115,17 @@ a.action-btn {
   cursor: default;
 }
 
-/* Touch devices: swipe to delete replaces the × column. */
+/* Touch devices: swipe to reveal Split / Delete replaces the icon columns. */
 @media (hover: none) and (pointer: coarse) {
   .items__head,
   .items__grid { grid-template-columns: 40px 40px 1fr 80px; }
   .items--locked .items__head,
   .items--locked .items__grid { grid-template-columns: 40px 1fr 80px; }
+  .items__split,
   .items__remove,
-  .items__head span:last-child { display: none; }
+  .items__head span[aria-hidden] { display: none; }
   .items__owe { padding-right: 4px; }
-  .items__backdrop { display: flex; }
-}
-
-@media (hover: hover) {
-  .items__backdrop { display: none; }
+  .items__tray { display: flex; }
 }
 
 @media (max-width: 460px) {
