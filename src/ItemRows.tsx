@@ -1,9 +1,13 @@
-import React from 'react';
-import type { Dispatch, SetStateAction, ReactElement } from 'react';
+import React, { useState } from 'react';
+import type { Dispatch, SetStateAction, ReactElement, PointerEvent } from 'react';
+import { usePostHog } from '@posthog/react';
 import type { Item, MakeRow } from './types.js';
 import { useSwipeToDelete } from './hooks/useSwipeToDelete.js';
+import { useLongPress } from './hooks/useLongPress.js';
 import ReconcileRow from './components/ReconcileRow.js';
+import { SplitModal } from './components/SplitModal.js';
 import type { Reconciliation } from './lib/reconcile.js';
+import { canSplit, maxSplit, splitItem } from './lib/splitItem.js';
 
 export type { Item } from './types.js';
 
@@ -61,6 +65,9 @@ export default function ItemRows(
     locked,
     onContinue
   } = props;
+  const posthog = usePostHog();
+  // Row being split via the long-press dialog, if any.
+  const [splitting, setSplitting] = useState<Item | null>(null);
   const update = (id: string, field: string, value: unknown) =>
     setItems(items.map((it) => {
       if (it.id !== id) return it
@@ -80,6 +87,15 @@ export default function ItemRows(
   const add = () => setItems([...items, makeRow()])
 
   const clear = () => setItems([makeRow()])
+
+  // Replace the held row with its split-out singles, in place.
+  const split = (count: number) => {
+    if (!splitting) return
+    const target = splitting
+    setSplitting(null)
+    setItems((prev) => prev.flatMap((it) => (it.id === target.id ? splitItem(it, count, perUnit, makeRow) : it)))
+    posthog.capture('item_split', { count, units: maxSplit(target), per_unit: perUnit })
+  }
 
   // Rows with real content; the blank starter row doesn't count.
   const filled = items.filter((it) => it.desc.trim() || (parseFloat(it.price) || 0) > 0).length
@@ -108,9 +124,19 @@ export default function ItemRows(
             locked={locked}
             update={update}
             remove={remove}
+            onHold={setSplitting}
           />
         ))}
       </div>
+
+      {splitting && (
+        <SplitModal
+          max={maxSplit(splitting)}
+          desc={splitting.desc}
+          onSplit={split}
+          onClose={() => setSplitting(null)}
+        />
+      )}
 
       {filled > 0 && (
         <ReconcileRow reconciliation={reconciliation} locked={locked} onContinue={onContinue} />
@@ -138,20 +164,34 @@ interface ItemRowProps {
   locked: boolean;
   update: (id: string, field: string, value: unknown) => void;
   remove: (id: string) => void;
+  /** Press-and-hold on a multi-unit row. */
+  onHold: (item: Item) => void;
 }
 
 /**
  * One editable line item. On touch devices the whole row swipes left to
- * delete; on pointer devices the × button does the job.
+ * delete; on pointer devices the × button does the job. Pressing and holding
+ * a row with several units opens the Split dialog.
  */
-function ItemRow({ item: it, perUnit, locked, update, remove }: ItemRowProps): ReactElement {
+function ItemRow({ item: it, perUnit, locked, update, remove, onHold }: ItemRowProps): ReactElement {
   const swipe = useSwipeToDelete(() => remove(it.id));
+  const hold = useLongPress(() => onHold(it), canSplit(it));
+
+  // Both gestures watch the same pointer; a drag cancels the hold, a hold
+  // never starts a swipe, so they can share the events.
+  const handlers = {
+    onPointerDown: (e: PointerEvent<HTMLElement>) => { swipe.handlers.onPointerDown(e); hold.onPointerDown(e); },
+    onPointerMove: (e: PointerEvent<HTMLElement>) => { swipe.handlers.onPointerMove(e); hold.onPointerMove(e); },
+    onPointerUp: (e: PointerEvent<HTMLElement>) => { swipe.handlers.onPointerUp(e); hold.onPointerUp(); },
+    onPointerCancel: (e: PointerEvent<HTMLElement>) => { swipe.handlers.onPointerCancel(e); hold.onPointerCancel(); },
+    onContextMenu: hold.onContextMenu,
+  };
 
   return (
     <div
       className={`items__row${swipe.leaving ? ' items__row--leaving' : ''}`}
       id={it.id}
-      {...swipe.handlers}
+      {...handlers}
     >
       <div className="items__backdrop" aria-hidden="true" style={{ opacity: swipe.progress }}>
         Delete
