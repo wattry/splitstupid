@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import App from '../../src/App.js';
-import { encodeState } from '../../src/lib/shareLink.js';
+import { encodeState, decodeState } from '../../src/lib/shareLink.js';
 import type { SavedState } from '../../src/lib/shareLink.js';
 import { FRIENDS_STORAGE_KEY } from '../../src/lib/friends.js';
+import { ME_STORAGE_KEY } from '../../src/lib/me.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -37,6 +38,9 @@ function mount() {
   return host;
 }
 
+const seedMe = (name = 'Ryan') =>
+  localStorage.setItem(ME_STORAGE_KEY, JSON.stringify({ v: 1, id: 'id-me', name }));
+
 const minimalState = (participants: SavedState['participants']): SavedState => ({
   billName: '',
   note: '',
@@ -60,10 +64,11 @@ beforeEach(() => {
 
 describe('App friends and participants integration', () => {
   it('manages friends via the overlay: add two, close, chip names and localStorage persist', async () => {
+    seedMe();
     const h = mount();
     await flush();
 
-    click(button(h, 'Manage Friends'));
+    click(button(h, 'Manage Participants (1)'));
     const nameInput = byLabel(h, 'New friend name');
 
     type(nameInput, 'Sam');
@@ -74,18 +79,19 @@ describe('App friends and participants integration', () => {
 
     click(button(h, 'Close'));
 
-    expect(button(h, 'Manage Friends (2)')).toBeTruthy();
-    expect(chipNames(h)).toEqual(['Sam', 'Alex']);
+    expect(button(h, 'Manage Participants (3)')).toBeTruthy();
+    expect(chipNames(h)).toEqual(['Ryan', 'Sam', 'Alex']);
 
     const stored = JSON.parse(localStorage.getItem(FRIENDS_STORAGE_KEY)!);
     expect(stored.friends.map((f: { name: string }) => f.name)).toEqual(['Sam', 'Alex']);
   });
 
   it('renames Sam through the edit view and updates the chip', async () => {
+    seedMe();
     const h = mount();
     await flush();
 
-    click(button(h, 'Manage Friends'));
+    click(button(h, 'Manage Participants (1)'));
     const nameInput = byLabel(h, 'New friend name');
     type(nameInput, 'Sam');
     submit(nameInput);
@@ -97,10 +103,11 @@ describe('App friends and participants integration', () => {
 
     click(button(h, 'Close'));
 
-    expect(chipNames(h)).toEqual(['Sammy']);
+    expect(chipNames(h)).toEqual(['Ryan', 'Sammy']);
   });
 
   it('loads participants from a shared link without touching the friend list, and Add persists the new friend', async () => {
+    seedMe();
     const encoded = await encodeState(
       minimalState([
         { id: 'id-jo', name: 'Jo' },
@@ -111,7 +118,7 @@ describe('App friends and participants integration', () => {
     const h = mount();
     await flush();
 
-    expect(chipNames(h)).toEqual(['Jo', 'Known']);
+    expect(chipNames(h)).toEqual(['Ryan', 'Jo', 'Known']);
     expect(localStorage.getItem(FRIENDS_STORAGE_KEY)).toBe(JSON.stringify({ v: 1, friends: [] }));
 
     const addBtn = h.querySelector('[aria-label="Add Jo to friends"]');
@@ -124,21 +131,93 @@ describe('App friends and participants integration', () => {
   });
 
   it('leaves participants unchanged when editing the sub total and toggling per-unit', async () => {
+    seedMe();
     const h = mount();
     await flush();
 
-    click(button(h, 'Manage Friends'));
+    click(button(h, 'Manage Participants (1)'));
     const nameInput = byLabel(h, 'New friend name');
     type(nameInput, 'Sam');
     submit(nameInput);
     click(button(h, 'Close'));
 
-    expect(chipNames(h)).toEqual(['Sam']);
+    expect(chipNames(h)).toEqual(['Ryan', 'Sam']);
 
     const subTotal = h.querySelector('#sub_total') as HTMLInputElement;
     type(subTotal, '25');
     click(h.querySelector('.toggle__btn')!);
 
-    expect(chipNames(h)).toEqual(['Sam']);
+    expect(chipNames(h)).toEqual(['Ryan', 'Sam']);
+  });
+
+  it('starts a new bill with an unnamed Me that has no remove button', async () => {
+    const h = mount();
+    await flush();
+    expect(chipNames(h)).toEqual(['Me']);
+    expect(button(h, 'Manage Participants (1)')).toBeTruthy();
+    expect(h.querySelector('[aria-label="Remove Me from bill"]')).toBeNull();
+  });
+
+  it('does not add Me twice when the link already contains this device', async () => {
+    seedMe();
+    window.location.hash = `#s=${await encodeState(minimalState([{ id: 'id-jo', name: 'Jo' }, { id: 'id-me', name: 'Ryan' }]))}`;
+    const h = mount();
+    await flush();
+    expect(chipNames(h)).toEqual(['Jo', 'Ryan']);
+  });
+
+  it('rejects a friend named like Me and renaming Me to a friend', async () => {
+    seedMe('Ryan');
+    const h = mount();
+    await flush();
+    click(button(h, 'Manage Participants (1)'));
+    const nameInput = byLabel(h, 'New friend name');
+    type(nameInput, 'ryan');
+    submit(nameInput);
+    expect(h.textContent).toContain('You already have a friend named Ryan.');
+    type(nameInput, 'Sam');
+    submit(nameInput);
+    click(h.querySelector('[aria-label="Edit Ryan"]')!);
+    const meInput = byLabel(h, 'Your name');
+    type(meInput, 'sam');
+    submit(meInput);
+    expect(h.textContent).toContain('You already have a friend named Sam.');
+  });
+
+  it('renaming Me updates the Me chip', async () => {
+    seedMe('');
+    const h = mount();
+    await flush();
+    click(button(h, 'Manage Participants (1)'));
+    click(h.querySelector('[aria-label="Edit Me"]')!);
+    const meInput = byLabel(h, 'Your name');
+    type(meInput, 'Ryan');
+    submit(meInput);
+    click(button(h, 'Close'));
+    expect(chipNames(h)).toEqual(['Ryan']);
+    expect(JSON.parse(localStorage.getItem(ME_STORAGE_KEY)!).name).toBe('Ryan');
+  });
+
+  it('gates Share behind the name prompt when Me is unnamed, then shares', async () => {
+    const shareSpy = vi.fn(async (_data: { text: string }) => undefined);
+    Object.defineProperty(navigator, 'share', { value: shareSpy, configurable: true });
+    const h = mount();
+    await flush();
+    click(button(h, 'Share'));
+    expect(h.querySelector('[aria-label="What\'s your name?"]')).toBeTruthy();
+    expect(shareSpy).not.toHaveBeenCalled();
+    const input = byLabel(h, 'Your name');
+    type(input, 'Ryan');
+    submit(input);
+    await flush();
+    expect(h.querySelector('[aria-label="What\'s your name?"]')).toBeNull();
+    expect(shareSpy).toHaveBeenCalledTimes(1);
+    expect(chipNames(h)).toEqual(['Ryan']);
+
+    const sharedText = shareSpy.mock.calls[0]![0].text;
+    const encoded = sharedText.split('#s=')[1]!;
+    const decoded = await decodeState(encoded);
+    expect(decoded).toBeTruthy();
+    expect(decoded!.participants).toEqual([{ id: decoded!.participants[0]!.id, name: 'Ryan' }]);
   });
 });

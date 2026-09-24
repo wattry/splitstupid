@@ -8,9 +8,13 @@ import ScanReceipt from './ScanReceipt.js';
 import ItemRows, { rowOwed } from './ItemRows.js';
 import type { Fee, Item, ItemFields, ParsedTotals, Participant } from './types.js';
 import { useFriends } from './hooks/useFriends.js';
+import { useMe } from './hooks/useMe.js';
 import { FriendsManager } from './components/FriendsManager.js';
 import { ParticipantChips } from './components/ParticipantChips.js';
+import { NameModal } from './components/NameModal.js';
 import { removeParticipant, syncRename, toggleParticipant } from './lib/participants.js';
+import { ensureMe, meAsFriend, meParticipant, validateMeName } from './lib/me.js';
+import { nameKey } from './lib/friends.js';
 import { Calculator } from './components/inputs/Calculator.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 import { usePostHog } from '@posthog/react';
@@ -48,13 +52,32 @@ export default function App() {
   // Your friends (persisted on this device) and who is on this bill. The
   // bill's list is a snapshot of names so a shared link carries it; scans
   // and links never touch the friend list.
-  const { friends, add: addFriend, rename, remove } = useFriends();
-  const [participants, setParticipants] = useState<Participant[]>([]);
+  const { friends, add, rename, remove } = useFriends();
+  const { me, setName: setMeName } = useMe();
+  // Me is always on the bill; links and imports re-seed via ensureMe.
+  const [participants, setParticipants] = useState<Participant[]>(() => [meParticipant(me)]);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  // Share is gated on Me having a name; the pending action runs after the prompt.
+  const [afterName, setAfterName] = useState<((name: string) => void) | null>(null);
 
+  // Friends may not take Me's name, in either direction.
+  const clashesWithMe = (name: string) => me.name !== '' && nameKey(name) === nameKey(me.name);
+  const addFriend = (name: string, id?: string) =>
+    clashesWithMe(name)
+      ? ({ ok: false, error: 'duplicate', existing: meAsFriend(me) } as const)
+      : add(name, id);
   const renameFriend = (id: string, name: string) => {
+    if (clashesWithMe(name)) return { ok: false, error: 'duplicate', existing: meAsFriend(me) } as const;
     const result = rename(id, name);
     if (result.ok) setParticipants((list) => syncRename(list, id, result.friend.name));
+    return result;
+  };
+  const renameMe = (name: string) => {
+    const result = validateMeName(friends, name);
+    if (result.ok) {
+      setMeName(result.friend.name);
+      setParticipants((list) => syncRename(list, me.id, result.friend.name));
+    }
     return result;
   };
   const deleteFriend = (id: string) => {
@@ -111,6 +134,8 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState<'' | 'Shared' | 'Link Copied'>('');
   const importRef = useRef<HTMLInputElement>(null);
+  // The name just saved through the gate's NameModal, read by its onDone.
+  const savedName = useRef<string>('');
 
   // Populate the form from a shared link (#s=...), then strip the hash so
   // refreshes and later edits don't resurrect stale data.
@@ -130,21 +155,24 @@ export default function App() {
       setPartySize(data.partySize);
       setMyParty(data.myParty);
       setItems(data.items);
-      setParticipants(data.participants);
+      setParticipants(ensureMe(data.participants, me));
     });
     history.replaceState(null, '', window.location.pathname + window.location.search);
+    // `me` is stable across the mount (its id never changes), so reading it
+    // here without listing it as a dependency is fine.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
   // Link carrying the whole form (minus any photo); shared and put in the Venmo note.
-  const buildShareUrl = async () => {
+  const encodeUrl = async (list: Participant[]) => {
     const encoded = await encodeState({
       billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty,
-      participants, items,
+      participants: list, items,
     });
     return `${window.location.origin}${window.location.pathname}#s=${encoded}`;
   };
+  const buildShareUrl = () => encodeUrl(participants);
 
   // Keep a current share URL around so the Venmo note can include it.
   const [shareUrl, setShareUrl] = useState('');
@@ -158,8 +186,8 @@ export default function App() {
   // Open the device share sheet with the link and a totals summary; browsers
   // without Web Share get the link copied to the clipboard instead. Uses the
   // precomputed URL so the share call stays inside the click's user activation.
-  const shareLink = async () => {
-    const url = shareUrl || (await buildShareUrl());
+  const doShare = async (list: Participant[] = participants) => {
+    const url = list === participants ? (shareUrl || (await encodeUrl(list))) : await encodeUrl(list);
     const text = buildShareText({ name: billName, note, taxPct, tipPct, hasFees, ...result });
     const outcome = await shareBill({ text, url });
     if (outcome === 'shared' || outcome === 'copied') {
@@ -167,6 +195,15 @@ export default function App() {
       setTimeout(() => setShared(''), 1500);
     }
   }
+
+  // Sharing needs to know who "Me" is; if unnamed, ask first and share after.
+  const shareLink = () => {
+    if (me.name === '') {
+      setAfterName(() => (name: string) => doShare(syncRename(ensureMe(participants, me), me.id, name)));
+      return;
+    }
+    return doShare();
+  };
 
   // Turning Split Even on resets every row to Yours = Total so the line-item
   // sum is the whole bill before it is divided by the party.
@@ -227,7 +264,7 @@ export default function App() {
             const rec = p as Record<string, unknown>;
             return typeof rec['id'] === 'string' && typeof rec['name'] === 'string';
           });
-          setParticipants(clean);
+          setParticipants(ensureMe(clean, me));
         }
       } catch {
         // Not a valid save file — ignore.
@@ -299,12 +336,12 @@ export default function App() {
 
         <div className="friends-bar">
           <button type="button" className="scan-btn scan-btn--camera" onClick={() => setFriendsOpen(true)}>
-            {participants.length ? `Manage Friends (${participants.length})` : 'Manage Friends'}
+            {`Manage Participants (${participants.length})`}
           </button>
           <ParticipantChips
             participants={participants}
             friends={friends}
-            meId=""
+            meId={me.id}
             onRemove={(id) => setParticipants((list) => removeParticipant(list, id))}
             onImport={importFriend}
           />
@@ -313,13 +350,28 @@ export default function App() {
           <FriendsManager
             friends={friends}
             participants={participants}
-            me={{ id: '', name: '' }}
+            me={me}
             onToggle={(friend) => setParticipants((list) => toggleParticipant(list, friend))}
             onAdd={(name) => addFriend(name)}
             onRename={renameFriend}
-            onRenameMe={() => ({ ok: false, error: 'empty' })}
+            onRenameMe={renameMe}
             onDelete={deleteFriend}
             onClose={() => setFriendsOpen(false)}
+          />
+        )}
+        {afterName && (
+          <NameModal
+            onSave={(name) => {
+              const result = renameMe(name);
+              if (result.ok) savedName.current = result.friend.name;
+              return result;
+            }}
+            onDone={() => {
+              const run = afterName;
+              setAfterName(null);
+              run(savedName.current);
+            }}
+            onCancel={() => setAfterName(null)}
           />
         )}
 
