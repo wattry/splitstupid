@@ -204,6 +204,24 @@ describe('encodeState / decodeState', () => {
     });
     expect(await decodeState(bad)).toBeNull();
   });
+
+  it('collapses duplicate participant ids to the first', async () => {
+    const legacy = await encodeLegacy({
+      v: 1, s: '10', x: '1', t: '2', p: false, i: [['1', '1', 'Soup', '10']],
+      u: [['id-sam', 'Sam'], ['id-sam', 'Sammy']],
+    });
+    const decoded = await decodeState(legacy);
+    expect(decoded!.participants).toEqual([{ id: 'id-sam', name: 'Sam' }]);
+  });
+
+  it('drops participants with a blank name', async () => {
+    const legacy = await encodeLegacy({
+      v: 1, s: '10', x: '1', t: '2', p: false, i: [['1', '1', 'Soup', '10']],
+      u: [['id-sam', 'Sam'], ['id-blank', '   ']],
+    });
+    const decoded = await decodeState(legacy);
+    expect(decoded!.participants).toEqual([{ id: 'id-sam', name: 'Sam' }]);
+  });
 });
 
 describe('fees', () => {

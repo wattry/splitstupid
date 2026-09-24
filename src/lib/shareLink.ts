@@ -7,6 +7,7 @@
  */
 import type { Fee, Item, Participant } from '../types.js';
 import { feeInputValue, makeFee } from './fees.js';
+import { normalizeName } from './friends.js';
 
 export interface SavedState {
   billName: string;
@@ -138,6 +139,23 @@ function isPackedItem(value: unknown): value is PackedItem {
   return Array.isArray(value) && value.length === 4 && value.every((f) => typeof f === 'string');
 }
 
+/**
+ * Build participants from packed [id, name] tuples, dropping entries whose
+ * normalized name is empty and later entries whose id repeats an earlier one.
+ */
+function buildParticipants(packed: PackedParticipant[]): Participant[] {
+  const seen = new Set<string>();
+  const out: Participant[] = [];
+  for (const [id, name] of packed) {
+    const clean = normalizeName(name);
+    if (clean === '') continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name: clean });
+  }
+  return out;
+}
+
 /** Decode a shared fragment back into form state, or null if it's garbage. */
 export async function decodeState(encoded: string): Promise<SavedState | null> {
   try {
@@ -172,7 +190,7 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
       splitEven: e ?? false,
       partySize: z ?? '4',
       myParty: m ?? '1',
-      participants: (u ?? []).map(([id, name]) => ({ id, name })),
+      participants: buildParticipants(u ?? []),
       items: i.map(([units, yours, desc, price]) => ({
         id: crypto.randomUUID(),
         units,
