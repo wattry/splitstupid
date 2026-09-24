@@ -6,7 +6,11 @@ import {
 } from './lib/calculate.js';
 import ScanReceipt from './ScanReceipt.js';
 import ItemRows, { rowOwed } from './ItemRows.js';
-import type { Fee, Item, ItemFields, ParsedTotals } from './types.js';
+import type { Fee, Item, ItemFields, ParsedTotals, Participant } from './types.js';
+import { useFriends } from './hooks/useFriends.js';
+import { FriendsManager } from './components/FriendsManager.js';
+import { ParticipantChips } from './components/ParticipantChips.js';
+import { removeParticipant, syncRename, toggleParticipant } from './lib/participants.js';
 import { Calculator } from './components/inputs/Calculator.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 import { usePostHog } from '@posthog/react';
@@ -40,6 +44,29 @@ export default function App() {
   const [splitEven, setSplitEven] = useState(false);
   const [partySize, setPartySize] = useState<string>('4');
   const [myParty, setMyParty] = useState<string>('2');
+
+  // Your friends (persisted on this device) and who is on this bill. The
+  // bill's list is a snapshot of names so a shared link carries it; scans
+  // and links never touch the friend list.
+  const { friends, add: addFriend, rename, remove } = useFriends();
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+
+  const renameFriend = (id: string, name: string) => {
+    const result = rename(id, name);
+    if (result.ok) setParticipants((list) => syncRename(list, id, result.friend.name));
+    return result;
+  };
+  const deleteFriend = (id: string) => {
+    remove(id);
+    setParticipants((list) => removeParticipant(list, id));
+  };
+  const importFriend = (participant: Participant, name?: string) => {
+    // Same check as importParticipant, but through the hook so it persists.
+    const result = addFriend(name ?? participant.name, participant.id);
+    if (result.ok) setParticipants((list) => syncRename(list, participant.id, result.friend.name));
+    return result;
+  };
 
   /**
    * Build a blank row. `fields` can prefill units/yours/desc/price.
@@ -103,6 +130,7 @@ export default function App() {
       setPartySize(data.partySize);
       setMyParty(data.myParty);
       setItems(data.items);
+      setParticipants(data.participants);
     });
     history.replaceState(null, '', window.location.pathname + window.location.search);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,8 +141,7 @@ export default function App() {
   const buildShareUrl = async () => {
     const encoded = await encodeState({
       billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty,
-      participants: [],
-      items,
+      participants, items,
     });
     return `${window.location.origin}${window.location.pathname}#s=${encoded}`;
   };
@@ -126,7 +153,7 @@ export default function App() {
     buildShareUrl().then((url) => { if (live) setShareUrl(url); }).catch(() => { });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty, items]);
+  }, [billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty, participants, items]);
 
   // Open the device share sheet with the link and a totals summary; browsers
   // without Web Share get the link copied to the clipboard instead. Uses the
@@ -244,6 +271,44 @@ export default function App() {
           <p className="subtitle">Figure out what you actually owe</p>
         </header>
 
+        <div className="field toggle">
+          <span className="field__label">Line Item Pricing</span>
+          <button
+            type="button"
+            className="toggle__btn"
+            role="switch"
+            aria-checked={perUnit}
+            onClick={togglePerUnit}
+          >
+            <span className={!perUnit ? 'toggle__on' : ''}>Total Item Price</span>
+            <span className={perUnit ? 'toggle__on' : ''}>Per Item Price</span>
+          </button>
+          <span className="field__label">Are lines showing a total for all items or the price for a single item?</span>
+        </div>
+
+        <div className="friends-bar">
+          <button type="button" className="scan-btn scan-btn--camera" onClick={() => setFriendsOpen(true)}>
+            {participants.length ? `Manage Friends (${participants.length})` : 'Manage Friends'}
+          </button>
+          <ParticipantChips
+            participants={participants}
+            friends={friends}
+            onRemove={(id) => setParticipants((list) => removeParticipant(list, id))}
+            onImport={importFriend}
+          />
+        </div>
+        {friendsOpen && (
+          <FriendsManager
+            friends={friends}
+            participants={participants}
+            onToggle={(friend) => setParticipants((list) => toggleParticipant(list, friend))}
+            onAdd={(name) => addFriend(name)}
+            onRename={renameFriend}
+            onDelete={deleteFriend}
+            onClose={() => setFriendsOpen(false)}
+          />
+        )}
+
         <ScanReceipt
           items={items}
           billName={billName}
@@ -264,21 +329,6 @@ export default function App() {
             value={billName}
             onChange={(e) => setBillName(e.target.value)}
           />
-        </div>
-
-        <div className="field toggle">
-          <span className="field__label">Line Item Pricing</span>
-          <button
-            type="button"
-            className="toggle__btn"
-            role="switch"
-            aria-checked={perUnit}
-            onClick={togglePerUnit}
-          >
-            <span className={!perUnit ? 'toggle__on' : ''}>Total Item Price</span>
-            <span className={perUnit ? 'toggle__on' : ''}>Per Item Price</span>
-          </button>
-          <span className="field__label">Are lines showing a total for all items or the price for a single item?</span>
         </div>
 
         <ItemRows

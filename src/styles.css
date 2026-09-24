@@ -1226,3 +1226,7 @@ a.action-btn {
 }
 .chip__rename .friends__error { margin: 0; }
 .chip__rename .scan-btn { padding: 8px 12px; font-size: 0.9rem; }
+
+/* Manage Friends button and chips, above the scan buttons. */
+.friends-bar { margin-bottom: 12px; }
+.friends-bar > .scan-btn { width: 100%; }
