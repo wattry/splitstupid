@@ -10,8 +10,7 @@ describe('initialBill', () => {
     expect(bill).toEqual({
       billName: '',
       billSubtotal: '',
-      totalTax: '',
-      hasFees: false,
+      fees: [],
       tipAmount: '',
       splitEven: false,
       partySize: '4',
@@ -27,7 +26,7 @@ describe('scannedBill', () => {
     expect(bill).toEqual({
       ...initialBill(() => row('x')),
       billSubtotal: '8',
-      totalTax: '0.6',
+      fees: [expect.objectContaining({ label: 'Tax', amount: '0.6' })],
       tipAmount: '1.5',
       items: [row('x')],
     })
@@ -35,7 +34,7 @@ describe('scannedBill', () => {
 
   it('leaves totals the receipt lacked blank instead of stale', () => {
     const bill = scannedBill({ subtotal: 8 }, [row('x')])
-    expect(bill.totalTax).toBe('')
+    expect(bill.fees).toEqual([])
     expect(bill.tipAmount).toBe('')
     expect(bill.billName).toBe('')
     expect(bill.splitEven).toBe(false)

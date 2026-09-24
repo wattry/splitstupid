@@ -1,12 +1,31 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { usePostHog } from '@posthog/react';
 import { initialState, input } from '../../lib/calculator.js';
+import { CalculatorIcon } from '../Icons.js';
 
-// A floating 🧮 button that opens a plain calculator modal for quick math.
+// A floating calculator button that opens a plain calculator modal for quick math.
 export const Calculator = () => {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState(initialState);
+  const posthog = usePostHog();
+  // Per-session usage, reported when the modal closes.
+  const usage = useRef({ keys_pressed: 0, evaluated: false });
 
-  const press = (key: string) => setState((s) => input(s, key));
+  const openModal = () => {
+    usage.current = { keys_pressed: 0, evaluated: false };
+    posthog.capture('calculator_opened', {});
+    setOpen(true);
+  };
+  const closeModal = (via: 'close' | 'backdrop') => {
+    posthog.capture('calculator_closed', { ...usage.current, via });
+    setOpen(false);
+  };
+
+  const press = (key: string) => {
+    usage.current.keys_pressed += 1;
+    if (key === '=') usage.current.evaluated = true;
+    setState((s) => input(s, key));
+  };
 
   const keys: string[][] = [
     ['C', '⌫', '/', '*'],
@@ -24,10 +43,10 @@ export const Calculator = () => {
       <button
         type="button"
         className="fab"
-        onClick={() => setOpen(true)}
+        onClick={openModal}
         aria-label="Open calculator"
       >
-        🧮
+        <CalculatorIcon />
       </button>
 
       {open && (
@@ -36,7 +55,7 @@ export const Calculator = () => {
           role="dialog"
           aria-label="Calculator"
           onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
+            if (e.target === e.currentTarget) closeModal('backdrop');
           }}
         >
           <div className="calc__card">
@@ -60,7 +79,7 @@ export const Calculator = () => {
             <button
               type="button"
               className="scan-btn scan-btn--ghost calculator__close"
-              onClick={() => setOpen(false)}
+              onClick={() => closeModal('close')}
             >
               Close
             </button>

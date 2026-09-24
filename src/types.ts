@@ -41,3 +41,13 @@ export interface ParsedTotals {
   tip?: number;
   total?: number;
 }
+
+/**
+ * One itemised tax or fee. `amount` is the raw `<input>` string, like the
+ * item rows; the label is free text ("Tax", "Service fee").
+ */
+export interface Fee {
+  id: string;
+  label: string;
+  amount: string;
+}
