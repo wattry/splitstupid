@@ -24,6 +24,8 @@ body {
 }
 
 .card {
+  position: relative;
+  isolation: isolate;
   width: 100%;
   max-width: 420px;
   /* Grid item: without this, wide content (long OCR lines) forces the card past the viewport. */
@@ -31,10 +33,24 @@ body {
   padding: 18px;
   border-radius: 24px;
   background: var(--glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 20px 60px rgba(27, 16, 51, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/*
+ * The glass blur lives on a pseudo-element, not the card: backdrop-filter
+ * turns its element into the containing block for position: fixed
+ * descendants, which would size the camera / crop / lightbox overlays to
+ * the card instead of the screen.
+ */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .card__head { text-align: center; margin-bottom: 20px; }
@@ -907,7 +923,7 @@ body {
 .camera {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 65; /* above the floating calculator button (60) */
   display: flex;
   flex-direction: column;
   gap: 16px;
