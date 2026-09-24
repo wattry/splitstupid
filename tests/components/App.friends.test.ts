@@ -280,6 +280,23 @@ describe('App friends and participants integration', () => {
     expect(h.querySelector('.byperson')).toBeNull();
   });
 
+  it('manage participants opens above the assign dialog', async () => {
+    seedMe('Ryan');
+    const h = mount();
+    await flush();
+    click(h.querySelector('button[aria-label="Assign to people"]')!);
+    expect(h.querySelector('[aria-label="Assign"]')).toBeTruthy();
+
+    click(button(h, 'Manage participants'));
+    expect(h.querySelector('[aria-label="Assign"]')).toBeTruthy();
+    expect(h.querySelector('[aria-label="Manage Participants"]')).toBeTruthy();
+    expect(h.querySelector('.calc.friends')).toBeTruthy();
+
+    click(button(h, 'Close'));
+    expect(h.querySelector('[aria-label="Manage Participants"]')).toBeNull();
+    expect(h.querySelector('[aria-label="Assign"]')).toBeTruthy();
+  });
+
   it('a link with assignees restores pills for participants on the bill', async () => {
     seedMe('Ryan');
     const st = minimalState([{ id: 'id-sam', name: 'Sam' }]);
