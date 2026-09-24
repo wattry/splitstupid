@@ -45,63 +45,131 @@ function mount(initial: Item[], perUnit = false) {
   return { host, capture };
 }
 
-const pointer = (el: Element, type: string, x = 10, y = 10) => act(() => {
-  el.dispatchEvent(new MouseEvent(type, { bubbles: true, clientX: x, clientY: y }));
+const pointer = (el: Element, type: string, x = 10, y = 10, pointerType = 'touch') => act(() => {
+  el.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: x, clientY: y, pointerType, pointerId: 1 }));
 });
 const click = (el: Element) => act(() => { el.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+/** A button inside the Split dialog (the swipe tray has its own Split button). */
 const button = (host: Element, label: string) =>
-  [...host.querySelectorAll('button')].find((b) => b.textContent === label)!;
+  [...host.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent === label)!;
 const type = (input: HTMLInputElement, value: string) => act(() => {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
   setter.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
 });
-const hold = (row: Element) => {
-  pointer(row, 'pointerdown');
-  act(() => { vi.advanceTimersByTime(500); });
+/** Touch swipe the row far enough left to snap the action tray open. */
+const swipeOpen = (row: Element) => {
+  pointer(row, 'pointerdown', 300, 10);
+  pointer(row, 'pointermove', 150, 12);
+  pointer(row, 'pointerup', 150, 12);
 };
 const rows = (host: Element) => [...host.querySelectorAll('.items__row')];
 const firstRow = (host: Element) => rows(host)[0]!;
 const unitsOf = (row: Element) => (row.querySelector('input[aria-label="Units on receipt"]') as HTMLInputElement).value;
 const priceOf = (row: Element) => (row.querySelector('.items__price') as HTMLInputElement).value;
+const trayButton = (row: Element, label: string) =>
+  [...row.querySelectorAll('.items__tray button')].find((b) => b.textContent === label) as HTMLButtonElement | undefined;
 
 beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); document.body.innerHTML = ''; });
 
-describe('ItemRows split', () => {
-  it('holding a multi-unit row opens the Split dialog', () => {
-    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
-    hold(firstRow(host));
-    expect(host.querySelector('[role="dialog"][aria-label="Split"]')).not.toBeNull();
-  });
-
-  it('holding a single-unit row does nothing', () => {
-    const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
-    hold(firstRow(host));
-    expect(host.querySelector('[role="dialog"]')).toBeNull();
-  });
-
-  it('releasing or dragging before the hold elapses does not open the dialog', () => {
+describe('ItemRows swipe tray (touch)', () => {
+  it('swiping a row left snaps it open and shows Split and Delete', () => {
     const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
     const row = firstRow(host);
-    pointer(row, 'pointerdown');
-    act(() => { vi.advanceTimersByTime(200); });
-    pointer(row, 'pointerup');
-    act(() => { vi.advanceTimersByTime(500); });
-    expect(host.querySelector('[role="dialog"]')).toBeNull();
-
-    pointer(row, 'pointerdown');
-    pointer(row, 'pointermove', 40, 10);
-    act(() => { vi.advanceTimersByTime(500); });
-    expect(host.querySelector('[role="dialog"]')).toBeNull();
+    expect(row.classList.contains('items__row--open')).toBe(false);
+    swipeOpen(row);
+    expect(row.classList.contains('items__row--open')).toBe(true);
+    expect(trayButton(row, 'Split')).toBeDefined();
+    expect(trayButton(row, 'Delete')).toBeDefined();
   });
 
+  it('a single-unit row offers Delete only', () => {
+    const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
+    const row = firstRow(host);
+    swipeOpen(row);
+    expect(trayButton(row, 'Split')).toBeUndefined();
+    expect(trayButton(row, 'Delete')).toBeDefined();
+  });
+
+  it('a short swipe snaps back closed', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
+    const row = firstRow(host);
+    pointer(row, 'pointerdown', 300, 10);
+    pointer(row, 'pointermove', 280, 12);
+    pointer(row, 'pointerup', 280, 12);
+    expect(row.classList.contains('items__row--open')).toBe(false);
+  });
+
+  it('mouse drags never open the tray', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
+    const row = firstRow(host);
+    pointer(row, 'pointerdown', 300, 10, 'mouse');
+    pointer(row, 'pointermove', 150, 12, 'mouse');
+    pointer(row, 'pointerup', 150, 12, 'mouse');
+    expect(row.classList.contains('items__row--open')).toBe(false);
+  });
+
+  it('touching another row closes the open one', () => {
+    const { host } = mount([
+      makeRow({ units: '3', desc: 'Beer', price: '10.00' }),
+      makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
+    ]);
+    const [a, b] = rows(host) as [Element, Element];
+    swipeOpen(a);
+    pointer(b, 'pointerdown', 300, 10);
+    pointer(b, 'pointerup', 300, 10);
+    expect(a.classList.contains('items__row--open')).toBe(false);
+  });
+
+  it('tray Split opens the Split dialog and closes the tray', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
+    const row = firstRow(host);
+    swipeOpen(row);
+    click(trayButton(row, 'Split')!);
+    expect(host.querySelector('[role="dialog"][aria-label="Split"]')).not.toBeNull();
+    expect(row.classList.contains('items__row--open')).toBe(false);
+  });
+
+  it('tray Delete removes the row after the exit animation', () => {
+    const { host } = mount([
+      makeRow({ units: '3', desc: 'Beer', price: '10.00' }),
+      makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
+    ]);
+    const row = firstRow(host);
+    swipeOpen(row);
+    click(trayButton(row, 'Delete')!);
+    act(() => { vi.advanceTimersByTime(200); });
+    expect(rows(host)).toHaveLength(1);
+    expect(unitsOf(firstRow(host))).toBe('1');
+  });
+});
+
+describe('ItemRows split button (desktop)', () => {
+  it('rows with several units get an enabled split button; single-unit rows a disabled one', () => {
+    const { host } = mount([
+      makeRow({ units: '3', desc: 'Beer', price: '10.00' }),
+      makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
+    ]);
+    const [a, b] = rows(host) as [Element, Element];
+    expect((a.querySelector('.items__split') as HTMLButtonElement).disabled).toBe(false);
+    expect((b.querySelector('.items__split') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('clicking the split button opens the Split dialog', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
+    click(firstRow(host).querySelector('.items__split')!);
+    expect(host.querySelector('[role="dialog"][aria-label="Split"]')).not.toBeNull();
+  });
+});
+
+describe('ItemRows split', () => {
   it('splitting replaces the row in place, keeps the total, and closes the dialog', () => {
     const { host, capture } = mount([
       makeRow({ units: '3', desc: 'Beer', price: '10.00' }),
       makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
     ]);
-    hold(firstRow(host));
+    click(firstRow(host).querySelector('.items__split')!);
     type(host.querySelector('.split__count') as HTMLInputElement, '2');
     click(button(host, 'Split'));
 
@@ -115,7 +183,7 @@ describe('ItemRows split', () => {
 
   it('cancel leaves the rows alone', () => {
     const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
-    hold(firstRow(host));
+    click(firstRow(host).querySelector('.items__split')!);
     click(button(host, 'Cancel'));
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(rows(host)).toHaveLength(1);

@@ -39,3 +39,14 @@ export const CalculatorIcon = () => (
     )}
   </svg>
 );
+
+/** One line forking into two: split a row's units apart. */
+export const SplitIcon = () => (
+  <svg {...base}>
+    <path d="M4 12h6" />
+    <path d="M10 12c3 0 4-5 8-5" />
+    <path d="M10 12c3 0 4 5 8 5" />
+    <path d="M15 4l3 3-3 3" />
+    <path d="M15 14l3 3-3 3" />
+  </svg>
+);
