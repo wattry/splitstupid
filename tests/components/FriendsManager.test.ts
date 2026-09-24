@@ -26,16 +26,17 @@ function mount(friends: Friend[] = [sam, alex], participants: Participant[] = [s
   const onRenameMe = vi.fn<(name: string) => FriendResult>((name) => okResult({ id: meOverride.id, name }, friends));
   const onDelete = vi.fn();
   const onClose = vi.fn();
+  const onAdopt = vi.fn<(id: string) => { ok: boolean; error?: string }>(() => ({ ok: true }));
   const host = document.createElement('div');
   document.body.appendChild(host);
   act(() => {
     createRoot(host).render(
       React.createElement(FriendsManager, {
-        friends, participants, me: meOverride, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose,
+        friends, participants, me: meOverride, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose, onAdopt,
       })
     );
   });
-  return { host, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose };
+  return { host, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose, onAdopt };
 }
 
 const click = (el: Element) => act(() => { el.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
@@ -203,6 +204,32 @@ describe('FriendsManager edit view', () => {
     type(input, 'Jo');
     submit(input);
     expect(document.activeElement).toBe(byLabel(host, 'New friend name'));
+  });
+
+  it('edit view offers a two-tap This is me that calls onAdopt and returns to the list', () => {
+    const { host, onAdopt } = mount();
+    click(host.querySelector('button[aria-label="Edit Alex Kim"]')!);
+    click(button(host, 'This is me'));
+    expect(onAdopt).not.toHaveBeenCalled();
+    click(button(host, 'Confirm: this is me'));
+    expect(onAdopt).toHaveBeenCalledWith('id-alex');
+    expect(byLabel(host, 'Search friends')).toBeTruthy();
+  });
+
+  it('a refused adopt shows the error and stays on the edit view', () => {
+    const { host, onAdopt } = mount();
+    onAdopt.mockReturnValueOnce({ ok: false, error: 'You already have a friend named Alex Kim.' });
+    click(host.querySelector('button[aria-label="Edit Alex Kim"]')!);
+    click(button(host, 'This is me'));
+    click(button(host, 'Confirm: this is me'));
+    expect(host.textContent).toContain('You already have a friend named Alex Kim.');
+    expect(byLabel(host, 'Friend name')).toBeTruthy();
+  });
+
+  it('the Me edit view has no This is me button', () => {
+    const { host } = mount();
+    click(host.querySelector('button[aria-label="Edit Ryan"]')!);
+    expect(button(host, 'This is me')).toBeUndefined();
   });
 });
 

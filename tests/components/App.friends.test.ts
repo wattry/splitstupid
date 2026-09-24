@@ -121,6 +121,7 @@ describe('App friends and participants integration', () => {
     expect(chipNames(h)).toEqual(['Ryan', 'Jo', 'Known']);
     expect(localStorage.getItem(FRIENDS_STORAGE_KEY)).toBe(JSON.stringify({ v: 1, friends: [] }));
 
+    click(h.querySelector('[aria-label="Options for Jo"]')!);
     const addBtn = h.querySelector('[aria-label="Add Jo to friends"]');
     expect(addBtn).toBeTruthy();
     click(addBtn!);
@@ -303,6 +304,7 @@ describe('App friends and participants integration', () => {
     click(button(h, 'Done'));
     expect(h.querySelector('.pill')?.textContent).toBe('SK');
 
+    click(h.querySelector('[aria-label="Options for Sam Kim"]')!);
     click(h.querySelector('[aria-label="Remove Sam Kim from bill"]')!);
     expect(h.querySelector('.pill')).toBeNull();
 

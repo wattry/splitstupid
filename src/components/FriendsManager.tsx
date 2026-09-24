@@ -17,6 +17,8 @@ export interface FriendsManagerProps {
   onRenameMe: (name: string) => FriendResult;
   onDelete: (id: string) => void;
   onClose: () => void;
+  /** Adopt the given friend id as Me; refused with an inline error on collision. */
+  onAdopt: (id: string) => { ok: boolean; error?: string };
 }
 
 /** Inline copy for a failed add/rename/import. */
@@ -39,7 +41,7 @@ type View = { kind: 'list' } | { kind: 'edit'; id: string } | { kind: 'editMe' }
  * rename and a two-tap delete. Every change applies immediately.
  */
 export function FriendsManager(props: FriendsManagerProps): ReactElement {
-  const { friends, participants, me, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose } = props;
+  const { friends, participants, me, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose, onAdopt } = props;
   const [view, setView] = useState<View>({ kind: 'list' });
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +83,7 @@ export function FriendsManager(props: FriendsManagerProps): ReactElement {
             initial={editing.name}
             onSave={(name) => onRename(editing.id, name)}
             onDelete={() => onDelete(editing.id)}
+            onAdopt={() => onAdopt(editing.id)}
             onBack={() => setView({ kind: 'list' })}
           />
         ) : (
@@ -216,13 +219,16 @@ interface EditViewProps {
   onSave: (name: string) => FriendResult;
   /** Omitted for Me: no Delete button. */
   onDelete?: () => void;
+  /** Omitted for Me: no This is me button. */
+  onAdopt?: () => { ok: boolean; error?: string };
   onBack: () => void;
 }
 
-function EditView({ title, inputLabel, placeholder, initial, onSave, onDelete, onBack }: EditViewProps): ReactElement {
+function EditView({ title, inputLabel, placeholder, initial, onSave, onDelete, onAdopt, onBack }: EditViewProps): ReactElement {
   const [name, setName] = useState(initial);
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState(false);
+  const [adopting, setAdopting] = useState(false);
 
   const save = (e: FormEvent) => {
     e.preventDefault();
@@ -251,6 +257,26 @@ function EditView({ title, inputLabel, placeholder, initial, onSave, onDelete, o
       />
       {error && <p className="friends__error" role="alert">{error}</p>}
       <div className="calc__actions">
+        {onAdopt && (adopting ? (
+          <button
+            type="button"
+            className="scan-btn"
+            onClick={() => {
+              const r = onAdopt();
+              if (r.ok) onBack();
+              else {
+                setError(r.error ?? '');
+                setAdopting(false);
+              }
+            }}
+          >
+            Confirm: this is me
+          </button>
+        ) : (
+          <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setAdopting(true)}>
+            This is me
+          </button>
+        ))}
         {onDelete && (confirming ? (
           <button type="button" className="scan-btn scan-btn--danger" onClick={() => { onDelete(); onBack(); }}>
             Confirm delete

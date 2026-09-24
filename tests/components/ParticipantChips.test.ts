@@ -19,15 +19,20 @@ function mount(participants: Participant[], friends: Friend[] = [sam], meId = 'i
     friend: { id: p.id, name: name ?? p.name },
     friends,
   }));
+  const onAdopt = vi.fn<(p: Participant) => { ok: boolean; error?: string }>(() => ({ ok: true }));
   const host = document.createElement('div');
   document.body.appendChild(host);
   act(() => {
-    createRoot(host).render(React.createElement(ParticipantChips, { participants, friends, meId, onRemove, onImport }));
+    createRoot(host).render(
+      React.createElement(ParticipantChips, { participants, friends, meId, onRemove, onImport, onAdopt })
+    );
   });
-  return { host, onRemove, onImport };
+  return { host, onRemove, onImport, onAdopt };
 }
 
 const click = (el: Element) => act(() => { el.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+const openSheet = (host: Element, name: string) =>
+  click(host.querySelector(`button[aria-label="Options for ${name}"]`)!);
 const type = (input: HTMLInputElement, value: string) => act(() => {
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
   setter.call(input, value);
@@ -43,21 +48,9 @@ describe('ParticipantChips', () => {
     expect(host.innerHTML).toBe('');
   });
 
-  it('shows a chip per participant with a remove button', () => {
-    const { host, onRemove } = mount([known, stranger]);
-    expect([...host.querySelectorAll('.chip__name')].map((el) => el.textContent)).toEqual(['Sam', 'Jo']);
-    click(host.querySelector('button[aria-label="Remove Sam from bill"]')!);
-    expect(onRemove).toHaveBeenCalledWith('id-sam');
-  });
-
-  it('offers Add only for participants not in the friend list', () => {
-    const { host } = mount([known, stranger]);
-    expect(host.querySelector('button[aria-label="Add Sam to friends"]')).toBeNull();
-    expect(host.querySelector('button[aria-label="Add Jo to friends"]')).toBeTruthy();
-  });
-
   it('imports with the snapshot name on Add', () => {
     const { host, onImport } = mount([stranger]);
+    openSheet(host, 'Jo');
     click(host.querySelector('button[aria-label="Add Jo to friends"]')!);
     expect(onImport).toHaveBeenCalledWith(stranger, undefined);
     expect(host.querySelector('input')).toBeNull();
@@ -66,6 +59,7 @@ describe('ParticipantChips', () => {
   it('opens an inline rename when the import collides, then imports under the new name', () => {
     const { host, onImport } = mount([stranger]);
     onImport.mockReturnValueOnce({ ok: false, error: 'duplicate', existing: { id: 'x', name: 'Jo' } });
+    openSheet(host, 'Jo');
     click(host.querySelector('button[aria-label="Add Jo to friends"]')!);
     expect(host.textContent).toContain('You already have a friend named Jo.');
     const input = host.querySelector('input[aria-label="Name for Jo"]') as HTMLInputElement;
@@ -79,9 +73,11 @@ describe('ParticipantChips', () => {
   it('cancels the inline rename', () => {
     const { host, onImport } = mount([stranger]);
     onImport.mockReturnValueOnce({ ok: false, error: 'duplicate', existing: { id: 'x', name: 'Jo' } });
+    openSheet(host, 'Jo');
     click(host.querySelector('button[aria-label="Add Jo to friends"]')!);
     click([...host.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!);
     expect(host.querySelector('input')).toBeNull();
+    expect(host.querySelector('[role="group"]')).toBeNull();
     expect(onImport).toHaveBeenCalledTimes(1);
   });
 
@@ -90,6 +86,38 @@ describe('ParticipantChips', () => {
     expect([...host.querySelectorAll('.chip__name')].map((el) => el.textContent)).toEqual(['Me', 'Jo']);
     expect(host.querySelector('button[aria-label="Remove Me from bill"]')).toBeNull();
     expect(host.querySelector('button[aria-label="Add Me to friends"]')).toBeNull();
-    expect(host.querySelector('button[aria-label="Remove Jo from bill"]')).toBeTruthy();
+  });
+
+  it('opens a sheet from the chip name with the right actions', () => {
+    const { host } = mount([known, stranger]);
+    expect(host.querySelector('[role="group"]')).toBeNull();
+    openSheet(host, 'Jo');
+    const sheet = host.querySelector('[role="group"]')!;
+    const labels = [...sheet.querySelectorAll('button')].map((b) => b.textContent);
+    expect(labels).toEqual(['This is me', 'Add to friends', 'Remove from bill', 'Cancel']);
+    click([...sheet.querySelectorAll('button')].find((b) => b.textContent === 'Cancel')!);
+    expect(host.querySelector('[role="group"]')).toBeNull();
+    openSheet(host, 'Sam');
+    expect([...host.querySelector('[role="group"]')!.querySelectorAll('button')].map((b) => b.textContent))
+      .toEqual(['This is me', 'Remove from bill', 'Cancel']);
+  });
+
+  it('This is me calls onAdopt and closes; a refusal shows the error and stays open', () => {
+    const { host, onAdopt } = mount([stranger]);
+    openSheet(host, 'Jo');
+    click(host.querySelector('button[aria-label="This is me: Jo"]')!);
+    expect(onAdopt).toHaveBeenCalledWith(stranger);
+    expect(host.querySelector('[role="group"]')).toBeNull();
+    onAdopt.mockReturnValueOnce({ ok: false, error: 'You already have a friend named Jo.' });
+    openSheet(host, 'Jo');
+    click(host.querySelector('button[aria-label="This is me: Jo"]')!);
+    expect(host.textContent).toContain('You already have a friend named Jo.');
+    expect(host.querySelector('[role="group"]')).toBeTruthy();
+  });
+
+  it('Me chip has no options button', () => {
+    const { host } = mount([{ id: 'id-me', name: '' }, stranger], []);
+    expect(host.querySelector('button[aria-label="Options for Me"]')).toBeNull();
+    expect(host.querySelector('button[aria-label="Options for Jo"]')).toBeTruthy();
   });
 });

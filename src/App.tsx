@@ -365,6 +365,7 @@ export default function App() {
               setItems((prev) => stripAssignee(prev, id));
             }}
             onImport={importFriend}
+            onAdopt={() => ({ ok: true })}
           />
         </div>
         {friendsOpen && (
@@ -382,6 +383,7 @@ export default function App() {
             onRenameMe={renameMe}
             onDelete={deleteFriend}
             onClose={() => setFriendsOpen(false)}
+            onAdopt={() => ({ ok: true })}
           />
         )}
         {afterName && (
