@@ -50,4 +50,11 @@ describe('useMe', () => {
     expect(api().me).toEqual({ id, name: 'Ryan' });
     expect(JSON.parse(localStorage.getItem(ME_STORAGE_KEY)!)).toEqual({ v: 1, id, name: 'Ryan' });
   });
+
+  it('replace swaps id and name and persists', () => {
+    const { api } = mount();
+    act(() => { api().replace({ id: 'id-r', name: 'Ryan' }); });
+    expect(api().me).toEqual({ id: 'id-r', name: 'Ryan' });
+    expect(JSON.parse(localStorage.getItem(ME_STORAGE_KEY)!)).toEqual({ v: 1, id: 'id-r', name: 'Ryan' });
+  });
 });

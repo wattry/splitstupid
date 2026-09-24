@@ -56,4 +56,12 @@ describe('useFriends', () => {
     expect(api().friends).toEqual([]);
     expect(JSON.parse(localStorage.getItem(FRIENDS_STORAGE_KEY)!).friends).toEqual([]);
   });
+
+  it('set replaces the whole list and persists', () => {
+    const { api } = mount();
+    act(() => { api().add('Alex', 'id-a'); });
+    act(() => { api().set([{ id: 'id-b', name: 'Bo' }]); });
+    expect(api().friends).toEqual([{ id: 'id-b', name: 'Bo' }]);
+    expect(JSON.parse(localStorage.getItem(FRIENDS_STORAGE_KEY)!).friends).toEqual([{ id: 'id-b', name: 'Bo' }]);
+  });
 });

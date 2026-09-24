@@ -3,8 +3,9 @@
  * list so it survives friend edits, and always present on every bill. The
  * name may be blank until the user is asked for it (sharing requires it).
  */
-import type { Friend, Me, Participant } from '../types.js';
-import { findByName, normalizeName, type FriendResult } from './friends.js';
+import type { Friend, Item, Me, Participant } from '../types.js';
+import { findByName, nameKey, normalizeName, type FriendResult } from './friends.js';
+import { assigneesOf, setAssignees } from './assign.js';
 
 export const ME_STORAGE_KEY = 'splitstupid.me.v1';
 
@@ -60,4 +61,40 @@ export function validateMeName(friends: Friend[], name: string): FriendResult {
   const existing = findByName(friends, clean);
   if (existing) return { ok: false, error: 'duplicate', existing };
   return { ok: true, friends, friend: { id: '', name: clean } };
+}
+
+export interface AdoptInput {
+  me: Me;
+  friends: Friend[];
+  participants: Participant[];
+  items: Item[];
+  target: Participant;
+}
+export type AdoptResult =
+  { ok: true; me: Me; friends: Friend[]; participants: Participant[]; items: Item[] } |
+  { ok: false; error: 'duplicate'; existing: Friend };
+
+/**
+ * "This is me": take over `target`'s identity. Rows assigned to the old Me
+ * follow to the new id, the old Me leaves the bill, the target moves first,
+ * and the target stops being a friend. Refused when the target's name would
+ * collide with another friend, so the shared namespace keeps holding.
+ */
+export function adoptIdentity({ me, friends, participants, items, target }: AdoptInput): AdoptResult {
+  const key = nameKey(target.name);
+  const existing = friends.find((f) => f.id !== target.id && nameKey(f.name) === key && key !== '');
+  if (existing) return { ok: false, error: 'duplicate', existing };
+  const nextMe: Me = { id: target.id, name: target.name };
+  const nextItems = items.map((it) => {
+    const ids = assigneesOf(it);
+    return ids.includes(me.id) ? setAssignees(it, ids.map((x) => (x === me.id ? target.id : x))) : it;
+  });
+  const rest = participants.filter((p) => p.id !== me.id && p.id !== target.id);
+  return {
+    ok: true,
+    me: nextMe,
+    friends: friends.filter((f) => f.id !== target.id),
+    participants: [{ id: target.id, name: target.name }, ...rest],
+    items: nextItems,
+  };
 }

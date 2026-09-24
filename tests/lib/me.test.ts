@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   ME_STORAGE_KEY,
+  adoptIdentity,
   ensureMe,
   isMe,
   loadMe,
@@ -10,7 +11,7 @@ import {
   saveMe,
   validateMeName,
 } from '../../src/lib/me.js';
-import type { Friend, Me, Participant } from '../../src/types.js';
+import type { Friend, Item, Me, Participant } from '../../src/types.js';
 
 const me: Me = { id: 'id-me', name: 'Ryan' };
 const sam: Friend = { id: 'id-sam', name: 'Sam' };
@@ -99,5 +100,51 @@ describe('validateMeName', () => {
 
   it('rejects a friend name, case-insensitively', () => {
     expect(validateMeName([sam], 'sam')).toEqual({ ok: false, error: 'duplicate', existing: sam });
+  });
+});
+
+describe('adoptIdentity', () => {
+  const oldMe: Me = { id: 'id-old', name: '' };
+  const ryan: Participant = { id: 'id-r', name: 'Ryan' };
+  const sam: Friend = { id: 'id-sam', name: 'Sam' };
+  const row = (id: string, assignees?: string[]): Item =>
+    ({ id, units: '1', yours: '1', desc: id, price: '1', ...(assignees ? { assignees } : {}) });
+
+  it('adopts the target id and name, remaps rows, reorders participants, drops the friend', () => {
+    const out = adoptIdentity({
+      me: oldMe,
+      friends: [sam, { id: 'id-r', name: 'Ryan' }],
+      participants: [{ id: 'id-old', name: '' }, { id: 'id-sam', name: 'Sam' }, ryan],
+      items: [row('a', ['id-old']), row('b', ['id-r', 'id-old']), row('c', ['id-sam']), row('d')],
+      target: ryan,
+    });
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.me).toEqual({ id: 'id-r', name: 'Ryan' });
+    expect(out.participants).toEqual([ryan, { id: 'id-sam', name: 'Sam' }]);
+    expect(out.friends).toEqual([sam]);
+    expect(out.items.map((it) => it.assignees)).toEqual([['id-r'], ['id-r'], ['id-sam'], undefined]);
+  });
+
+  it('leaves rows that do not mention the old id identical', () => {
+    const c = row('c', ['id-sam']);
+    const out = adoptIdentity({ me: oldMe, friends: [], participants: [ryan], items: [c], target: ryan });
+    expect(out.ok && out.items[0]).toBe(c);
+  });
+
+  it('refuses when the target name collides with another friend', () => {
+    const out = adoptIdentity({
+      me: oldMe,
+      friends: [{ id: 'id-other', name: 'ryan' }],
+      participants: [{ id: 'id-old', name: '' }, ryan],
+      items: [],
+      target: ryan,
+    });
+    expect(out).toEqual({ ok: false, error: 'duplicate', existing: { id: 'id-other', name: 'ryan' } });
+  });
+
+  it('does not treat the target itself as a collision', () => {
+    const out = adoptIdentity({ me: oldMe, friends: [{ id: 'id-r', name: 'Ryan' }], participants: [ryan], items: [], target: ryan });
+    expect(out.ok).toBe(true);
   });
 });

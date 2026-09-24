@@ -14,6 +14,8 @@ export interface FriendsApi {
   add(name: string, id?: string): FriendResult;
   rename(id: string, name: string): FriendResult;
   remove(id: string): void;
+  /** Replace the whole list, e.g. after adopting a participant as Me. */
+  set(friends: Friend[]): void;
 }
 
 /**
@@ -52,5 +54,7 @@ export function useFriends(storage: Storage = window.localStorage): FriendsApi {
     []
   );
 
-  return { friends, add, rename, remove };
+  const set = useCallback<FriendsApi['set']>((list) => setFriends(list), []);
+
+  return { friends, add, rename, remove, set };
 }
