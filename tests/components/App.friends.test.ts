@@ -278,6 +278,38 @@ describe('App friends and participants integration', () => {
     click(button(h, 'Close'));
     expect(h.querySelector('.pill')).toBeNull();
     expect(h.querySelector('.byperson')).toBeNull();
+
+    // Re-adding Sam Kim reuses the same friend id; without stripping the
+    // assignee on removal, the pill would silently come back here.
+    click(button(h, 'Manage Participants (1)'));
+    click(h.querySelector('.friends__row:not(.friends__row--me) input[type="checkbox"]')!);
+    click(button(h, 'Close'));
+    expect(h.querySelector('.pill')).toBeNull();
+    expect(h.querySelector('.byperson')).toBeNull();
+  });
+
+  it('removing a participant via the chip really drops their assignment', async () => {
+    seedMe('Ryan');
+    const h = mount();
+    await flush();
+    click(button(h, 'Manage Participants (1)'));
+    const nameInput = byLabel(h, 'New friend name');
+    type(nameInput, 'Sam Kim');
+    submit(nameInput);
+    click(button(h, 'Close'));
+    click(h.querySelector('button[aria-label="Assign to people"]')!);
+    const boxes = h.querySelectorAll('.assign__row input[type="checkbox"]');
+    click(boxes[1]!);
+    click(button(h, 'Done'));
+    expect(h.querySelector('.pill')?.textContent).toBe('SK');
+
+    click(h.querySelector('[aria-label="Remove Sam Kim from bill"]')!);
+    expect(h.querySelector('.pill')).toBeNull();
+
+    click(button(h, 'Manage Participants (1)'));
+    click(h.querySelector('.friends__row:not(.friends__row--me) input[type="checkbox"]')!);
+    click(button(h, 'Close'));
+    expect(h.querySelector('.pill')).toBeNull();
   });
 
   it('manage participants opens above the assign dialog', async () => {
