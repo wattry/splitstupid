@@ -20,7 +20,7 @@ describe('assigneesOf / toggleAssignee / setAssignees', () => {
     const on = toggleAssignee(base, 'sam');
     expect(on.assignees).toEqual(['sam']);
     expect(base.assignees).toBeUndefined();
-    expect(toggleAssignee(on, 'sam').assignees).toEqual([]);
+    expect(toggleAssignee(on, 'sam').assignees).toBeUndefined();
   });
   it('setAssignees dedupes and keeps order', () => {
     expect(setAssignees(item(), ['sam', 'me', 'sam']).assignees).toEqual(['sam', 'me']);

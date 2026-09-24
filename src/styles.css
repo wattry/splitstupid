@@ -665,7 +665,7 @@ body {
 
 .lightbox__hint { color: rgba(255, 255, 255, 0.7); font-size: 0.8rem; }
 
-/* Item rows: Units | Yours | Description | Price | split | remove */
+/* Item rows: Units | Yours | Description | Price | remove | assign | split */
 .items { display: flex; flex-direction: column; gap: 10px; }
 
 .items__head,
@@ -730,6 +730,11 @@ body {
 
 /* Owe label rides along with the sliding grid. */
 .items__row--open .items__owe { visibility: hidden; }
+
+/* Assignee pills are a sibling of the grid; hide them while the tray is showing. */
+.items__row--open .pills,
+.items__row--dragging .pills,
+.items__row--leaving .pills { visibility: hidden; }
 
 .items__row--leaving {
   overflow: hidden;

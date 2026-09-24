@@ -12,7 +12,13 @@ export function assigneesOf(item: Item): string[] {
 const unique = (ids: string[]): string[] => [...new Set(ids)];
 
 export function setAssignees(item: Item, ids: string[]): Item {
-  return { ...item, assignees: unique(ids) };
+  const deduped = unique(ids);
+  if (deduped.length === 0) {
+    const rest = { ...item };
+    delete rest.assignees;
+    return rest;
+  }
+  return { ...item, assignees: deduped };
 }
 
 export function toggleAssignee(item: Item, id: string): Item {
