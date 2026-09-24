@@ -415,6 +415,7 @@ export default function ScanReceipt(props: ScanReceiptProps): ReactElement {
           max={MAX_PHOTOS}
           onCapture={(blob) => addPhotos([blob])}
           onClose={() => setCameraOpen(false)}
+          onUpload={() => { setCameraOpen(false); uploadRef.current?.click() }}
         />
       )}
 

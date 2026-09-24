@@ -932,7 +932,9 @@ body {
   object-fit: contain;
 }
 
-.camera__error { color: #fff; text-align: center; padding: 24px; }
+.camera__error { color: #fff; text-align: center; padding: 24px; max-width: 360px; margin: 0 auto; }
+.camera__error-title { margin: 0 0 12px; font-size: 1.1rem; font-weight: 700; }
+.camera__error ol { margin: 0 0 18px; padding-left: 22px; text-align: left; line-height: 1.5; }
 
 .camera__hint { margin: 0; color: #fff; text-align: center; font-size: 0.9rem; }
 
