@@ -5,7 +5,7 @@
  * CompressionStream, and the bytes are base64url-encoded — safe to place
  * after `#s=` with no percent-escaping.
  */
-import type { Fee, Item } from '../types.js';
+import type { Fee, Item, Participant } from '../types.js';
 import { feeInputValue, makeFee } from './fees.js';
 
 export interface SavedState {
@@ -23,6 +23,8 @@ export interface SavedState {
   splitEven: boolean;
   partySize: string;
   myParty: string;
+  /** People on this bill; snapshots so recipients see names without the sender's friend list. */
+  participants: Participant[];
   items: Item[];
 }
 
@@ -30,6 +32,8 @@ export interface SavedState {
 type PackedItem = [string, string, string, string];
 /** [label, amount] — a Fee without its transient id. */
 type PackedFee = [string, string];
+/** [id, name] — a Participant. Ids are kept: they are the identity. */
+type PackedParticipant = [string, string];
 
 interface Payload {
   v: 1;
@@ -53,6 +57,8 @@ interface Payload {
   e?: boolean;
   z?: string;
   m?: string;
+  /** Participants; omitted when nobody is on the bill. */
+  u?: PackedParticipant[];
   i: PackedItem[];
 }
 
@@ -105,6 +111,9 @@ export async function encodeState(state: SavedState): Promise<string> {
     t: state.tipAmount,
     p: state.perUnit,
     ...(state.splitEven ? { e: true, z: state.partySize, m: state.myParty } : {}),
+    ...(state.participants.length
+      ? { u: state.participants.map((p) => [p.id, p.name] as PackedParticipant) }
+      : {}),
     i: state.items.map((it) => [it.units, it.yours, it.desc, it.price]),
   };
   const json = new TextEncoder().encode(JSON.stringify(payload));
@@ -121,6 +130,10 @@ function isPackedFee(value: unknown): value is PackedFee {
   return Array.isArray(value) && value.length === 2 && value.every((f) => typeof f === 'string');
 }
 
+function isPackedParticipant(value: unknown): value is PackedParticipant {
+  return Array.isArray(value) && value.length === 2 && value.every((f) => typeof f === 'string');
+}
+
 function isPackedItem(value: unknown): value is PackedItem {
   return Array.isArray(value) && value.length === 4 && value.every((f) => typeof f === 'string');
 }
@@ -133,7 +146,7 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     );
     const data: unknown = JSON.parse(new TextDecoder().decode(await pump(inflated)));
     if (typeof data !== 'object' || data === null) return null;
-    const { v, n, o, r, s, x, f, t, p, e, z, m, i } = data as Record<string, unknown>;
+    const { v, n, o, r, s, x, f, t, p, e, z, m, u, i } = data as Record<string, unknown>;
     if (v !== 1) return null;
     if (n !== undefined && typeof n !== 'string') return null;
     if (o !== undefined && typeof o !== 'string') return null;
@@ -144,6 +157,7 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
     if (e !== undefined && typeof e !== 'boolean') return null;
     if (z !== undefined && typeof z !== 'string') return null;
     if (m !== undefined && typeof m !== 'string') return null;
+    if (u !== undefined && (!Array.isArray(u) || !u.every(isPackedParticipant))) return null;
     if (!Array.isArray(i) || i.length === 0 || !i.every(isPackedItem)) return null;
     return {
       billName: n ?? '',
@@ -158,6 +172,7 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
       splitEven: e ?? false,
       partySize: z ?? '4',
       myParty: m ?? '1',
+      participants: (u ?? []).map(([id, name]) => ({ id, name })),
       items: i.map(([units, yours, desc, price]) => ({
         id: crypto.randomUUID(),
         units,

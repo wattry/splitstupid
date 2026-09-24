@@ -13,6 +13,7 @@ const state: SavedState = {
   splitEven: false,
   partySize: '',
   myParty: '1',
+  participants: [],
   items: [
     { id: 'a', units: '2', yours: '1', desc: 'Pad Thai', price: '12.00' },
     { id: 'b', units: '1', yours: '1', desc: 'Beer', price: '6.50' },
@@ -162,9 +163,46 @@ describe('encodeState / decodeState', () => {
       splitEven: false,
       partySize: '',
       myParty: '1',
+      participants: [],
       items: [],
     });
     expect(await decodeState(bogus)).toBeNull();
+  });
+
+  it('round-trips participants keeping their ids', async () => {
+    const withPeople: SavedState = {
+      ...state,
+      participants: [
+        { id: 'id-sam', name: 'Sam' },
+        { id: 'id-alex', name: 'Alex Kim' },
+      ],
+    };
+    const decoded = await decodeState(await encodeState(withPeople));
+    expect(decoded!.participants).toEqual(withPeople.participants);
+  });
+
+  it('omits participants from the payload when there are none', async () => {
+    const a = await encodeState(state);
+    const b = await encodeState({ ...state, participants: [] });
+    expect(a).toBe(b);
+    const decoded = await decodeState(a);
+    expect(decoded!.participants).toEqual([]);
+  });
+
+  it('decodes links without participants as an empty list', async () => {
+    const legacy = await encodeLegacy({
+      v: 1, s: '10', x: '1', t: '2', p: false, i: [['1', '1', 'Soup', '10']],
+    });
+    const decoded = await decodeState(legacy);
+    expect(decoded!.participants).toEqual([]);
+  });
+
+  it('returns null when participants are malformed', async () => {
+    const bad = await encodeLegacy({
+      v: 1, s: '10', x: '1', t: '2', p: false, i: [['1', '1', 'Soup', '10']],
+      u: [['id-only']],
+    });
+    expect(await decodeState(bad)).toBeNull();
   });
 });
 

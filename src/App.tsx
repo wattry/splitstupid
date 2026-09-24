@@ -112,7 +112,9 @@ export default function App() {
   // Link carrying the whole form (minus any photo); shared and put in the Venmo note.
   const buildShareUrl = async () => {
     const encoded = await encodeState({
-      billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty, items,
+      billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty,
+      participants: [],
+      items,
     });
     return `${window.location.origin}${window.location.pathname}#s=${encoded}`;
   };
