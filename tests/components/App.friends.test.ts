@@ -158,6 +158,16 @@ describe('App friends and participants integration', () => {
     expect(h.querySelector('[aria-label="Remove Me from bill"]')).toBeNull();
   });
 
+  it('rejects a friend named "me" while Me is blank', async () => {
+    const h = mount();
+    await flush();
+    click(button(h, 'Manage Participants (1)'));
+    const nameInput = byLabel(h, 'New friend name');
+    type(nameInput, 'me');
+    submit(nameInput);
+    expect(h.textContent).toContain('You already have a friend named Me.');
+  });
+
   it('does not add Me twice when the link already contains this device', async () => {
     seedMe();
     window.location.hash = `#s=${await encodeState(minimalState([{ id: 'id-jo', name: 'Jo' }, { id: 'id-me', name: 'Ryan' }]))}`;

@@ -60,8 +60,11 @@ export default function App() {
   // Share is gated on Me having a name; the pending action runs after the prompt.
   const [afterName, setAfterName] = useState<((name: string) => void) | null>(null);
 
-  // Friends may not take Me's name, in either direction.
-  const clashesWithMe = (name: string) => me.name !== '' && nameKey(name) === nameKey(me.name);
+  // Friends may not take Me's name, in either direction. While Me is blank,
+  // "Me" itself is also reserved so two chips can't both read "Me".
+  const clashesWithMe = (name: string) =>
+    (me.name !== '' && nameKey(name) === nameKey(me.name)) ||
+    (me.name === '' && nameKey(name) === 'me');
   const addFriend = (name: string, id?: string) =>
     clashesWithMe(name)
       ? ({ ok: false, error: 'duplicate', existing: meAsFriend(me) } as const)

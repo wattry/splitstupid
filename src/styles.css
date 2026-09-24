@@ -1134,7 +1134,7 @@ a.action-btn {
   .total__value { font-size: 1.7rem; }
 }
 
-/* Manage Friends overlay: search + add on top, checkbox list below. */
+/* Manage Participants overlay: search + add on top, checkbox list below. */
 .friends__card { max-width: 420px; max-height: 90vh; display: flex; flex-direction: column; }
 .friends__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .friends__head .calc__title { margin-bottom: 0; }
@@ -1188,7 +1188,7 @@ a.action-btn {
 .friends__editor input { margin: 12px 0 16px; font-size: 1.2rem; }
 .scan-btn--danger { background: #c2185b; border-color: #c2185b; }
 
-/* Participant chips: who is on this bill, under the Manage Friends button. */
+/* Participant chips: who is on this bill, under the Manage Participants button. */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 10px 0 0; padding: 0; }
 .chip {
   display: flex;
@@ -1227,7 +1227,7 @@ a.action-btn {
 .chip__rename .friends__error { margin: 0; }
 .chip__rename .scan-btn { padding: 8px 12px; font-size: 0.9rem; }
 
-/* Manage Friends button and chips, above the scan buttons. */
+/* Manage Participants button and chips, above the scan buttons. */
 .friends-bar { margin-bottom: 12px; }
 .friends-bar > .scan-btn { width: 100%; }
 

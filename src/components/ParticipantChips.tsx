@@ -70,7 +70,7 @@ function Chip({ participant, isFriend, isMe, onRemove, onImport }: ChipProps): R
 
   return (
     <li className={isMe ? 'chip chip--me' : 'chip'}>
-      <span className="chip__name">{participant.name || (isMe ? 'Me' : participant.name)}</span>
+      <span className="chip__name">{participant.name || (isMe ? 'Me' : '')}</span>
       {!isFriend && !error && (
         <button
           type="button"
