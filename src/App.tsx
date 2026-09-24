@@ -9,12 +9,12 @@ import ItemRows, { rowOwed } from './ItemRows.js';
 import type { Fee, Item, ItemFields, ParsedTotals, Participant } from './types.js';
 import { useFriends } from './hooks/useFriends.js';
 import { useMe } from './hooks/useMe.js';
-import { FriendsManager } from './components/FriendsManager.js';
+import { FriendsManager, friendErrorMessage } from './components/FriendsManager.js';
 import { ParticipantChips } from './components/ParticipantChips.js';
 import { NameModal } from './components/NameModal.js';
 import { dedupeParticipants, removeParticipant, syncRename, toggleParticipant } from './lib/participants.js';
 import { pruneAssignees, stripAssignee } from './lib/assign.js';
-import { ensureMe, meAsFriend, meParticipant, validateMeName } from './lib/me.js';
+import { adoptIdentity, ensureMe, meAsFriend, meParticipant, validateMeName } from './lib/me.js';
 import { nameKey } from './lib/friends.js';
 import { Calculator } from './components/inputs/Calculator.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
@@ -53,8 +53,8 @@ export default function App() {
   // Your friends (persisted on this device) and who is on this bill. The
   // bill's list is a snapshot of names so a shared link carries it; scans
   // and links never touch the friend list.
-  const { friends, add, rename, remove } = useFriends();
-  const { me, setName: setMeName } = useMe();
+  const { friends, add, rename, remove, set: setFriends } = useFriends();
+  const { me, setName: setMeName, replace: replaceMe } = useMe();
   // Me is always on the bill; links and imports re-seed via ensureMe.
   const [participants, setParticipants] = useState<Participant[]>(() => [meParticipant(me)]);
   const [friendsOpen, setFriendsOpen] = useState(false);
@@ -94,6 +94,21 @@ export default function App() {
     const result = addFriend(name ?? participant.name, participant.id);
     if (result.ok) setParticipants((list) => syncRename(list, participant.id, result.friend.name));
     return result;
+  };
+
+  // "This is me": take over a participant's identity, carrying assignments along.
+  const adopt = (target: Participant): { ok: boolean; error?: string } => {
+    const r = adoptIdentity({ me, friends, participants, items, target });
+    if (!r.ok) return { ok: false, error: friendErrorMessage(r) };
+    replaceMe(r.me);
+    setFriends(r.friends);
+    setParticipants(r.participants);
+    setItems(r.items);
+    return { ok: true };
+  };
+  const adoptById = (id: string) => {
+    const target = participants.find((p) => p.id === id) ?? friends.find((f) => f.id === id);
+    return target ? adopt({ id: target.id, name: target.name }) : { ok: false, error: 'Enter a name.' };
   };
 
   /**
@@ -365,7 +380,7 @@ export default function App() {
               setItems((prev) => stripAssignee(prev, id));
             }}
             onImport={importFriend}
-            onAdopt={() => ({ ok: true })}
+            onAdopt={adopt}
           />
         </div>
         {friendsOpen && (
@@ -383,7 +398,7 @@ export default function App() {
             onRenameMe={renameMe}
             onDelete={deleteFriend}
             onClose={() => setFriendsOpen(false)}
-            onAdopt={() => ({ ok: true })}
+            onAdopt={adoptById}
           />
         )}
         {afterName && (

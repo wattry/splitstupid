@@ -340,4 +340,50 @@ describe('App friends and participants integration', () => {
     await flush();
     expect([...h.querySelectorAll('.pill')].map((p) => p.textContent)).toEqual(['S']);
   });
+
+  it('This is me adopts a link participant: id, name, assignments and friends follow', async () => {
+    seedMe('');
+    localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify({ v: 1, friends: [{ id: 'id-r', name: 'Ryan' }] }));
+    const st = minimalState([{ id: 'id-r', name: 'Ryan' }, { id: 'id-sam', name: 'Sam' }]);
+    st.items = [
+      { id: 'a', units: '1', yours: '1', desc: 'Soup', price: '5', assignees: ['id-r'] },
+      { id: 'b', units: '1', yours: '1', desc: 'Tea', price: '2' },
+    ];
+    window.location.hash = `#s=${await encodeState(st)}`;
+    const h = mount();
+    await flush();
+    expect(chipNames(h)).toEqual(['Me', 'Ryan', 'Sam']);
+    // Assign Tea to local Me first so the remap is observable.
+    click(h.querySelectorAll('button[aria-label="Assign to people"]')[1]!);
+    click(h.querySelectorAll('.assign__row input[type="checkbox"]')[0]!);
+    click(button(h, 'Done'));
+    click(h.querySelector('button[aria-label="Options for Ryan"]')!);
+    click(h.querySelector('button[aria-label="This is me: Ryan"]')!);
+    expect(chipNames(h)).toEqual(['Ryan', 'Sam']);
+    expect(JSON.parse(localStorage.getItem(ME_STORAGE_KEY)!)).toEqual({ v: 1, id: 'id-r', name: 'Ryan' });
+    expect(JSON.parse(localStorage.getItem(FRIENDS_STORAGE_KEY)!).friends).toEqual([]);
+    const pills = [...h.querySelectorAll('.pill')].map((p) => p.getAttribute('aria-label'));
+    expect(pills).toEqual(['Ryan', 'Ryan']);
+    expect(h.querySelector('.friends__row--me .friends__name')).toBeNull(); // dialog closed
+    click(button(h, 'Manage Participants (2)'));
+    expect(h.querySelector('.friends__row--me .friends__name')?.textContent).toBe('Ryan');
+  });
+
+  it('This is me from the friend editor works and is refused on a name clash', async () => {
+    seedMe('');
+    const h = mount();
+    await flush();
+    click(button(h, 'Manage Participants (1)'));
+    const nameInput = byLabel(h, 'New friend name');
+    type(nameInput, 'Sam'); submit(nameInput);
+    type(nameInput, 'Sam K'); submit(nameInput);
+    click(h.querySelector('button[aria-label="Edit Sam"]')!);
+    click(button(h, 'This is me'));
+    click(button(h, 'Confirm: this is me'));
+    expect(byLabel(h, 'Search friends')).toBeTruthy();
+    expect(h.querySelector('.friends__row--me .friends__name')?.textContent).toBe('Sam');
+    expect(JSON.parse(localStorage.getItem(ME_STORAGE_KEY)!).name).toBe('Sam');
+    click(button(h, 'Close'));
+    expect(chipNames(h)).toEqual(['Sam', 'Sam K']);
+  });
 });
