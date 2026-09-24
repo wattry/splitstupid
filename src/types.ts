@@ -51,3 +51,19 @@ export interface Fee {
   label: string;
   amount: string;
 }
+
+/** A person in this device's persisted friend list. */
+export interface Friend {
+  id: string;
+  name: string;
+}
+
+/**
+ * A person on the current bill. Same shape as a Friend but `name` is a
+ * snapshot taken when they were added, so a shared link carries it without
+ * needing the recipient to know the friend.
+ */
+export interface Participant {
+  id: string;
+  name: string;
+}
