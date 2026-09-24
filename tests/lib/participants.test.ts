@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  dedupeParticipants,
   importParticipant,
   isParticipant,
   removeParticipant,
@@ -71,5 +72,28 @@ describe('importParticipant', () => {
   it('reports a duplicate when the name collides', () => {
     const result = importParticipant([sam], { id: 'id-other', name: 'sam' });
     expect(result).toEqual({ ok: false, error: 'duplicate', existing: sam });
+  });
+});
+
+describe('dedupeParticipants', () => {
+  it('drops entries with a blank name', () => {
+    expect(dedupeParticipants([{ id: 'id-sam', name: 'Sam' }, { id: 'id-blank', name: '   ' }])).toEqual([
+      { id: 'id-sam', name: 'Sam' },
+    ]);
+  });
+
+  it('keeps the first occurrence of a duplicate id', () => {
+    expect(
+      dedupeParticipants([{ id: 'id-sam', name: 'Sam' }, { id: 'id-sam', name: 'Sammy' }])
+    ).toEqual([{ id: 'id-sam', name: 'Sam' }]);
+  });
+
+  it('preserves order', () => {
+    const list: Participant[] = [
+      { id: 'id-jo', name: 'Jo' },
+      { id: 'id-sam', name: 'Sam' },
+      { id: 'id-alex', name: 'Alex' },
+    ];
+    expect(dedupeParticipants(list)).toEqual(list);
   });
 });

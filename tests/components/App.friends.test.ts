@@ -220,4 +220,31 @@ describe('App friends and participants integration', () => {
     expect(decoded).toBeTruthy();
     expect(decoded!.participants).toEqual([{ id: decoded!.participants[0]!.id, name: 'Ryan' }]);
   });
+
+  it('cleans participants from a JSON import the same way share links do', async () => {
+    seedMe('Ryan');
+    const h = mount();
+    await flush();
+
+    const json = JSON.stringify({
+      version: 1,
+      items: [{ id: 'a', units: '1', yours: '1', desc: 'Soup', price: '10' }],
+      participants: [
+        { id: 'id-jo', name: 'Jo' },
+        { id: 'id-jo', name: 'Dup' },
+        { id: 'x', name: '  ' },
+      ],
+    });
+    const file = new File([json], 'bill.json', { type: 'application/json' });
+    // ScanReceipt also renders a hidden file input; the JSON importer's is
+    // distinguished by its `accept`.
+    const input = h.querySelector('input[accept="application/json,.json"]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    await act(async () => {
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 30));
+    });
+
+    expect(chipNames(h)).toEqual(['Ryan', 'Jo']);
+  });
 });

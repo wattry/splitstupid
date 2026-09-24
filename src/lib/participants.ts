@@ -5,7 +5,25 @@
  * writes the friend store; `importParticipant` only builds the new list.
  */
 import type { Friend, Participant } from '../types.js';
-import { addFriend, type FriendResult } from './friends.js';
+import { addFriend, normalizeName, type FriendResult } from './friends.js';
+
+/**
+ * Clean a list of participants: drop entries whose name is blank once
+ * normalized, and keep only the first occurrence of each id. Names are kept
+ * as given (not normalized) and order is preserved. Shared by share links
+ * and JSON imports so both sources of participants get the same cleanup.
+ */
+export function dedupeParticipants(list: Participant[]): Participant[] {
+  const seen = new Set<string>();
+  const out: Participant[] = [];
+  for (const { id, name } of list) {
+    if (normalizeName(name) === '') continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name });
+  }
+  return out;
+}
 
 export function isParticipant(participants: Participant[], id: string): boolean {
   return participants.some((p) => p.id === id);

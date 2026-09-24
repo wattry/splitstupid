@@ -12,7 +12,7 @@ import { useMe } from './hooks/useMe.js';
 import { FriendsManager } from './components/FriendsManager.js';
 import { ParticipantChips } from './components/ParticipantChips.js';
 import { NameModal } from './components/NameModal.js';
-import { removeParticipant, syncRename, toggleParticipant } from './lib/participants.js';
+import { dedupeParticipants, removeParticipant, syncRename, toggleParticipant } from './lib/participants.js';
 import { ensureMe, meAsFriend, meParticipant, validateMeName } from './lib/me.js';
 import { nameKey } from './lib/friends.js';
 import { Calculator } from './components/inputs/Calculator.js';
@@ -264,7 +264,7 @@ export default function App() {
             const rec = p as Record<string, unknown>;
             return typeof rec['id'] === 'string' && typeof rec['name'] === 'string';
           });
-          setParticipants(ensureMe(clean, me));
+          setParticipants(ensureMe(dedupeParticipants(clean), me));
         }
       } catch {
         // Not a valid save file — ignore.
