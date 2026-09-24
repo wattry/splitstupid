@@ -1187,3 +1187,42 @@ a.action-btn {
 .friends__edit:hover { border-color: rgba(123, 47, 247, 0.25); }
 .friends__editor input { margin: 12px 0 16px; font-size: 1.2rem; }
 .scan-btn--danger { background: #c2185b; border-color: #c2185b; }
+
+/* Participant chips: who is on this bill, under the Manage Friends button. */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 10px 0 0; padding: 0; }
+.chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(123, 47, 247, 0.08);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.chip__add,
+.chip__remove {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+.chip__add { font-size: 0.85rem; }
+.chip__remove { font-size: 1.1rem; line-height: 1; }
+.chip__add:hover, .chip__remove:hover { background: rgba(123, 47, 247, 0.15); }
+.chip__rename { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; padding: 6px 4px 4px; }
+.chip__rename input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+}
+.chip__rename .friends__error { margin: 0; }
+.chip__rename .scan-btn { padding: 8px 12px; font-size: 0.9rem; }
