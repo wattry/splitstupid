@@ -67,3 +67,9 @@ export interface Participant {
   id: string;
   name: string;
 }
+
+/** This device's owner: a persisted id plus a name that may still be blank. */
+export interface Me {
+  id: string;
+  name: string;
+}
