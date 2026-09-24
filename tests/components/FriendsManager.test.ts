@@ -13,7 +13,9 @@ const alex: Friend = { id: 'id-alex', name: 'Alex Kim' };
 
 const okResult = (friend: Friend, friends: Friend[]): FriendResult => ({ ok: true, friend, friends });
 
-function mount(friends: Friend[] = [sam, alex], participants: Participant[] = [sam]) {
+const me = { id: 'id-me', name: 'Ryan' };
+
+function mount(friends: Friend[] = [sam, alex], participants: Participant[] = [sam], meOverride = me) {
   const onToggle = vi.fn();
   const onAdd = vi.fn<(name: string) => FriendResult>((name) =>
     okResult({ id: 'new', name }, [...friends, { id: 'new', name }])
@@ -21,16 +23,19 @@ function mount(friends: Friend[] = [sam, alex], participants: Participant[] = [s
   const onRename = vi.fn<(id: string, name: string) => FriendResult>((id, name) =>
     okResult({ id, name }, friends)
   );
+  const onRenameMe = vi.fn<(name: string) => FriendResult>((name) => okResult({ id: meOverride.id, name }, friends));
   const onDelete = vi.fn();
   const onClose = vi.fn();
   const host = document.createElement('div');
   document.body.appendChild(host);
   act(() => {
     createRoot(host).render(
-      React.createElement(FriendsManager, { friends, participants, onToggle, onAdd, onRename, onDelete, onClose })
+      React.createElement(FriendsManager, {
+        friends, participants, me: meOverride, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose,
+      })
     );
   });
-  return { host, onToggle, onAdd, onRename, onDelete, onClose };
+  return { host, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose };
 }
 
 const click = (el: Element) => act(() => { el.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
@@ -47,7 +52,7 @@ const submit = (input: HTMLInputElement) => act(() => {
   input.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 });
 const rowNames = (host: Element) =>
-  [...host.querySelectorAll('.friends__row .friends__name')].map((el) => el.textContent);
+  [...host.querySelectorAll('.friends__row:not(.friends__row--me) .friends__name')].map((el) => el.textContent);
 
 describe('friendErrorMessage', () => {
   it('spells out both errors', () => {
@@ -59,11 +64,13 @@ describe('friendErrorMessage', () => {
 });
 
 describe('FriendsManager list view', () => {
-  it('is a dialog titled Manage Friends listing friends sorted by name with participants checked', () => {
+  it('is a dialog titled Manage Participants listing friends sorted by name with participants checked', () => {
     const { host } = mount();
-    expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Manage Friends');
+    expect(host.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('Manage Participants');
     expect(rowNames(host)).toEqual(['Alex Kim', 'Sam']);
-    const boxes = [...host.querySelectorAll<HTMLInputElement>('.friends__row input[type="checkbox"]')];
+    const boxes = [
+      ...host.querySelectorAll<HTMLInputElement>('.friends__row:not(.friends__row--me) input[type="checkbox"]'),
+    ];
     expect(boxes.map((b) => b.checked)).toEqual([false, true]);
   });
 
@@ -74,7 +81,7 @@ describe('FriendsManager list view', () => {
 
   it('toggles a participant when a checkbox is clicked', () => {
     const { host, onToggle } = mount();
-    click(host.querySelectorAll('.friends__row input[type="checkbox"]')[0]!);
+    click(host.querySelectorAll('.friends__row:not(.friends__row--me) input[type="checkbox"]')[0]!);
     expect(onToggle).toHaveBeenCalledWith(alex);
   });
 
@@ -181,5 +188,54 @@ describe('FriendsManager edit view', () => {
     click(button(host, 'Back'));
     expect(onRename).not.toHaveBeenCalled();
     expect(byLabel(host, 'Search friends')).toBeTruthy();
+  });
+});
+
+describe('FriendsManager Me row', () => {
+  it('pins Me first with a disabled checked checkbox and the stored name', () => {
+    const { host } = mount();
+    const row = host.querySelector('.friends__row--me')!;
+    expect(host.querySelector('.friends__list li')).toBe(row);
+    const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(box.checked).toBe(true);
+    expect(box.disabled).toBe(true);
+    expect(row.querySelector('.friends__name')?.textContent).toBe('Ryan');
+  });
+
+  it('shows "Me" while the name is blank', () => {
+    const { host } = mount([sam, alex], [sam], { id: 'id-me', name: '' });
+    expect(host.querySelector('.friends__row--me .friends__name')?.textContent).toBe('Me');
+  });
+
+  it('stays visible when the search matches nobody', () => {
+    const { host } = mount();
+    type(byLabel(host, 'Search friends'), 'zzz');
+    expect(host.querySelector('.friends__row--me')).toBeTruthy();
+    expect(rowNames(host)).toEqual([]);
+  });
+
+  it('edits Me without a Delete button and saves through onRenameMe', () => {
+    const { host, onRenameMe, onRename } = mount();
+    click(host.querySelector('button[aria-label="Edit Ryan"]')!);
+    expect(host.querySelector('h2')?.textContent).toBe('Your name');
+    expect(button(host, 'Delete')).toBeUndefined();
+    const input = byLabel(host, 'Your name');
+    expect(input.value).toBe('Ryan');
+    type(input, 'Ryan W');
+    submit(input);
+    expect(onRenameMe).toHaveBeenCalledWith('Ryan W');
+    expect(onRename).not.toHaveBeenCalled();
+    expect(byLabel(host, 'Search friends')).toBeTruthy();
+  });
+
+  it('shows the error when renaming Me fails', () => {
+    const { host, onRenameMe } = mount();
+    onRenameMe.mockReturnValueOnce({ ok: false, error: 'duplicate', existing: sam });
+    click(host.querySelector('button[aria-label="Edit Ryan"]')!);
+    const input = byLabel(host, 'Your name');
+    type(input, 'Sam');
+    submit(input);
+    expect(host.textContent).toContain('You already have a friend named Sam.');
+    expect(byLabel(host, 'Your name')).toBeTruthy();
   });
 });

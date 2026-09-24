@@ -1230,3 +1230,8 @@ a.action-btn {
 /* Manage Friends button and chips, above the scan buttons. */
 .friends-bar { margin-bottom: 12px; }
 .friends-bar > .scan-btn { width: 100%; }
+
+/* Pinned "Me" row at the top of Manage Participants. */
+.friends__row--me { background: rgba(123, 47, 247, 0.06); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
+.friends__row--me .friends__pick { cursor: default; }
+li.friends__empty { list-style: none; }

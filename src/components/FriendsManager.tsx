@@ -1,16 +1,20 @@
 import React, { useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
-import type { Friend, Participant } from '../types.js';
+import type { Friend, Me, Participant } from '../types.js';
 import { filterFriends, type FriendError, type FriendResult } from '../lib/friends.js';
 import { isParticipant } from '../lib/participants.js';
 
 export interface FriendsManagerProps {
   friends: Friend[];
   participants: Participant[];
+  /** The device owner; always on the bill, pinned first, renamed via `onRenameMe`. */
+  me: Me;
   /** Put the friend on the bill, or take them off if already on it. */
   onToggle: (friend: Friend) => void;
   onAdd: (name: string) => FriendResult;
   onRename: (id: string, name: string) => FriendResult;
+  /** Rename Me; validated by the parent (blank / clashes with a friend). */
+  onRenameMe: (name: string) => FriendResult;
   onDelete: (id: string) => void;
   onClose: () => void;
 }
@@ -27,15 +31,15 @@ export function friendErrorMessage(result: {
   return 'Enter a name.';
 }
 
-type View = { kind: 'list' } | { kind: 'edit'; id: string };
+type View = { kind: 'list' } | { kind: 'edit'; id: string } | { kind: 'editMe' };
 
 /**
- * Fullscreen "Manage Friends" overlay. The list view searches, adds (Enter or
+ * Fullscreen "Manage Participants" overlay. The list view searches, adds (Enter or
  * Add) and toggles friends onto the bill; the pencil opens an edit view with
  * rename and a two-tap delete. Every change applies immediately.
  */
 export function FriendsManager(props: FriendsManagerProps): ReactElement {
-  const { friends, participants, onToggle, onAdd, onRename, onDelete, onClose } = props;
+  const { friends, participants, me, onToggle, onAdd, onRename, onRenameMe, onDelete, onClose } = props;
   const [view, setView] = useState<View>({ kind: 'list' });
 
   const editing = view.kind === 'edit' ? friends.find((f) => f.id === view.id) : undefined;
@@ -44,7 +48,7 @@ export function FriendsManager(props: FriendsManagerProps): ReactElement {
     <div
       className="calc friends"
       role="dialog"
-      aria-label="Manage Friends"
+      aria-label="Manage Participants"
       aria-modal="true"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -54,21 +58,35 @@ export function FriendsManager(props: FriendsManagerProps): ReactElement {
       }}
     >
       <div className="calc__card friends__card" tabIndex={-1} ref={(el) => el?.focus()}>
-        {editing ? (
+        {view.kind === 'editMe' ? (
+          <EditView
+            key="me"
+            title="Your name"
+            inputLabel="Your name"
+            placeholder="Your name"
+            initial={me.name}
+            onSave={onRenameMe}
+            onBack={() => setView({ kind: 'list' })}
+          />
+        ) : editing ? (
           <EditView
             key={editing.id}
-            friend={editing}
-            onRename={onRename}
-            onDelete={onDelete}
+            title="Edit friend"
+            inputLabel="Friend name"
+            initial={editing.name}
+            onSave={(name) => onRename(editing.id, name)}
+            onDelete={() => onDelete(editing.id)}
             onBack={() => setView({ kind: 'list' })}
           />
         ) : (
           <ListView
             friends={friends}
             participants={participants}
+            me={me}
             onToggle={onToggle}
             onAdd={onAdd}
             onEdit={(id) => setView({ kind: 'edit', id })}
+            onEditMe={() => setView({ kind: 'editMe' })}
             onClose={onClose}
           />
         )}
@@ -80,13 +98,15 @@ export function FriendsManager(props: FriendsManagerProps): ReactElement {
 interface ListViewProps {
   friends: Friend[];
   participants: Participant[];
+  me: Me;
   onToggle: (friend: Friend) => void;
   onAdd: (name: string) => FriendResult;
   onEdit: (id: string) => void;
+  onEditMe: () => void;
   onClose: () => void;
 }
 
-function ListView({ friends, participants, onToggle, onAdd, onEdit, onClose }: ListViewProps): ReactElement {
+function ListView({ friends, participants, me, onToggle, onAdd, onEdit, onEditMe, onClose }: ListViewProps): ReactElement {
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
@@ -108,7 +128,7 @@ function ListView({ friends, participants, onToggle, onAdd, onEdit, onClose }: L
   return (
     <>
       <div className="friends__head">
-        <h2 className="calc__title">Manage Friends</h2>
+        <h2 className="calc__title">Manage Participants</h2>
         <button type="button" className="friends__close" onClick={onClose} aria-label="Close">
           Close
         </button>
@@ -139,11 +159,25 @@ function ListView({ friends, participants, onToggle, onAdd, onEdit, onClose }: L
         <button type="submit" className="scan-btn">Add</button>
       </form>
       {error && <p className="friends__error" role="alert">{error}</p>}
-      {friends.length === 0 ? (
-        <p className="friends__empty">No friends yet. Add one above.</p>
-      ) : (
-        <ul className="friends__list">
-          {shown.map((friend) => (
+      <ul className="friends__list">
+        <li className="friends__row friends__row--me">
+          <label className="friends__pick">
+            <input type="checkbox" checked disabled aria-label="You are always on the bill" />
+            <span className="friends__name">{me.name || 'Me'}</span>
+          </label>
+          <button
+            type="button"
+            className="friends__edit"
+            aria-label={`Edit ${me.name || 'Me'}`}
+            onClick={onEditMe}
+          >
+            ✎
+          </button>
+        </li>
+        {friends.length === 0 ? (
+          <li className="friends__empty">No friends yet. Add one above.</li>
+        ) : (
+          shown.map((friend) => (
             <li key={friend.id} className="friends__row">
               <label className="friends__pick">
                 <input
@@ -162,28 +196,32 @@ function ListView({ friends, participants, onToggle, onAdd, onEdit, onClose }: L
                 ✎
               </button>
             </li>
-          ))}
-        </ul>
-      )}
+          ))
+        )}
+      </ul>
     </>
   );
 }
 
 interface EditViewProps {
-  friend: Friend;
-  onRename: (id: string, name: string) => FriendResult;
-  onDelete: (id: string) => void;
+  title: string;
+  inputLabel: string;
+  placeholder?: string;
+  initial: string;
+  onSave: (name: string) => FriendResult;
+  /** Omitted for Me: no Delete button. */
+  onDelete?: () => void;
   onBack: () => void;
 }
 
-function EditView({ friend, onRename, onDelete, onBack }: EditViewProps): ReactElement {
-  const [name, setName] = useState(friend.name);
+function EditView({ title, inputLabel, placeholder, initial, onSave, onDelete, onBack }: EditViewProps): ReactElement {
+  const [name, setName] = useState(initial);
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState(false);
 
   const save = (e: FormEvent) => {
     e.preventDefault();
-    const result = onRename(friend.id, name);
+    const result = onSave(name);
     if (!result.ok) {
       setError(friendErrorMessage(result));
       return;
@@ -194,40 +232,29 @@ function EditView({ friend, onRename, onDelete, onBack }: EditViewProps): ReactE
   return (
     <form className="friends__editor" onSubmit={save} noValidate>
       <div className="friends__head">
-        <h2 className="calc__title">Edit friend</h2>
-        <button type="button" className="friends__close" onClick={onBack}>
-          Back
-        </button>
+        <h2 className="calc__title">{title}</h2>
+        <button type="button" className="friends__close" onClick={onBack}>Back</button>
       </div>
       <input
         type="text"
         autoComplete="off"
-        aria-label="Friend name"
+        aria-label={inputLabel}
+        placeholder={placeholder}
         value={name}
-        onChange={(e) => {
-          setName(e.target.value);
-          if (error) setError('');
-        }}
+        onChange={(e) => { setName(e.target.value); if (error) setError(''); }}
         autoFocus
       />
       {error && <p className="friends__error" role="alert">{error}</p>}
       <div className="calc__actions">
-        {confirming ? (
-          <button
-            type="button"
-            className="scan-btn scan-btn--danger"
-            onClick={() => {
-              onDelete(friend.id);
-              onBack();
-            }}
-          >
+        {onDelete && (confirming ? (
+          <button type="button" className="scan-btn scan-btn--danger" onClick={() => { onDelete(); onBack(); }}>
             Confirm delete
           </button>
         ) : (
           <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setConfirming(true)}>
             Delete
           </button>
-        )}
+        ))}
         <button type="submit" className="scan-btn">Save</button>
       </div>
     </form>

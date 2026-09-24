@@ -312,9 +312,11 @@ export default function App() {
           <FriendsManager
             friends={friends}
             participants={participants}
+            me={{ id: '', name: '' }}
             onToggle={(friend) => setParticipants((list) => toggleParticipant(list, friend))}
             onAdd={(name) => addFriend(name)}
             onRename={renameFriend}
+            onRenameMe={() => ({ ok: false, error: 'empty' })}
             onDelete={deleteFriend}
             onClose={() => setFriendsOpen(false)}
           />
