@@ -96,4 +96,8 @@ describe('dedupeParticipants', () => {
     ];
     expect(dedupeParticipants(list)).toEqual(list);
   });
+
+  it('stores normalized names', () => {
+    expect(dedupeParticipants([{ id: 'a', name: '  Sam   Kim ' }])).toEqual([{ id: 'a', name: 'Sam Kim' }]);
+  });
 });

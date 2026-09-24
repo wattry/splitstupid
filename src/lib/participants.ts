@@ -9,18 +9,20 @@ import { addFriend, normalizeName, type FriendResult } from './friends.js';
 
 /**
  * Clean a list of participants: drop entries whose name is blank once
- * normalized, and keep only the first occurrence of each id. Names are kept
- * as given (not normalized) and order is preserved. Shared by share links
- * and JSON imports so both sources of participants get the same cleanup.
+ * normalized, and keep only the first occurrence of each id. Names are
+ * normalized (trimmed, whitespace-collapsed) and order is preserved. Shared
+ * by share links and JSON imports so both sources of participants get the
+ * same cleanup.
  */
 export function dedupeParticipants(list: Participant[]): Participant[] {
   const seen = new Set<string>();
   const out: Participant[] = [];
   for (const { id, name } of list) {
-    if (normalizeName(name) === '') continue;
+    const clean = normalizeName(name);
+    if (clean === '') continue;
     if (seen.has(id)) continue;
     seen.add(id);
-    out.push({ id, name });
+    out.push({ id, name: clean });
   }
   return out;
 }
