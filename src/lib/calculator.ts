@@ -74,3 +74,24 @@ export function input(state: CalcState, key: string): CalcState {
 
   return state;
 }
+
+const KEY_ALIASES: Record<string, string> = {
+  x: '*',
+  X: '*',
+  Enter: '=',
+  Backspace: '⌫',
+  Escape: 'C',
+  Delete: 'C',
+  c: 'C'
+};
+
+/**
+ * Map a physical keyboard event to a calculator key, or null when the key is
+ * not one the calculator handles. Modifier combinations (copy, reload, ...)
+ * are left alone so browser shortcuts keep working with the modal open.
+ */
+export function keyToCalcKey(e: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey'>): string | null {
+  if (e.ctrlKey || e.metaKey || e.altKey) return null;
+  const key = KEY_ALIASES[e.key] ?? e.key;
+  return /^[\d.]$/.test(key) || isOp(key) || key === '=' || key === 'C' || key === '⌫' ? key : null;
+}

@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePostHog } from '@posthog/react';
-import { initialState, input } from '../../lib/calculator.js';
+import { initialState, input, keyToCalcKey } from '../../lib/calculator.js';
 import { CalculatorIcon } from '../Icons.js';
 
 // A floating calculator button that opens a plain calculator modal for quick math.
@@ -26,6 +26,24 @@ export const Calculator = () => {
     if (key === '=') usage.current.evaluated = true;
     setState((s) => input(s, key));
   };
+
+  // Desktop: type into the calculator. Escape clears; a second Escape on a
+  // cleared display closes the modal.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      const key = keyToCalcKey(e);
+      if (key === null) return;
+      e.preventDefault();
+      if (e.key === 'Escape' && state.display === '0' && state.op === null) {
+        closeModal('close');
+        return;
+      }
+      press(key);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
   const keys: string[][] = [
     ['C', '⌫', '/', '*'],
@@ -58,7 +76,7 @@ export const Calculator = () => {
             if (e.target === e.currentTarget) closeModal('backdrop');
           }}
         >
-          <div className="calc__card">
+          <div className="calc__card" tabIndex={-1} ref={(el) => el?.focus()}>
             <output className="calculator__display" aria-live="polite">
               {state.display}
             </output>
