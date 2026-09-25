@@ -164,7 +164,7 @@ export default function ItemRows(
           onClose={() => setAssigningId(null)}
         />
       )}
-      <ByPerson items={items} participants={participants} />
+      <ByPerson items={items} participants={participants} perUnit={perUnit} />
 
       {splitting && (
         <SplitModal

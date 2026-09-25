@@ -1283,3 +1283,9 @@ li.friends__empty { list-style: none; }
 .byperson__group + .byperson__group { margin-top: 8px; }
 .byperson__name { margin: 0 0 2px; font-size: 0.9rem; font-weight: 700; }
 .byperson__items { margin: 0; padding-left: 18px; font-size: 0.85rem; color: var(--ink); }
+
+.byperson__name, .byperson__items li, .byperson__sum { display: flex; justify-content: space-between; gap: 8px; }
+.byperson__items { padding-left: 0; list-style: none; }
+.byperson__items li { padding-left: 12px; }
+.byperson__amount, .byperson__total { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.byperson__sum { margin: 8px 0 0; padding-top: 6px; border-top: 1px solid rgba(123, 47, 247, 0.2); font-weight: 700; }

@@ -240,7 +240,7 @@ describe('ItemRows assign', () => {
     click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
     click(host.querySelectorAll('.assign__row input[type="checkbox"]')[0]!);
     expect(host.querySelector('.byperson')).toBeTruthy();
-    expect(host.querySelector('.byperson__name')?.textContent).toBe('Ryan');
+    expect(host.querySelector('.byperson__label')?.textContent).toBe('Ryan');
     click(button(host, 'Manage participants'));
     expect(onManage).toHaveBeenCalled();
   });

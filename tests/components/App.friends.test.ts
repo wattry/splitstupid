@@ -273,7 +273,7 @@ describe('App friends and participants integration', () => {
     click(boxes[1]!);
     click(button(h, 'Done'));
     expect(h.querySelector('.pill')?.textContent).toBe('SK');
-    expect(h.querySelector('.byperson__name')?.textContent).toBe('Sam Kim');
+    expect(h.querySelector('.byperson__label')?.textContent).toBe('Sam Kim');
     click(button(h, 'Manage Participants (2)'));
     click(h.querySelector('.friends__row:not(.friends__row--me) input[type="checkbox"]')!);
     click(button(h, 'Close'));

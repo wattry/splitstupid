@@ -4,6 +4,7 @@
  * Yours or the owed maths.
  */
 import type { Item, Participant } from '../types.js';
+import { round2 } from './calculate.js';
 
 export function assigneesOf(item: Item): string[] {
   return item.assignees ?? [];
@@ -60,15 +61,38 @@ export function shortLabels(participants: Participant[]): Map<string, string> {
   return new Map(raw.map((r) => [r.id, (count.get(r.label) ?? 0) > 1 ? r.name : r.label]));
 }
 
-export interface PersonGroup { participant: Participant; items: Item[] }
-export interface Grouping { groups: PersonGroup[]; unassigned: Item[] }
+/** Full amount of a row, independent of `Yours`. */
+export function lineTotal(item: Item, perUnit: boolean): number {
+  const price = parseFloat(item.price) || 0;
+  if (!perUnit) return price;
+  const units = parseFloat(item.units) || 0;
+  return price * units;
+}
+
+export interface PersonLine { item: Item; share: number }
+export interface PersonGroup { participant: Participant; lines: PersonLine[]; total: number }
+export interface Grouping { groups: PersonGroup[]; unassigned: PersonLine[]; unassignedTotal: number; total: number }
 
 /** Items under each participant (bill order, empty groups omitted) plus the unassigned rest. */
-export function groupByParticipant(items: Item[], participants: Participant[]): Grouping {
+export function groupByParticipant(items: Item[], participants: Participant[], perUnit: boolean): Grouping {
   const onBill = new Set(participants.map((p) => p.id));
   const groups = participants
-    .map((participant) => ({ participant, items: items.filter((it) => assigneesOf(it).includes(participant.id)) }))
-    .filter((g) => g.items.length > 0);
-  const unassigned = items.filter((it) => !assigneesOf(it).some((id) => onBill.has(id)));
-  return { groups, unassigned };
+    .map((participant) => {
+      const lines = items
+        .filter((it) => assigneesOf(it).includes(participant.id))
+        .map((item) => {
+          const onBillAssignees = assigneesOf(item).filter((id) => onBill.has(id));
+          const share = round2(lineTotal(item, perUnit) / onBillAssignees.length);
+          return { item, share };
+        });
+      const total = round2(lines.reduce((sum, l) => sum + l.share, 0));
+      return { participant, lines, total };
+    })
+    .filter((g) => g.lines.length > 0);
+  const unassigned = items
+    .filter((it) => !assigneesOf(it).some((id) => onBill.has(id)))
+    .map((item) => ({ item, share: round2(lineTotal(item, perUnit)) }));
+  const unassignedTotal = round2(unassigned.reduce((sum, l) => sum + l.share, 0));
+  const total = round2(groups.reduce((sum, g) => sum + g.total, 0) + unassignedTotal);
+  return { groups, unassigned, unassignedTotal, total };
 }
