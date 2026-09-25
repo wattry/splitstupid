@@ -27,7 +27,7 @@ interface ItemRowsProps {
   onContinue: () => void;
   participants: Participant[];
   onManageParticipants: () => void;
-  /** This device's participant id, used by "Assign to me". */
+  /** This device's participant id, used by the bulk "Mine" button. */
   meId: string;
 };
 
@@ -63,7 +63,7 @@ type AssignTarget = { kind: 'row'; id: string } | { kind: 'selection' };
  *
  * A leading checkbox column (always shown on pointer devices, only in "select
  * mode" on touch) lets several rows be picked at once; an action bar above the
- * table then offers bulk Assign, "Assign to me" and Clear.
+ * table then offers bulk Select (people), Mine and Clear.
  *
  * @param props
  * @typedef Row
@@ -176,7 +176,7 @@ export default function ItemRows(
           aria-pressed={selecting}
           onClick={toggleSelecting}
         >
-          {selecting ? 'Done' : 'Select'}
+          {selecting ? 'Done' : 'Assign'}
         </button>
       </span>
 
@@ -184,10 +184,10 @@ export default function ItemRows(
         <div className="items__bulk" role="group" aria-label="Selected items">
           <span className="items__bulk-count" aria-live="polite">{selectedIds.size} selected</span>
           <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setAssignTarget({ kind: 'selection' })}>
-            Assign…
+            Select
           </button>
           <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setItems((prev) => assignAll(prev, selectedIds, meId, meId))}>
-            Assign to me
+            Mine
           </button>
           <button type="button" className="items__bulk-clear" onClick={clearSelection}>
             Clear

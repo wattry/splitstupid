@@ -401,7 +401,7 @@ describe('App friends and participants integration', () => {
     type(byLabel(b!, 'Description'), 'Tea');
     check(pickBox(a!), true);
     check(pickBox(b!), true);
-    click([...h.querySelectorAll('.items__bulk button')].find((btn) => btn.textContent === 'Assign to me')!);
+    click([...h.querySelectorAll('.items__bulk button')].find((btn) => btn.textContent === 'Mine')!);
     expect(h.querySelector('.byperson__label')?.textContent).toBe('Ryan');
     const items = [...h.querySelectorAll('.byperson__items li')];
     expect(items).toHaveLength(2);

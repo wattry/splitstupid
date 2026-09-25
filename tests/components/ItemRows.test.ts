@@ -301,7 +301,7 @@ describe('ItemRows bulk assign', () => {
     const [a, b, c] = rows(host);
     check(pickBox(a!), true);
     check(pickBox(b!), true);
-    const assignToMe = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Assign to me')!;
+    const assignToMe = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Mine')!;
     click(assignToMe());
     expect(a!.querySelector('.pill[aria-label="Ryan"]')).toBeTruthy();
     expect(b!.querySelector('.pill[aria-label="Ryan"]')).toBeTruthy();
@@ -320,7 +320,7 @@ describe('ItemRows bulk assign', () => {
     click(host.querySelectorAll('.assign__row input[type="checkbox"]')[2]!);
     click(button(host, 'Done'));
 
-    const assignEllipsis = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Assign…')!;
+    const assignEllipsis = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Select')!;
     click(assignEllipsis());
     const dialog = host.querySelector('[role="dialog"][aria-label="Assign"]')!;
     expect(dialog.textContent).toContain('2 items');
@@ -346,7 +346,7 @@ describe('ItemRows bulk assign', () => {
     const [a, b] = rows(host);
     check(pickBox(a!), true);
     check(pickBox(b!), true);
-    const assignEllipsis = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Assign…')!;
+    const assignEllipsis = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Select')!;
     click(assignEllipsis());
     expect(host.querySelector('[role="dialog"][aria-label="Assign"]')).toBeTruthy();
 
@@ -367,7 +367,7 @@ describe('ItemRows bulk assign', () => {
     check(pickBox(firstRow(host)), true);
     expect(bulkBar(host)?.textContent).toContain('1 selected');
     click(selectToggle(host));
-    expect(selectToggle(host).textContent).toBe('Select');
+    expect(selectToggle(host).textContent).toBe('Assign');
     expect(itemsEl.classList.contains('items--selecting')).toBe(false);
     expect(bulkBar(host)).toBeNull();
   });
@@ -443,7 +443,7 @@ describe('ItemRows Mine column', () => {
     const [a, b] = rows(host);
     check(pickBox(a!), true);
     check(pickBox(b!), true);
-    const assignToMe = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Assign to me')!;
+    const assignToMe = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Mine')!;
     click(assignToMe());
     expect(mineOf(a!)).toBe('1');
     expect(mineOf(b!)).toBe('1');
