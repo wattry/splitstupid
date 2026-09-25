@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ReactElement } from 'react';
 import type { Item, Participant } from '../types.js';
-import { groupByParticipant, type PersonLine } from '../lib/assign.js';
+import { groupByParticipant, lineLabel, type PersonLine } from '../lib/assign.js';
 import { money } from '../lib/calculate.js';
 
 export interface ByPersonProps { items: Item[]; participants: Participant[]; perUnit: boolean }
@@ -17,10 +17,10 @@ export function ByPerson({ items, participants, perUnit }: ByPersonProps): React
         <span className="byperson__total">{money(groupTotal)}</span>
       </h4>
       <ul className="byperson__items">
-        {lines.map(({ item, share }) => (
-          <li key={item.id}>
-            <span>{item.desc.trim() || 'item'}</span>
-            <span className="byperson__amount">{money(share)}</span>
+        {lines.map((line) => (
+          <li key={line.item.id}>
+            <span>{lineLabel(line)}</span>
+            <span className="byperson__amount">{money(line.share)}</span>
           </li>
         ))}
       </ul>

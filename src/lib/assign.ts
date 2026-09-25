@@ -69,9 +69,17 @@ export function lineTotal(item: Item, perUnit: boolean): number {
   return price * units;
 }
 
-export interface PersonLine { item: Item; share: number }
+export interface PersonLine { item: Item; share: number; sharedWith: number }
 export interface PersonGroup { participant: Participant; lines: PersonLine[]; total: number }
 export interface Grouping { groups: PersonGroup[]; unassigned: PersonLine[]; unassignedTotal: number; total: number }
+
+/** `2× Beer` when the row lands wholly on one person and has integer units > 1; else just the description. */
+export function lineLabel(line: PersonLine): string {
+  const desc = line.item.desc.trim() || 'item';
+  const units = Number(line.item.units);
+  if (line.sharedWith === 1 && Number.isInteger(units) && units > 1) return `${units}× ${desc}`;
+  return desc;
+}
 
 /** Items under each participant (bill order, empty groups omitted) plus the unassigned rest. */
 export function groupByParticipant(items: Item[], participants: Participant[], perUnit: boolean): Grouping {
@@ -83,7 +91,7 @@ export function groupByParticipant(items: Item[], participants: Participant[], p
         .map((item) => {
           const onBillAssignees = assigneesOf(item).filter((id) => onBill.has(id));
           const share = round2(lineTotal(item, perUnit) / onBillAssignees.length);
-          return { item, share };
+          return { item, share, sharedWith: onBillAssignees.length };
         });
       const total = round2(lines.reduce((sum, l) => sum + l.share, 0));
       return { participant, lines, total };
@@ -91,7 +99,7 @@ export function groupByParticipant(items: Item[], participants: Participant[], p
     .filter((g) => g.lines.length > 0);
   const unassigned = items
     .filter((it) => !assigneesOf(it).some((id) => onBill.has(id)))
-    .map((item) => ({ item, share: round2(lineTotal(item, perUnit)) }));
+    .map((item) => ({ item, share: round2(lineTotal(item, perUnit)), sharedWith: 1 }));
   const unassignedTotal = round2(unassigned.reduce((sum, l) => sum + l.share, 0));
   const total = round2(groups.reduce((sum, g) => sum + g.total, 0) + unassignedTotal);
   return { groups, unassigned, unassignedTotal, total };

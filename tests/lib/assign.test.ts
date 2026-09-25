@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  assigneesOf, groupByParticipant, lineTotal, pruneAssignees, setAssignees, shortLabels, stripAssignee, toggleAssignee,
+  assigneesOf, groupByParticipant, lineLabel, lineTotal, pruneAssignees, setAssignees, shortLabels, stripAssignee, toggleAssignee,
 } from '../../src/lib/assign.js';
 import type { Item, Participant } from '../../src/types.js';
 
@@ -122,5 +122,31 @@ describe('groupByParticipant', () => {
     const b = item({ id: 'b', price: '7' });
     const g = groupByParticipant([a, b], people, false);
     expect(g.total).toBe(5 + 5 + 7);
+  });
+  it('sets sharedWith to the number of on-bill assignees, 1 for unassigned', () => {
+    const a = item({ id: 'a', assignees: ['sam', 'me'] });
+    const b = item({ id: 'b' });
+    const g = groupByParticipant([a, b], people, false);
+    const meGroup = g.groups.find((x) => x.participant.id === 'me')!;
+    expect(meGroup.lines[0]!.sharedWith).toBe(2);
+    expect(g.unassigned[0]!.sharedWith).toBe(1);
+  });
+});
+
+describe('lineLabel', () => {
+  it('shows the unit count for a sole line with integer units greater than 1', () => {
+    expect(lineLabel({ item: item({ desc: 'Beer', units: '3' }), share: 0, sharedWith: 1 })).toBe('3× Beer');
+  });
+  it('omits the count for a shared line even with units greater than 1', () => {
+    expect(lineLabel({ item: item({ desc: 'Beer', units: '3' }), share: 0, sharedWith: 2 })).toBe('Beer');
+  });
+  it('omits the count for a sole line with units of 1', () => {
+    expect(lineLabel({ item: item({ desc: 'Beer', units: '1' }), share: 0, sharedWith: 1 })).toBe('Beer');
+  });
+  it('falls back to "item" for a blank description', () => {
+    expect(lineLabel({ item: item({ desc: '  ' }), share: 0, sharedWith: 1 })).toBe('item');
+  });
+  it('omits the count for non-integer units', () => {
+    expect(lineLabel({ item: item({ desc: 'Beer', units: '2.5' }), share: 0, sharedWith: 1 })).toBe('Beer');
   });
 });

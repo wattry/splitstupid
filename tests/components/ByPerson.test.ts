@@ -40,4 +40,13 @@ describe('ByPerson', () => {
     const sum = host.querySelector('.byperson__sum')!;
     expect(sum.textContent).toBe('Total$14.00');
   });
+  it('shows the unit count when one person has the whole row, but not when it is shared', () => {
+    const solo = row('a', 'Soup', ['me']); solo.units = '2';
+    const shared = row('a', 'Soup', ['me', 'sam']); shared.units = '2';
+    const soloHost = mount([solo]);
+    expect(soloHost.querySelector('.byperson__group li span:first-child')?.textContent).toBe('2× Soup');
+    const sharedHost = mount([shared]);
+    const spans = [...sharedHost.querySelectorAll('.byperson__group li span:first-child')].map((e) => e.textContent);
+    expect(spans).toEqual(['Soup', 'Soup']);
+  });
 });
