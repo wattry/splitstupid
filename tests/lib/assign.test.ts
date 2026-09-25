@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  assigneesOf, groupByParticipant, lineLabel, lineTotal, pruneAssignees, setAssignees, shortLabels, stripAssignee, toggleAssignee,
+  assigneesOf, assignAll, assigneeStatus, groupByParticipant, lineLabel, lineTotal, pruneAssignees, setAssignees, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
 } from '../../src/lib/assign.js';
 import type { Item, Participant } from '../../src/types.js';
 
@@ -130,6 +130,52 @@ describe('groupByParticipant', () => {
     const meGroup = g.groups.find((x) => x.participant.id === 'me')!;
     expect(meGroup.lines[0]!.sharedWith).toBe(2);
     expect(g.unassigned[0]!.sharedWith).toBe(1);
+  });
+});
+
+describe('assignAll / toggleAssigneeAll / assigneeStatus', () => {
+  it('assignAll adds the id to every listed row and skips rows already having it (identity kept)', () => {
+    const a = item({ id: 'a' });
+    const b = item({ id: 'b', assignees: ['sam'] });
+    const c = item({ id: 'c' });
+    const out = assignAll([a, b, c], new Set(['a', 'b']), 'sam');
+    expect(out[0]!.assignees).toEqual(['sam']);
+    expect(out[1]).toBe(b);
+    expect(out[2]).toBe(c);
+  });
+
+  it('toggleAssigneeAll removes the id from all listed rows when every one has it', () => {
+    const a = item({ id: 'a', assignees: ['sam'] });
+    const b = item({ id: 'b', assignees: ['sam', 'me'] });
+    const c = item({ id: 'c', assignees: ['sam'] });
+    const out = toggleAssigneeAll([a, b, c], new Set(['a', 'b']), 'sam');
+    expect(out[0]!.assignees).toBeUndefined();
+    expect(out[1]!.assignees).toEqual(['me']);
+    expect(out[2]).toBe(c);
+  });
+
+  it('toggleAssigneeAll adds the id to all listed rows when only some have it', () => {
+    const a = item({ id: 'a', assignees: ['sam'] });
+    const b = item({ id: 'b' });
+    const out = toggleAssigneeAll([a, b], new Set(['a', 'b']), 'sam');
+    expect(out[0]).toBe(a);
+    expect(out[1]!.assignees).toEqual(['sam']);
+  });
+
+  it('assigneeStatus splits ids every row has from ids only some rows have', () => {
+    const a = item({ id: 'a', assignees: ['sam', 'me'] });
+    const b = item({ id: 'b', assignees: ['sam'] });
+    const status = assigneeStatus([a, b], new Set(['a', 'b']));
+    expect(status.all).toEqual(['sam']);
+    expect(status.some).toEqual(['me']);
+  });
+
+  it('an empty selection gives empty arrays and untouched rows keep identity', () => {
+    const a = item({ id: 'a', assignees: ['sam'] });
+    expect(assigneeStatus([a], new Set())).toEqual({ all: [], some: [] });
+    expect(assignAll([a], new Set(), 'sam')).toEqual([a]);
+    expect(assignAll([a], new Set(), 'sam')[0]).toBe(a);
+    expect(toggleAssigneeAll([a], new Set(), 'sam')[0]).toBe(a);
   });
 });
 

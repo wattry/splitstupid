@@ -27,6 +27,41 @@ export function toggleAssignee(item: Item, id: string): Item {
   return setAssignees(item, cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
 }
 
+/** Add `id` to every listed row; rows that already have it (or aren't listed) are returned as-is. */
+export function assignAll(items: Item[], rowIds: ReadonlySet<string>, id: string): Item[] {
+  return items.map((it) => {
+    if (!rowIds.has(it.id)) return it;
+    const cur = assigneesOf(it);
+    return cur.includes(id) ? it : setAssignees(it, [...cur, id]);
+  });
+}
+
+/** If every listed row has `id`, remove it from all of them; otherwise add it to all. */
+export function toggleAssigneeAll(items: Item[], rowIds: ReadonlySet<string>, id: string): Item[] {
+  const listed = items.filter((it) => rowIds.has(it.id));
+  const allHaveIt = listed.length > 0 && listed.every((it) => assigneesOf(it).includes(id));
+  return items.map((it) => {
+    if (!rowIds.has(it.id)) return it;
+    const cur = assigneesOf(it);
+    if (allHaveIt) return cur.includes(id) ? setAssignees(it, cur.filter((x) => x !== id)) : it;
+    return cur.includes(id) ? it : setAssignees(it, [...cur, id]);
+  });
+}
+
+/** For the listed rows: ids every row has, and ids only some rows have. */
+export function assigneeStatus(items: Item[], rowIds: ReadonlySet<string>): { all: string[]; some: string[] } {
+  const listed = items.filter((it) => rowIds.has(it.id));
+  if (listed.length === 0) return { all: [], some: [] };
+  const counts = new Map<string, number>();
+  for (const it of listed) {
+    for (const id of assigneesOf(it)) counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  const all: string[] = [];
+  const some: string[] = [];
+  for (const [id, count] of counts) (count === listed.length ? all : some).push(id);
+  return { all, some };
+}
+
 /** Remove `id` from every row; rows that never had it are returned as-is. */
 export function stripAssignee(items: Item[], id: string): Item[] {
   return items.map((it) => {
