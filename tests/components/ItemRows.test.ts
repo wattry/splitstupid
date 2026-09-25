@@ -92,7 +92,7 @@ beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); document.body.innerHTML = ''; });
 
 describe('ItemRows swipe tray (touch)', () => {
-  it('swiping a row left snaps it open and shows Delete, Assign and Split', () => {
+  it('swiping a row left snaps it open and shows Delete, Assign, Mine and Split', () => {
     const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
     const row = firstRow(host);
     expect(row.classList.contains('items__row--open')).toBe(false);
@@ -211,15 +211,15 @@ describe('ItemRows split', () => {
 });
 
 describe('ItemRows assign', () => {
-  it('tray reads Delete, Assign, Split for a splittable row and Delete, Assign otherwise', () => {
+  it('tray reads Delete, Assign, Mine, Split for a splittable row and Delete, Assign, Mine otherwise', () => {
     const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' }), makeRow({ units: '1', desc: 'Tea', price: '2' })]);
     const [a, b] = rows(host);
     swipeOpen(a!);
-    expect([...a!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign', 'Split']);
-    expect((a!.querySelector('.items__tray') as HTMLElement).style.width).toBe('216px');
+    expect([...a!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign', 'Mine', 'Split']);
+    expect((a!.querySelector('.items__tray') as HTMLElement).style.width).toBe('288px');
     swipeOpen(b!);
-    expect([...b!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign']);
-    expect((b!.querySelector('.items__tray') as HTMLElement).style.width).toBe('144px');
+    expect([...b!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign', 'Mine']);
+    expect((b!.querySelector('.items__tray') as HTMLElement).style.width).toBe('216px');
   });
 
   it('desktop action column is remove, assign, split in that order', () => {
@@ -251,6 +251,20 @@ describe('ItemRows assign', () => {
     expect(host.querySelector('.byperson__label')?.textContent).toBe('Ryan');
     click(button(host, 'Manage participants'));
     expect(onManage).toHaveBeenCalled();
+  });
+
+  it('tray Mine toggles me on the row, sets Mine, and closes the tray', () => {
+    const { host } = mount([makeRow({ units: '2', desc: 'Beer', price: '10.00' })]);
+    const row = firstRow(host);
+    swipeOpen(row);
+    click(trayButton(row, 'Mine')!);
+    expect(row.classList.contains('items__row--open')).toBe(false);
+    expect([...row.querySelectorAll('.pill')].map((p) => p.getAttribute('aria-label'))).toEqual(['Ryan']);
+    expect(mineOf(row)).toBe('2');
+    swipeOpen(row);
+    click(trayButton(row, 'Mine')!);
+    expect(row.querySelector('.pill')).toBeNull();
+    expect(mineOf(row)).toBe('0');
   });
 
   it('tray Assign opens the dialog and closes the tray', () => {

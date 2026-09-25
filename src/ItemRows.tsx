@@ -229,6 +229,7 @@ export default function ItemRows(
             participants={participants}
             labels={labels}
             onAssign={(item) => setAssignTarget({ kind: 'row', id: item.id })}
+            onMine={(item) => setItems((prev) => prev.map((row) => (row.id === item.id ? toggleAssignee(row, meId, meId, onBill) : row)))}
             picked={selectedIds.has(it.id)}
             onPick={(checked) => toggleSelect(it.id, checked)}
           />
@@ -293,6 +294,8 @@ interface ItemRowProps {
   labels: Map<string, string>;
   /** Open the Assign dialog for this row. */
   onAssign: (item: Item) => void;
+  /** Toggle Me on this row (the tray's Mine button). */
+  onMine: (item: Item) => void;
   /** Whether this row is picked for bulk actions. */
   picked: boolean;
   onPick: (checked: boolean) => void;
@@ -303,9 +306,11 @@ interface ItemRowProps {
  * Delete, Assign and Split buttons; on pointer devices the assign icon,
  * split icon and × button at the end of the row do the job.
  */
-function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, setOpen, participants, labels, onAssign, picked, onPick }: ItemRowProps): ReactElement {
+function ItemRow({
+  item: it, perUnit, locked, update, remove, onSplit, open, setOpen, participants, labels, onAssign, onMine, picked, onPick,
+}: ItemRowProps): ReactElement {
   const splittable = canSplit(it);
-  const tray = (splittable ? 3 : 2) * ACTION_WIDTH;
+  const tray = (splittable ? 4 : 3) * ACTION_WIDTH;
   const swipe = useSwipeActions(tray, open, setOpen);
 
   const handlers = {
@@ -326,6 +331,11 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
     onAssign(it);
   };
 
+  const mine = () => {
+    setOpen(false);
+    onMine(it);
+  };
+
   const del = () => swipe.leave(() => remove(it.id));
 
   return (
@@ -340,6 +350,9 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
         </button>
         <button type="button" className="items__tray-btn items__tray-btn--assign" onClick={assign}>
           Assign
+        </button>
+        <button type="button" className="items__tray-btn items__tray-btn--mine" onClick={mine}>
+          Mine
         </button>
         {splittable && (
           <button type="button" className="items__tray-btn items__tray-btn--split" onClick={split}>

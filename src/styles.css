@@ -787,6 +787,7 @@ body {
 .items__tray-btn--split { background: #2f6df6; }
 .items__tray-btn--delete { background: #e5484d; }
 .items__tray-btn--assign { background: #7b2ff7; }
+.items__tray-btn--mine { background: #f107a3; }
 
 /* Owe label rides along with the sliding grid. */
 .items__row--open .items__owe { visibility: hidden; }
