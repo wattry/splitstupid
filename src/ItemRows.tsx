@@ -201,13 +201,6 @@ export default function ItemRows(
 
       <div className={`items${locked ? ' items--locked' : ''}${selecting ? ' items--selecting' : ''}`}>
         <div className="items__head">
-          <input
-            type="checkbox"
-            aria-label="Select all rows"
-            checked={allSelected}
-            ref={(el) => { if (el) el.indeterminate = someSelected; }}
-            onChange={toggleAllSelected}
-          />
           <span>Total</span>
           {!locked && <span>Yours</span>}
           <span>Description</span>
@@ -215,6 +208,13 @@ export default function ItemRows(
           <span aria-hidden="true" />
           <span aria-hidden="true" />
           <span aria-hidden="true" />
+          <input
+            type="checkbox"
+            aria-label="Select all rows"
+            checked={allSelected}
+            ref={(el) => { if (el) el.indeterminate = someSelected; }}
+            onChange={toggleAllSelected}
+          />
         </div>
 
         {items.map((it) => (
@@ -350,13 +350,6 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
       </div>
       <div className="items__grid" style={swipe.style}>
         <input
-          className="items__pick"
-          type="checkbox"
-          checked={picked}
-          onChange={(e) => onPick(e.target.checked)}
-          aria-label="Select row"
-        />
-        <input
           className="items__num"
           type="number"
           inputMode="numeric"
@@ -422,6 +415,13 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
         >
           <SplitIcon />
         </button>
+        <input
+          className="items__pick"
+          type="checkbox"
+          checked={picked}
+          onChange={(e) => onPick(e.target.checked)}
+          aria-label="Select row"
+        />
       </div>
       <AssigneePills ids={assigneesOf(it)} participants={participants} labels={labels} onClick={assign} />
       {!locked && <span className="items__owe">you owe {money(rowOwed(it, perUnit))}</span>}

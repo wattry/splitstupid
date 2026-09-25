@@ -665,13 +665,13 @@ body {
 
 .lightbox__hint { color: rgba(255, 255, 255, 0.7); font-size: 0.8rem; }
 
-/* Item rows: Units | Yours | Description | Price | remove | assign | split */
+/* Item rows: Units | Yours | Description | Price | remove | assign | split | select */
 .items { display: flex; flex-direction: column; gap: 10px; }
 
 .items__head,
 .items__grid {
   display: grid;
-  grid-template-columns: 20px 40px 40px 1fr 80px 20px 24px 24px;
+  grid-template-columns: 40px 40px 1fr 80px 20px 24px 24px 20px;
   gap: 4px;
   align-items: center;
 }
@@ -882,7 +882,7 @@ body {
 
 /* Yours column hidden until the bill reconciles after a scan */
 .items--locked .items__head,
-.items--locked .items__grid { grid-template-columns: 20px 40px 1fr 80px 20px 24px 24px; }
+.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 20px 24px 24px 20px; }
 
 /* "Select" / "Done" toggle in the items header, touch-only. */
 .items__select-toggle {
@@ -1249,9 +1249,9 @@ a.action-btn {
   .items__tray { display: flex; }
   .items__pick, .items__head input[type="checkbox"] { display: none; }
   .items--selecting .items__head,
-  .items--selecting .items__grid { grid-template-columns: 20px 40px 40px 1fr 80px; }
+  .items--selecting .items__grid { grid-template-columns: 40px 40px 1fr 80px 24px; }
   .items--selecting.items--locked .items__head,
-  .items--selecting.items--locked .items__grid { grid-template-columns: 20px 40px 1fr 80px; }
+  .items--selecting.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 24px; }
   .items--selecting .items__pick,
   .items--selecting .items__head input[type="checkbox"] { display: inline-grid; }
 }
