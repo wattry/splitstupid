@@ -54,6 +54,11 @@ describe('setAssignees with meId', () => {
     expect(setAssignees(item({ units: '', yours: '0' }), ['me'], 'me').yours).toBe('1');
     expect(setAssignees(item({ units: '', yours: '0' }), ['me', 'sam'], 'me').yours).toBe('0.5');
   });
+  it('ignores assignees who are not on the bill when given the bill', () => {
+    const onBill = new Set(['me', 'sam', 'sk', 'jo']);
+    const out = setAssignees(item({ units: '1', yours: '0' }), ['me', 'sam', 'sk', 'jo', 'ghost'], 'me', onBill);
+    expect(out.yours).toBe('0.25');
+  });
   it('mineShare splits units by count', () => {
     expect(mineShare('3', 2)).toBe(1.5);
     expect(mineShare('', 4)).toBe(0.25);

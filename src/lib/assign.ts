@@ -21,7 +21,7 @@ const formatAmount = (n: number): string => (Number.isInteger(n) ? String(n) : S
  * counts as 1), rounded to cents; if Me just left the row it becomes 0; rows
  * Me was never on keep whatever was typed.
  */
-export function setAssignees(item: Item, ids: string[], meId?: string): Item {
+export function setAssignees(item: Item, ids: string[], meId?: string, onBill?: ReadonlySet<string>): Item {
   const deduped = unique(ids);
   let next: Item;
   if (deduped.length === 0) {
@@ -34,7 +34,9 @@ export function setAssignees(item: Item, ids: string[], meId?: string): Item {
   const had = assigneesOf(item).includes(meId);
   const has = deduped.includes(meId);
   if (!had && !has) return next;
-  return { ...next, yours: formatAmount(has ? mineShare(item.units, deduped.length) : 0) };
+  // Only people on the bill count toward the split; a stale id from an old link must not dilute it.
+  const sharers = onBill ? deduped.filter((id) => onBill.has(id) || id === meId).length : deduped.length;
+  return { ...next, yours: formatAmount(has ? mineShare(item.units, sharers) : 0) };
 }
 
 /** Your share of a row's units when split evenly between `count` assignees. */
@@ -44,40 +46,46 @@ export function mineShare(units: string, count: number): number {
   return count > 0 ? base / count : 0;
 }
 
-export function toggleAssignee(item: Item, id: string, meId?: string): Item {
+export function toggleAssignee(item: Item, id: string, meId?: string, onBill?: ReadonlySet<string>): Item {
   const cur = assigneesOf(item);
-  return setAssignees(item, cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id], meId);
+  return setAssignees(item, cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id], meId, onBill);
 }
 
 /** Add `id` to every listed row; rows that already have it (or aren't listed) are returned as-is. */
-export function assignAll(items: Item[], rowIds: ReadonlySet<string>, id: string, meId?: string): Item[] {
+export function assignAll(
+  items: Item[], rowIds: ReadonlySet<string>, id: string, meId?: string, onBill?: ReadonlySet<string>
+): Item[] {
   return items.map((it) => {
     if (!rowIds.has(it.id)) return it;
     const cur = assigneesOf(it);
-    return cur.includes(id) ? it : setAssignees(it, [...cur, id], meId);
+    return cur.includes(id) ? it : setAssignees(it, [...cur, id], meId, onBill);
   });
 }
 
 /** If every listed row has `id`, remove it from all of them; otherwise add it to all. */
-export function toggleAssigneeAll(items: Item[], rowIds: ReadonlySet<string>, id: string, meId?: string): Item[] {
+export function toggleAssigneeAll(
+  items: Item[], rowIds: ReadonlySet<string>, id: string, meId?: string, onBill?: ReadonlySet<string>
+): Item[] {
   const listed = items.filter((it) => rowIds.has(it.id));
   const allHaveIt = listed.length > 0 && listed.every((it) => assigneesOf(it).includes(id));
   return items.map((it) => {
     if (!rowIds.has(it.id)) return it;
     const cur = assigneesOf(it);
-    if (allHaveIt) return cur.includes(id) ? setAssignees(it, cur.filter((x) => x !== id), meId) : it;
-    return cur.includes(id) ? it : setAssignees(it, [...cur, id], meId);
+    if (allHaveIt) return cur.includes(id) ? setAssignees(it, cur.filter((x) => x !== id), meId, onBill) : it;
+    return cur.includes(id) ? it : setAssignees(it, [...cur, id], meId, onBill);
   });
 }
 
 /** Assign the same participant list to every listed row (used by the Everyone toggle). */
-export function setAssigneesAll(items: Item[], rowIds: ReadonlySet<string>, ids: string[], meId?: string): Item[] {
+export function setAssigneesAll(
+  items: Item[], rowIds: ReadonlySet<string>, ids: string[], meId?: string, onBill?: ReadonlySet<string>
+): Item[] {
   const deduped = unique(ids);
   return items.map((it) => {
     if (!rowIds.has(it.id)) return it;
     const cur = assigneesOf(it);
     const same = cur.length === deduped.length && deduped.every((id) => cur.includes(id));
-    return same ? it : setAssignees(it, deduped, meId);
+    return same ? it : setAssignees(it, deduped, meId, onBill);
   });
 }
 
@@ -96,10 +104,10 @@ export function assigneeStatus(items: Item[], rowIds: ReadonlySet<string>): { al
 }
 
 /** Remove `id` from every row; rows that never had it are returned as-is. */
-export function stripAssignee(items: Item[], id: string, meId?: string): Item[] {
+export function stripAssignee(items: Item[], id: string, meId?: string, onBill?: ReadonlySet<string>): Item[] {
   return items.map((it) => {
     const ids = assigneesOf(it);
-    return ids.includes(id) ? setAssignees(it, ids.filter((x) => x !== id), meId) : it;
+    return ids.includes(id) ? setAssignees(it, ids.filter((x) => x !== id), meId, onBill) : it;
   });
 }
 

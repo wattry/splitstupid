@@ -58,6 +58,8 @@ export default function App() {
   // Me is always on the bill; links and imports re-seed via ensureMe.
   const [participants, setParticipants] = useState<Participant[]>(() => [meParticipant(me)]);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  // Bill ids after `id` leaves; keeps Mine's split honest when someone is removed.
+  const onBillWithout = (id: string) => new Set(participants.filter((p) => p.id !== id).map((p) => p.id));
   // Share is gated on Me having a name; the pending action runs after the prompt.
   const [afterName, setAfterName] = useState<((name: string) => void) | null>(null);
 
@@ -87,7 +89,7 @@ export default function App() {
   const deleteFriend = (id: string) => {
     remove(id);
     setParticipants((list) => removeParticipant(list, id));
-    setItems((prev) => stripAssignee(prev, id, me.id));
+    setItems((prev) => stripAssignee(prev, id, me.id, onBillWithout(id)));
   };
   const importFriend = (participant: Participant, name?: string) => {
     // Same check as importParticipant, but through the hook so it persists.
@@ -375,7 +377,7 @@ export default function App() {
             meId={me.id}
             onRemove={(id) => {
               setParticipants((list) => removeParticipant(list, id));
-              setItems((prev) => stripAssignee(prev, id, me.id));
+              setItems((prev) => stripAssignee(prev, id, me.id, onBillWithout(id)));
             }}
             onImport={importFriend}
             onAdopt={adopt}
@@ -389,7 +391,7 @@ export default function App() {
             onToggle={(friend) => {
               const leaving = participants.some((p) => p.id === friend.id);
               setParticipants((list) => toggleParticipant(list, friend));
-              if (leaving) setItems((prev) => stripAssignee(prev, friend.id, me.id));
+              if (leaving) setItems((prev) => stripAssignee(prev, friend.id, me.id, onBillWithout(friend.id)));
             }}
             onAdd={(name) => addFriend(name)}
             onRename={renameFriend}

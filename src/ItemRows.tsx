@@ -89,6 +89,8 @@ export default function ItemRows(
   // Target of the Assign dialog: a single row, a bulk selection, or none.
   const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
   const labels = shortLabels(participants);
+  // Ids on the bill: only these count when Mine is split across a row's assignees.
+  const onBill = new Set(participants.map((p) => p.id));
   // Row whose swipe tray is open (touch); at most one at a time.
   const [openId, setOpenId] = useState<string | null>(null);
   // Ids of rows picked via the checkbox column. The raw Set may hold ids of
@@ -124,16 +126,16 @@ export default function ItemRows(
       desc: assigningRow.desc,
       assigned: assigneesOf(assigningRow),
       partial: [] as string[],
-      toggle: (id: string) => setItems((prev) => prev.map((it) => (it.id === assigningRow.id ? toggleAssignee(it, id, meId) : it))),
-      toggleAll: (on: boolean) => setItems((prev) => prev.map((it) => (it.id === assigningRow.id ? setAssignees(it, on ? participants.map((p) => p.id) : [], meId) : it))),
+      toggle: (id: string) => setItems((prev) => prev.map((it) => (it.id === assigningRow.id ? toggleAssignee(it, id, meId, onBill) : it))),
+      toggleAll: (on: boolean) => setItems((prev) => prev.map((it) => (it.id === assigningRow.id ? setAssignees(it, on ? participants.map((p) => p.id) : [], meId, onBill) : it))),
     })
     : assignTarget?.kind === 'selection' && selectedIds.size > 0
       ? ((status) => ({
         desc: `${selectedIds.size} items`,
         assigned: status.all,
         partial: status.some,
-        toggle: (id: string) => setItems((prev) => toggleAssigneeAll(prev, selectedIds, id, meId)),
-        toggleAll: (on: boolean) => setItems((prev) => setAssigneesAll(prev, selectedIds, on ? participants.map((p) => p.id) : [], meId)),
+        toggle: (id: string) => setItems((prev) => toggleAssigneeAll(prev, selectedIds, id, meId, onBill)),
+        toggleAll: (on: boolean) => setItems((prev) => setAssigneesAll(prev, selectedIds, on ? participants.map((p) => p.id) : [], meId, onBill)),
       }))(assigneeStatus(items, selectedIds))
       : null;
   const update = (id: string, field: string, value: unknown) =>
@@ -186,7 +188,7 @@ export default function ItemRows(
           <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setAssignTarget({ kind: 'selection' })}>
             Select
           </button>
-          <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setItems((prev) => assignAll(prev, selectedIds, meId, meId))}>
+          <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setItems((prev) => assignAll(prev, selectedIds, meId, meId, onBill))}>
             Mine
           </button>
           <button type="button" className="items__bulk-clear" onClick={clearSelection}>
