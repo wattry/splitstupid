@@ -3,7 +3,7 @@ import type { Item } from '../types.js';
 export type ReconcileStatus = 'balanced' | 'off' | 'unknown';
 
 export interface Reconciliation {
-  /** Sum of every row's full line total (the Yours column plays no part). */
+  /** Sum of every row's full line total (the Mine column plays no part). */
   lineSum: number;
   /** The Sub Total field as a number, or undefined when blank/unparseable. */
   subtotal: number | undefined;

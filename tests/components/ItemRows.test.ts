@@ -10,19 +10,17 @@ import { reconcile } from '../../src/lib/reconcile.js';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 let seq = 0;
-const makeRow = (fields: ItemFields = {}): Item => {
-  const row: Item = { id: `r${++seq}`, units: '1', yours: '1', desc: '', price: '', ...fields };
-  if (fields.yours === undefined) row.yours = row.units;
-  return row;
-};
+const makeRow = (fields: ItemFields = {}): Item =>
+  ({ id: `r${++seq}`, units: '1', yours: '0', desc: '', price: '', ...fields });
 
 const defaultParticipants: Participant[] = [{ id: 'me', name: 'Ryan' }, { id: 'sam', name: 'Sam Kim' }];
 
-function Harness({ initial, perUnit, participants, onManageParticipants }: {
+function Harness({ initial, perUnit, participants, onManageParticipants, meId }: {
   initial: Item[];
   perUnit: boolean;
   participants: Participant[];
   onManageParticipants: () => void;
+  meId: string;
 }) {
   const [items, setItems] = useState(initial);
   return React.createElement(ItemRows, {
@@ -35,10 +33,11 @@ function Harness({ initial, perUnit, participants, onManageParticipants }: {
     onContinue: () => {},
     participants,
     onManageParticipants,
+    meId,
   });
 }
 
-function mount(initial: Item[], perUnit = false, participants: Participant[] = defaultParticipants) {
+function mount(initial: Item[], perUnit = false, participants: Participant[] = defaultParticipants, meId = 'me') {
   const capture = vi.fn();
   const onManage = vi.fn();
   const host = document.createElement('div');
@@ -48,7 +47,7 @@ function mount(initial: Item[], perUnit = false, participants: Participant[] = d
       React.createElement(
         PostHogContext.Provider,
         { value: { client: { capture } as never } },
-        React.createElement(Harness, { initial, perUnit, participants, onManageParticipants: onManage })
+        React.createElement(Harness, { initial, perUnit, participants, onManageParticipants: onManage, meId })
       )
     );
   });
@@ -77,14 +76,23 @@ const rows = (host: Element) => [...host.querySelectorAll('.items__row')];
 const firstRow = (host: Element) => rows(host)[0]!;
 const unitsOf = (row: Element) => (row.querySelector('input[aria-label="Units on receipt"]') as HTMLInputElement).value;
 const priceOf = (row: Element) => (row.querySelector('.items__price') as HTMLInputElement).value;
+const mineOf = (row: Element) => (row.querySelector('input[aria-label="How many were mine"]') as HTMLInputElement).value;
 const trayButton = (row: Element, label: string) =>
   [...row.querySelectorAll('.items__tray button')].find((b) => b.textContent === label) as HTMLButtonElement | undefined;
+const pickBox = (row: Element) => row.querySelector('input[aria-label="Select row"]') as HTMLInputElement;
+const headPick = (host: Element) => host.querySelector('input[aria-label="Select all rows"]') as HTMLInputElement;
+const bulkBar = (host: Element) => host.querySelector('.items__bulk');
+const selectToggle = (host: Element) =>
+  [...host.querySelectorAll('.items__select-toggle')][0] as HTMLButtonElement;
+const check = (el: HTMLInputElement, value: boolean) => {
+  if (el.checked !== value) click(el);
+};
 
 beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); document.body.innerHTML = ''; });
 
 describe('ItemRows swipe tray (touch)', () => {
-  it('swiping a row left snaps it open and shows Delete, Assign and Split', () => {
+  it('swiping a row left snaps it open and shows Delete, Assign, Mine and Split', () => {
     const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
     const row = firstRow(host);
     expect(row.classList.contains('items__row--open')).toBe(false);
@@ -203,15 +211,15 @@ describe('ItemRows split', () => {
 });
 
 describe('ItemRows assign', () => {
-  it('tray reads Delete, Assign, Split for a splittable row and Delete, Assign otherwise', () => {
+  it('tray reads Delete, Assign, Mine, Split for a splittable row and Delete, Assign, Mine otherwise', () => {
     const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' }), makeRow({ units: '1', desc: 'Tea', price: '2' })]);
     const [a, b] = rows(host);
     swipeOpen(a!);
-    expect([...a!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign', 'Split']);
-    expect((a!.querySelector('.items__tray') as HTMLElement).style.width).toBe('216px');
+    expect([...a!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign', 'Mine', 'Split']);
+    expect((a!.querySelector('.items__tray') as HTMLElement).style.width).toBe('288px');
     swipeOpen(b!);
-    expect([...b!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign']);
-    expect((b!.querySelector('.items__tray') as HTMLElement).style.width).toBe('144px');
+    expect([...b!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign', 'Mine']);
+    expect((b!.querySelector('.items__tray') as HTMLElement).style.width).toBe('216px');
   });
 
   it('desktop action column is remove, assign, split in that order', () => {
@@ -225,7 +233,7 @@ describe('ItemRows assign', () => {
     const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
     click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
     const dialog = host.querySelector('[role="dialog"][aria-label="Assign"]')!;
-    click(dialog.querySelectorAll('.assign__row input[type="checkbox"]')[1]!);
+    click(dialog.querySelectorAll('.assign__row input[type="checkbox"]')[2]!);
     click(button(host, 'Done'));
     const pill = firstRow(host).querySelector('.pill')!;
     expect(pill.textContent).toBe('SK');
@@ -245,6 +253,20 @@ describe('ItemRows assign', () => {
     expect(onManage).toHaveBeenCalled();
   });
 
+  it('tray Mine toggles me on the row, sets Mine, and closes the tray', () => {
+    const { host } = mount([makeRow({ units: '2', desc: 'Beer', price: '10.00' })]);
+    const row = firstRow(host);
+    swipeOpen(row);
+    click(trayButton(row, 'Mine')!);
+    expect(row.classList.contains('items__row--open')).toBe(false);
+    expect([...row.querySelectorAll('.pill')].map((p) => p.getAttribute('aria-label'))).toEqual(['Ryan']);
+    expect(mineOf(row)).toBe('2');
+    swipeOpen(row);
+    click(trayButton(row, 'Mine')!);
+    expect(row.querySelector('.pill')).toBeNull();
+    expect(mineOf(row)).toBe('0');
+  });
+
   it('tray Assign opens the dialog and closes the tray', () => {
     const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
     const row = firstRow(host);
@@ -252,5 +274,242 @@ describe('ItemRows assign', () => {
     click(trayButton(row, 'Assign')!);
     expect(host.querySelector('[role="dialog"][aria-label="Assign"]')).toBeTruthy();
     expect(row.classList.contains('items__row--open')).toBe(false);
+  });
+});
+
+describe('ItemRows bulk assign', () => {
+  const twoRows = () => [
+    makeRow({ units: '1', desc: 'Beer', price: '10.00' }),
+    makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
+  ];
+
+  it('shows no action bar until a row is selected; ticking two rows shows "2 selected"; Clear hides it', () => {
+    const { host } = mount(twoRows());
+    expect(bulkBar(host)).toBeNull();
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    expect(bulkBar(host)?.textContent).toContain('2 selected');
+    click(bulkBar(host)!.querySelector('.items__bulk-clear')!);
+    expect(bulkBar(host)).toBeNull();
+  });
+
+  it('header checkbox selects all, shows indeterminate with a partial selection, and unticks all', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    expect(headPick(host).indeterminate).toBe(true);
+    expect(headPick(host).checked).toBe(false);
+    check(headPick(host), true);
+    expect(pickBox(a!).checked).toBe(true);
+    expect(pickBox(b!).checked).toBe(true);
+    expect(headPick(host).indeterminate).toBe(false);
+    expect(headPick(host).checked).toBe(true);
+    check(headPick(host), false);
+    expect(pickBox(a!).checked).toBe(false);
+    expect(pickBox(b!).checked).toBe(false);
+  });
+
+  it('"Mine" puts a Ryan pill on every selected row, none on unselected rows, and does not duplicate', () => {
+    const { host } = mount(twoRows().concat(makeRow({ units: '1', desc: 'Soda', price: '2.00' })));
+    const [a, b, c] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    const mineButton = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Mine')!;
+    click(mineButton());
+    expect(a!.querySelector('.pill[aria-label="Ryan"]')).toBeTruthy();
+    expect(b!.querySelector('.pill[aria-label="Ryan"]')).toBeTruthy();
+    expect(c!.querySelector('.pill[aria-label="Ryan"]')).toBeNull();
+    click(mineButton());
+    expect(a!.querySelectorAll('.pill[aria-label="Ryan"]')).toHaveLength(1);
+  });
+
+  it('"Select" opens a dialog titled "2 items"; toggles apply to both rows; selection persists after Done', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    // Pre-assign Sam Kim to just the first row so her checkbox starts indeterminate.
+    click(a!.querySelector('button[aria-label="Assign to people"]')!);
+    click(host.querySelectorAll('.assign__row input[type="checkbox"]')[2]!);
+    click(button(host, 'Done'));
+
+    const selectButton = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Select')!;
+    click(selectButton());
+    const dialog = host.querySelector('[role="dialog"][aria-label="Assign"]')!;
+    expect(dialog.textContent).toContain('2 items');
+    const samBox = host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[2]!;
+    expect(samBox.indeterminate).toBe(true);
+
+    click(samBox);
+    expect(a!.querySelector('.pill[aria-label="Sam Kim"]')).toBeTruthy();
+    expect(b!.querySelector('.pill[aria-label="Sam Kim"]')).toBeTruthy();
+    expect(samBox.checked).toBe(true);
+    expect(samBox.indeterminate).toBe(false);
+
+    click(host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[2]!);
+    expect(a!.querySelector('.pill[aria-label="Sam Kim"]')).toBeNull();
+    expect(b!.querySelector('.pill[aria-label="Sam Kim"]')).toBeNull();
+
+    click(button(host, 'Done'));
+    expect(bulkBar(host)?.textContent).toContain('2 selected');
+  });
+
+  it('removing every selected row while the Assign dialog is open closes the dialog', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    const selectButton = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Select')!;
+    click(selectButton());
+    expect(host.querySelector('[role="dialog"][aria-label="Assign"]')).toBeTruthy();
+
+    // The dialog overlays the rows, but the desktop Remove buttons are still in the DOM.
+    click(a!.querySelector('button[aria-label="Remove item"]')!);
+    click(b!.querySelector('button[aria-label="Remove item"]')!);
+
+    expect(host.querySelector('[role="dialog"][aria-label="Assign"]')).toBeNull();
+  });
+
+  it('Select toggle flips to Done, adds items--selecting, and Done clears the selection and the class', () => {
+    const { host } = mount(twoRows());
+    const itemsEl = host.querySelector('.items')!;
+    expect(itemsEl.classList.contains('items--selecting')).toBe(false);
+    click(selectToggle(host));
+    expect(selectToggle(host).textContent).toBe('Done');
+    expect(itemsEl.classList.contains('items--selecting')).toBe(true);
+    check(pickBox(firstRow(host)), true);
+    expect(bulkBar(host)?.textContent).toContain('1 selected');
+    click(selectToggle(host));
+    expect(selectToggle(host).textContent).toBe('Assign');
+    expect(itemsEl.classList.contains('items--selecting')).toBe(false);
+    expect(bulkBar(host)).toBeNull();
+  });
+
+  it('removing a selected row via the desktop Remove item button drops it from the count', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    expect(bulkBar(host)?.textContent).toContain('2 selected');
+    click(a!.querySelector('button[aria-label="Remove item"]')!);
+    expect(bulkBar(host)?.textContent).toContain('1 selected');
+  });
+
+  it('footer Clear empties the selection and hides the bar', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    expect(bulkBar(host)?.textContent).toContain('2 selected');
+    click([...host.querySelectorAll('.items__clear')][0]!);
+    expect(bulkBar(host)).toBeNull();
+  });
+
+  it('splitting a selected row yields rows that are not selected', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
+    const [a] = rows(host);
+    check(pickBox(a!), true);
+    expect(bulkBar(host)?.textContent).toContain('1 selected');
+    click(a!.querySelector('.items__split')!);
+    // Split out every unit so none of the resulting rows keeps the original id.
+    type(host.querySelector('.split__count') as HTMLInputElement, '3');
+    click(button(host, 'Split'));
+    expect(bulkBar(host)).toBeNull();
+  });
+
+  it('tapping Select while a swipe tray is open closes the tray', () => {
+    const { host } = mount(twoRows());
+    const row = firstRow(host);
+    swipeOpen(row);
+    expect(row.classList.contains('items__row--open')).toBe(true);
+    click(selectToggle(host));
+    expect(firstRow(host).classList.contains('items__row--open')).toBe(false);
+  });
+});
+
+describe('ItemRows Mine column', () => {
+  it('header reads Mine', () => {
+    const { host } = mount([makeRow({ desc: 'Beer' })]);
+    expect(host.querySelector('.items__head')?.textContent).toContain('Mine');
+  });
+
+  it('new rows show Mine 0', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
+    expect(mineOf(firstRow(host))).toBe('0');
+  });
+
+  it('assigning Me from the row dialog sets Mine to 1; unticking sets it back to 0', () => {
+    const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
+    click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
+    const meBox = host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[1]!;
+    click(meBox);
+    expect(mineOf(firstRow(host))).toBe('1');
+    click(meBox);
+    expect(mineOf(firstRow(host))).toBe('0');
+  });
+
+  it('"Mine" on two selected rows sets Mine to 1 on both; a second press leaves it at 1', () => {
+    const { host } = mount([
+      makeRow({ units: '1', desc: 'Beer', price: '10.00' }),
+      makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
+    ]);
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    const mineButton = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Mine')!;
+    click(mineButton());
+    expect(mineOf(a!)).toBe('1');
+    expect(mineOf(b!)).toBe('1');
+    click(mineButton());
+    expect(mineOf(a!)).toBe('1');
+    expect(mineOf(b!)).toBe('1');
+  });
+
+  it('Everyone on a row assigns all participants and Mine becomes the even share', () => {
+    const { host } = mount([makeRow({ units: '2', desc: 'Beer', price: '10.00' })]);
+    click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
+    const everyoneBox = host.querySelector<HTMLInputElement>('input[aria-label="Assign everyone"]')!;
+    check(everyoneBox, true);
+    expect(mineOf(firstRow(host))).toBe('1');
+    const boxes = [...host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')].slice(1);
+    expect(boxes.every((b) => b.checked)).toBe(true);
+  });
+
+  it('bulk Everyone assigns every participant to both selected rows and sets Mine to the even share on both', () => {
+    const { host } = mount([
+      makeRow({ units: '2', desc: 'Beer', price: '10.00', assignees: ['sam'] }),
+      makeRow({ units: '2', desc: 'Fries', price: '4.00' }),
+    ]);
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    const selectButton = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Select')!;
+    click(selectButton());
+    const everyoneBox = () => host.querySelector<HTMLInputElement>('input[aria-label="Assign everyone"]')!;
+    check(everyoneBox(), true);
+    expect(a!.querySelectorAll('.pill')).toHaveLength(2);
+    expect(b!.querySelectorAll('.pill')).toHaveLength(2);
+    expect(mineOf(a!)).toBe('1');
+    expect(mineOf(b!)).toBe('1');
+  });
+
+  it('unticking bulk Everyone clears every pill on both rows and returns Mine to 0', () => {
+    const { host } = mount([
+      makeRow({ units: '1', desc: 'Beer', price: '10.00', assignees: ['sam'] }),
+      makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
+    ]);
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    const selectButton = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Select')!;
+    click(selectButton());
+    const everyoneBox = () => host.querySelector<HTMLInputElement>('input[aria-label="Assign everyone"]')!;
+    check(everyoneBox(), true);
+    check(everyoneBox(), false);
+    expect(a!.querySelectorAll('.pill')).toHaveLength(0);
+    expect(b!.querySelectorAll('.pill')).toHaveLength(0);
+    expect(mineOf(a!)).toBe('0');
+    expect(mineOf(b!)).toBe('0');
   });
 });

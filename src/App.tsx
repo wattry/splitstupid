@@ -58,6 +58,8 @@ export default function App() {
   // Me is always on the bill; links and imports re-seed via ensureMe.
   const [participants, setParticipants] = useState<Participant[]>(() => [meParticipant(me)]);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  // Bill ids after `id` leaves; keeps Mine's split honest when someone is removed.
+  const onBillWithout = (id: string) => new Set(participants.filter((p) => p.id !== id).map((p) => p.id));
   // Share is gated on Me having a name; the pending action runs after the prompt.
   const [afterName, setAfterName] = useState<((name: string) => void) | null>(null);
 
@@ -87,7 +89,7 @@ export default function App() {
   const deleteFriend = (id: string) => {
     remove(id);
     setParticipants((list) => removeParticipant(list, id));
-    setItems((prev) => stripAssignee(prev, id));
+    setItems((prev) => stripAssignee(prev, id, me.id, onBillWithout(id)));
   };
   const importFriend = (participant: Participant, name?: string) => {
     // Same check as importParticipant, but through the hook so it persists.
@@ -112,17 +114,15 @@ export default function App() {
   };
 
   /**
-   * Build a blank row. `fields` can prefill units/yours/desc/price.
-   * Each row gets a unique id so rows stay independent even when several are
-   * created in the same render (e.g. a receipt scan).
+   * Build a blank row. `fields` can prefill units/yours/desc/price. Mine
+   * (`yours`) defaults to 0 unless the caller sets it explicitly. Each row
+   * gets a unique id so rows stay independent even when several are created
+   * in the same render (e.g. a receipt scan).
    * @param {Partial<Row>} fields
    * @returns {Row}
    */
   function makeRow(fields: ItemFields = {}): Item {
-    const row = { id: crypto.randomUUID(), units: '1', yours: '1', desc: '', price: '', ...fields };
-    // "Yours" defaults to the "Total" (units) unless the caller set it explicitly.
-    if (fields.yours === undefined) row.yours = row.units;
-    return row;
+    return { id: crypto.randomUUID(), units: '1', yours: '0', desc: '', price: '', ...fields };
   }
 
   // A receipt scan replaces the whole bill, so values typed for a previous
@@ -176,7 +176,7 @@ export default function App() {
       setMyParty(data.myParty);
       const ensured = ensureMe(data.participants, me);
       setParticipants(ensured);
-      setItems(pruneAssignees(data.items, ensured));
+      setItems(pruneAssignees(data.items, ensured, me.id));
     });
     history.replaceState(null, '', window.location.pathname + window.location.search);
     // `me` is stable across the mount (its id never changes), so reading it
@@ -226,7 +226,7 @@ export default function App() {
     return doShare();
   };
 
-  // Turning Split Even on resets every row to Yours = Total so the line-item
+  // Turning Split Even on resets every row to Mine = Total so the line-item
   // sum is the whole bill before it is divided by the party.
   const toggleSplitEven = (on: boolean) => {
     if (on) setItems(items.map((item) => ({ ...item, yours: item.units })));
@@ -297,7 +297,7 @@ export default function App() {
             const { assignees: _assignees, ...rest } = item;
             return rest as unknown as Item;
           });
-          setItems(pruneAssignees(cleanItems, ensured));
+          setItems(pruneAssignees(cleanItems, ensured, me.id));
         }
       } catch {
         // Not a valid save file — ignore.
@@ -377,7 +377,7 @@ export default function App() {
             meId={me.id}
             onRemove={(id) => {
               setParticipants((list) => removeParticipant(list, id));
-              setItems((prev) => stripAssignee(prev, id));
+              setItems((prev) => stripAssignee(prev, id, me.id, onBillWithout(id)));
             }}
             onImport={importFriend}
             onAdopt={adopt}
@@ -391,7 +391,7 @@ export default function App() {
             onToggle={(friend) => {
               const leaving = participants.some((p) => p.id === friend.id);
               setParticipants((list) => toggleParticipant(list, friend));
-              if (leaving) setItems((prev) => stripAssignee(prev, friend.id));
+              if (leaving) setItems((prev) => stripAssignee(prev, friend.id, me.id, onBillWithout(friend.id)));
             }}
             onAdd={(name) => addFriend(name)}
             onRename={renameFriend}
@@ -449,6 +449,7 @@ export default function App() {
           onContinue={() => setLocked(false)}
           participants={participants}
           onManageParticipants={() => setFriendsOpen(true)}
+          meId={me.id}
         />
         {scanWarnings.length > 0 && (
           <div className="scan-warnings" role="alert">

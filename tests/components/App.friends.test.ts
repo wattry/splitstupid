@@ -270,7 +270,7 @@ describe('App friends and participants integration', () => {
     click(button(h, 'Close'));
     click(h.querySelector('button[aria-label="Assign to people"]')!);
     const boxes = h.querySelectorAll('.assign__row input[type="checkbox"]');
-    click(boxes[1]!);
+    click(boxes[2]!);
     click(button(h, 'Done'));
     expect(h.querySelector('.pill')?.textContent).toBe('SK');
     expect(h.querySelector('.byperson__label')?.textContent).toBe('Sam Kim');
@@ -300,7 +300,7 @@ describe('App friends and participants integration', () => {
     click(button(h, 'Close'));
     click(h.querySelector('button[aria-label="Assign to people"]')!);
     const boxes = h.querySelectorAll('.assign__row input[type="checkbox"]');
-    click(boxes[1]!);
+    click(boxes[2]!);
     click(button(h, 'Done'));
     expect(h.querySelector('.pill')?.textContent).toBe('SK');
 
@@ -355,7 +355,7 @@ describe('App friends and participants integration', () => {
     expect(chipNames(h)).toEqual(['Me', 'Ryan', 'Sam']);
     // Assign Tea to local Me first so the remap is observable.
     click(h.querySelectorAll('button[aria-label="Assign to people"]')[1]!);
-    click(h.querySelectorAll('.assign__row input[type="checkbox"]')[0]!);
+    click(h.querySelectorAll('.assign__row input[type="checkbox"]')[1]!);
     click(button(h, 'Done'));
     click(h.querySelector('button[aria-label="Options for Ryan"]')!);
     click(h.querySelector('button[aria-label="This is me: Ryan"]')!);
@@ -385,5 +385,26 @@ describe('App friends and participants integration', () => {
     expect(JSON.parse(localStorage.getItem(ME_STORAGE_KEY)!).name).toBe('Sam');
     click(button(h, 'Close'));
     expect(chipNames(h)).toEqual(['Sam', 'Sam K']);
+  });
+
+  it('"Mine" on two selected rows shows Ryan under By person with both descriptions', async () => {
+    seedMe('Ryan');
+    const h = mount();
+    await flush();
+    click(button(h, '+ Add item'));
+    const pickBox = (row: Element) => row.querySelector('input[aria-label="Select row"]') as HTMLInputElement;
+    const check = (el: HTMLInputElement, value: boolean) => {
+      if (el.checked !== value) click(el);
+    };
+    const [a, b] = [...h.querySelectorAll('.items__row')];
+    type(byLabel(a!, 'Description'), 'Soup');
+    type(byLabel(b!, 'Description'), 'Tea');
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    click([...h.querySelectorAll('.items__bulk button')].find((btn) => btn.textContent === 'Mine')!);
+    expect(h.querySelector('.byperson__label')?.textContent).toBe('Ryan');
+    const items = [...h.querySelectorAll('.byperson__items li')];
+    expect(items).toHaveLength(2);
+    expect(items.map((li) => li.querySelector('span')?.textContent)).toEqual(['Soup', 'Tea']);
   });
 });

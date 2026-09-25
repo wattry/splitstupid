@@ -72,7 +72,7 @@ body {
 
 .field label { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 
-.field input,
+.field input:not([type="checkbox"]),
 .field select,
 .field textarea {
   width: 100%;
@@ -94,7 +94,7 @@ body {
   word-break: break-word;
 }
 
-.field input:focus,
+.field input:not([type="checkbox"]):focus,
 .field select:focus,
 .field textarea:focus {
   outline: none;
@@ -665,16 +665,76 @@ body {
 
 .lightbox__hint { color: rgba(255, 255, 255, 0.7); font-size: 0.8rem; }
 
-/* Item rows: Units | Yours | Description | Price | remove | assign | split */
+/* Item rows: Units | Mine | Description | Price | remove | assign | split | select */
 .items { display: flex; flex-direction: column; gap: 10px; }
 
 .items__head,
 .items__grid {
   display: grid;
-  grid-template-columns: 40px 40px 1fr 80px 20px 24px 24px;
+  grid-template-columns: 40px 54px 1fr 80px 20px 24px 24px;
   gap: 4px;
   align-items: center;
 }
+
+/* Custom checkbox shared by row selection, Assign and Manage Participants. */
+.items__pick,
+.items__head input[type="checkbox"],
+.friends__pick input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+  align-self: center;
+  border-radius: 5px;
+  border: 1.5px solid rgba(123, 47, 247, 0.35);
+  background: rgba(255, 255, 255, 0.85);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.items__pick,
+.items__head input[type="checkbox"] { width: 14px; height: 14px; border-radius: 4px; justify-self: center; align-self: center; }
+.items__pick::after,
+.items__head input[type="checkbox"]::after,
+.friends__pick input[type="checkbox"]::after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  transform: scale(0);
+  transition: transform 0.12s ease-out;
+  background: #fff;
+  /* Tick shape */
+  clip-path: polygon(14% 52%, 0 68%, 40% 100%, 100% 20%, 84% 6%, 40% 66%);
+}
+.items__pick:checked,
+.items__head input[type="checkbox"]:checked,
+.friends__pick input[type="checkbox"]:checked,
+.items__head input[type="checkbox"]:indeterminate,
+.friends__pick input[type="checkbox"]:indeterminate {
+  border-color: transparent;
+  background: linear-gradient(120deg, #7b2ff7 0%, #f107a3 100%);
+}
+.items__pick:checked::after,
+.items__head input[type="checkbox"]:checked::after,
+.friends__pick input[type="checkbox"]:checked::after { transform: scale(1); }
+.items__head input[type="checkbox"]:indeterminate::after,
+.friends__pick input[type="checkbox"]:indeterminate::after {
+  clip-path: none;
+  width: 7px;
+  height: 2px;
+  transform: scale(1);
+}
+.items__pick:hover,
+.items__head input[type="checkbox"]:hover,
+.friends__pick input[type="checkbox"]:hover { border-color: var(--accent); }
+.items__pick:focus-visible,
+.items__head input[type="checkbox"]:focus-visible,
+.friends__pick input[type="checkbox"]:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(123, 47, 247, 0.25); }
+.friends__pick input[type="checkbox"]:disabled { opacity: 0.6; cursor: default; }
 
 .items__head {
   font-size: 0.68rem;
@@ -697,7 +757,7 @@ body {
 
 .items__grid { position: relative; z-index: 1; background: transparent; }
 
-/* Delete / Assign / Split buttons uncovered as the row slides left on touch. */
+/* Delete / Assign / Mine / Split buttons uncovered as the row slides left on touch. */
 .items__tray {
   position: absolute;
   top: 0;
@@ -727,6 +787,7 @@ body {
 .items__tray-btn--split { background: #2f6df6; }
 .items__tray-btn--delete { background: #e5484d; }
 .items__tray-btn--assign { background: #7b2ff7; }
+.items__tray-btn--mine { background: #f107a3; }
 
 /* Owe label rides along with the sliding grid. */
 .items__row--open .items__owe { visibility: hidden; }
@@ -743,7 +804,7 @@ body {
   opacity: 0;
 }
 
-.items__grid input {
+.items__grid input:not([type="checkbox"]) {
   width: 100%;
   padding: 10px 8px;
   border-radius: 12px;
@@ -753,13 +814,13 @@ body {
   color: var(--ink);
 }
 
-.items__grid input:focus {
+.items__grid input:not([type="checkbox"]):focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(255, 46, 136, 0.18);
 }
 
-/* Tighten the number inputs (Units/Yours/Price) and drop the spinners. */
+/* Tighten the number inputs (Units/Mine/Price) and drop the spinners. */
 .items__num,
 .items__price {
   -moz-appearance: textfield;
@@ -820,9 +881,54 @@ body {
   cursor: pointer;
 }
 
-/* Yours column hidden until the bill reconciles after a scan */
+/* Mine column hidden until the bill reconciles after a scan */
 .items--locked .items__head,
 .items--locked .items__grid { grid-template-columns: 40px 1fr 80px 20px 24px 24px; }
+
+/* Selection column appears only in select mode (the Assign toggle), on every device. */
+.items__pick, .items__head input[type="checkbox"] { display: none; }
+.items--selecting .items__head,
+.items--selecting .items__grid { grid-template-columns: 40px 54px 1fr 80px 20px 24px 24px 20px; }
+.items--selecting.items--locked .items__head,
+.items--selecting.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 20px 24px 24px 20px; }
+.items--selecting .items__pick,
+.items--selecting .items__head input[type="checkbox"] { display: inline-grid; }
+
+/* "Select" / "Done" toggle in the items header, touch-only. */
+.items__select-toggle {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(123, 47, 247, 0.1);
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.items__select-toggle[aria-pressed="true"] {
+  background: linear-gradient(120deg, #7b2ff7 0%, #f107a3 100%);
+  color: #fff;
+  border-color: transparent;
+}
+
+.items__label { display: flex; align-items: center; gap: 6px; }
+
+/* Bulk action bar shown above the table when at least one row is selected. */
+.items__bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(123, 47, 247, 0.08);
+}
+.items__bulk .scan-btn { flex: 0 0 auto; padding: 6px 12px; font-size: 0.85rem; }
+.items__bulk-count { font-size: 0.85rem; font-weight: 600; margin-right: auto; }
+.items__bulk-clear { border: none; background: transparent; color: var(--muted); font-size: 0.85rem; cursor: pointer; }
 
 /* Split Even slider switch */
 .switch__row {
@@ -1139,7 +1245,7 @@ a.action-btn {
 /* Touch devices: swipe to reveal Split / Delete replaces the icon columns. */
 @media (hover: none) and (pointer: coarse) {
   .items__head,
-  .items__grid { grid-template-columns: 40px 40px 1fr 80px; }
+  .items__grid { grid-template-columns: 40px 54px 1fr 80px; }
   .items--locked .items__head,
   .items--locked .items__grid { grid-template-columns: 40px 1fr 80px; }
   .items__split,
@@ -1148,6 +1254,13 @@ a.action-btn {
   .items__head span[aria-hidden] { display: none; }
   .items__owe { padding-right: 4px; }
   .items__tray { display: flex; }
+  .items__pick, .items__head input[type="checkbox"] { display: none; }
+  .items--selecting .items__head,
+  .items--selecting .items__grid { grid-template-columns: 40px 54px 1fr 80px 24px; }
+  .items--selecting.items--locked .items__head,
+  .items--selecting.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 24px; }
+  .items--selecting .items__pick,
+  .items--selecting .items__head input[type="checkbox"] { display: inline-grid; }
 }
 
 @media (max-width: 460px) {
@@ -1195,7 +1308,6 @@ a.action-btn {
   border-bottom: 1px solid rgba(123, 47, 247, 0.12);
 }
 .friends__pick { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; }
-.friends__pick input { width: 20px; height: 20px; accent-color: var(--accent); }
 .friends__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .friends__edit {
   padding: 6px 10px;

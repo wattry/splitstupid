@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  assigneesOf, groupByParticipant, lineLabel, lineTotal, pruneAssignees, setAssignees, shortLabels, stripAssignee, toggleAssignee,
+  assigneesOf, assignAll, assigneeStatus, groupByParticipant, lineLabel, lineTotal, mineShare, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
 } from '../../src/lib/assign.js';
 import type { Item, Participant } from '../../src/types.js';
 
@@ -27,17 +27,100 @@ describe('assigneesOf / toggleAssignee / setAssignees', () => {
   });
 });
 
+describe('setAssignees with meId', () => {
+  it('adding Me alone gives the whole unit count', () => {
+    expect(setAssignees(item({ units: '2', yours: '0' }), ['me'], 'me').yours).toBe('2');
+  });
+  it('sharing with others divides the units evenly, rounded to cents', () => {
+    expect(setAssignees(item({ units: '2', yours: '0' }), ['me', 'sam'], 'me').yours).toBe('1');
+    expect(setAssignees(item({ units: '2', yours: '0' }), ['me', 'sam', 'sk'], 'me').yours).toBe('0.67');
+  });
+  it('someone else joining or leaving re-derives your share', () => {
+    const shared = item({ units: '2', yours: '2', assignees: ['me'] });
+    const withSam = setAssignees(shared, ['me', 'sam'], 'me');
+    expect(withSam.yours).toBe('1');
+    expect(setAssignees(withSam, ['me'], 'me').yours).toBe('2');
+  });
+  it('removing Me zeroes yours', () => {
+    expect(setAssignees(item({ units: '2', yours: '1', assignees: ['me', 'sam'] }), ['sam'], 'me').yours).toBe('0');
+  });
+  it('rows Me was never on keep a hand-typed value', () => {
+    expect(setAssignees(item({ units: '2', yours: '1' }), ['sam'], 'me').yours).toBe('1');
+  });
+  it('leaves yours untouched without a meId', () => {
+    expect(setAssignees(item({ units: '2', yours: '0' }), ['me']).yours).toBe('0');
+  });
+  it('blank units count as one unit', () => {
+    expect(setAssignees(item({ units: '', yours: '0' }), ['me'], 'me').yours).toBe('1');
+    expect(setAssignees(item({ units: '', yours: '0' }), ['me', 'sam'], 'me').yours).toBe('0.5');
+  });
+  it('ignores assignees who are not on the bill when given the bill', () => {
+    const onBill = new Set(['me', 'sam', 'sk', 'jo']);
+    const out = setAssignees(item({ units: '1', yours: '0' }), ['me', 'sam', 'sk', 'jo', 'ghost'], 'me', onBill);
+    expect(out.yours).toBe('0.25');
+  });
+  it('mineShare splits units by count', () => {
+    expect(mineShare('3', 2)).toBe(1.5);
+    expect(mineShare('', 4)).toBe(0.25);
+    expect(mineShare('3', 0)).toBe(0);
+  });
+});
+
+describe('toggleAssignee / assignAll / toggleAssigneeAll / setAssigneesAll thread meId', () => {
+  it('toggleAssignee moves Mine when toggling Me on', () => {
+    const base = item({ units: '2', yours: '0' });
+    expect(toggleAssignee(base, 'me', 'me').yours).toBe('2');
+  });
+  it('assignAll moves Mine when assigning Me to listed rows', () => {
+    const a = item({ id: 'a', units: '2', yours: '0' });
+    const out = assignAll([a], new Set(['a']), 'me', 'me');
+    expect(out[0]!.yours).toBe('2');
+  });
+  it('toggleAssigneeAll moves Mine when adding Me to listed rows', () => {
+    const a = item({ id: 'a', units: '2', yours: '0' });
+    const out = toggleAssigneeAll([a], new Set(['a']), 'me', 'me');
+    expect(out[0]!.yours).toBe('2');
+  });
+  it('setAssigneesAll moves Mine for a row gaining Me and leaves it alone when membership does not change', () => {
+    const a = item({ id: 'a', units: '2', yours: '0' });
+    const b = item({ id: 'b', assignees: ['sam'] });
+    const c = item({ id: 'c', units: '1', yours: '1', assignees: ['me'] });
+    const out = setAssigneesAll([a, b, c], new Set(['a', 'c']), ['me'], 'me');
+    expect(out[0]!.yours).toBe('2');
+    expect(out[1]).toBe(b);
+    expect(out[2]!.yours).toBe('1');
+  });
+  it('setAssigneesAll decrements Mine when Me is removed', () => {
+    const c = item({ id: 'c', yours: '1', assignees: ['me'] });
+    const out = setAssigneesAll([c], new Set(['c']), [], 'me');
+    expect(out[0]!.yours).toBe('0');
+  });
+  it('setAssigneesAll preserves identity for untouched or unchanged rows', () => {
+    const a = item({ id: 'a', units: '2', yours: '0' });
+    const b = item({ id: 'b', assignees: ['sam'] });
+    const c = item({ id: 'c', assignees: ['sam'] });
+    const out = setAssigneesAll([a, b, c], new Set(['a', 'c']), ['sam'], 'me');
+    expect(out[0]!.assignees).toEqual(['sam']);
+    expect(out[0]!.yours).toBe('0');
+    expect(out[1]).toBe(b);
+    expect(out[2]).toBe(c);
+  });
+});
+
 describe('stripAssignee / pruneAssignees', () => {
   it('removes an id from every row and leaves untouched rows identical', () => {
-    const a = item({ id: 'a', assignees: ['sam', 'me'] });
+    const a = item({ id: 'a', yours: '1', assignees: ['sam', 'me'] });
     const b = item({ id: 'b' });
     const out = stripAssignee([a, b], 'sam');
     expect(out[0]!.assignees).toEqual(['me']);
+    expect(out[0]!.yours).toBe('1');
     expect(out[1]).toBe(b);
   });
   it('prunes ids that are not on the bill', () => {
-    const a = item({ assignees: ['sam', 'ghost'] });
-    expect(pruneAssignees([a], [sam])[0]!.assignees).toEqual(['sam']);
+    const a = item({ yours: '1', assignees: ['sam', 'ghost'] });
+    const out = pruneAssignees([a], [sam]);
+    expect(out[0]!.assignees).toEqual(['sam']);
+    expect(out[0]!.yours).toBe('1');
   });
 });
 
@@ -130,6 +213,52 @@ describe('groupByParticipant', () => {
     const meGroup = g.groups.find((x) => x.participant.id === 'me')!;
     expect(meGroup.lines[0]!.sharedWith).toBe(2);
     expect(g.unassigned[0]!.sharedWith).toBe(1);
+  });
+});
+
+describe('assignAll / toggleAssigneeAll / assigneeStatus', () => {
+  it('assignAll adds the id to every listed row and skips rows already having it (identity kept)', () => {
+    const a = item({ id: 'a' });
+    const b = item({ id: 'b', assignees: ['sam'] });
+    const c = item({ id: 'c' });
+    const out = assignAll([a, b, c], new Set(['a', 'b']), 'sam');
+    expect(out[0]!.assignees).toEqual(['sam']);
+    expect(out[1]).toBe(b);
+    expect(out[2]).toBe(c);
+  });
+
+  it('toggleAssigneeAll removes the id from all listed rows when every one has it', () => {
+    const a = item({ id: 'a', assignees: ['sam'] });
+    const b = item({ id: 'b', assignees: ['sam', 'me'] });
+    const c = item({ id: 'c', assignees: ['sam'] });
+    const out = toggleAssigneeAll([a, b, c], new Set(['a', 'b']), 'sam');
+    expect(out[0]!.assignees).toBeUndefined();
+    expect(out[1]!.assignees).toEqual(['me']);
+    expect(out[2]).toBe(c);
+  });
+
+  it('toggleAssigneeAll adds the id to all listed rows when only some have it', () => {
+    const a = item({ id: 'a', assignees: ['sam'] });
+    const b = item({ id: 'b' });
+    const out = toggleAssigneeAll([a, b], new Set(['a', 'b']), 'sam');
+    expect(out[0]).toBe(a);
+    expect(out[1]!.assignees).toEqual(['sam']);
+  });
+
+  it('assigneeStatus splits ids every row has from ids only some rows have', () => {
+    const a = item({ id: 'a', assignees: ['sam', 'me'] });
+    const b = item({ id: 'b', assignees: ['sam'] });
+    const status = assigneeStatus([a, b], new Set(['a', 'b']));
+    expect(status.all).toEqual(['sam']);
+    expect(status.some).toEqual(['me']);
+  });
+
+  it('an empty selection gives empty arrays and untouched rows keep identity', () => {
+    const a = item({ id: 'a', assignees: ['sam'] });
+    expect(assigneeStatus([a], new Set())).toEqual({ all: [], some: [] });
+    expect(assignAll([a], new Set(), 'sam')).toEqual([a]);
+    expect(assignAll([a], new Set(), 'sam')[0]).toBe(a);
+    expect(toggleAssigneeAll([a], new Set(), 'sam')[0]).toBe(a);
   });
 });
 

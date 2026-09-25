@@ -124,6 +124,7 @@ describe('adoptIdentity', () => {
     expect(out.participants).toEqual([ryan, { id: 'id-sam', name: 'Sam' }]);
     expect(out.friends).toEqual([sam]);
     expect(out.items.map((it) => it.assignees)).toEqual([['id-r'], ['id-r'], ['id-sam'], undefined]);
+    expect(out.items.every((it) => it.yours === '1')).toBe(true);
   });
 
   it('leaves rows that do not mention the old id identical', () => {
