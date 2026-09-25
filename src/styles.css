@@ -682,11 +682,12 @@ body {
 .friends__pick input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   margin: 0;
   flex: 0 0 auto;
-  border-radius: 6px;
+  align-self: center;
+  border-radius: 5px;
   border: 1.5px solid rgba(123, 47, 247, 0.35);
   background: rgba(255, 255, 255, 0.85);
   display: inline-grid;
@@ -695,13 +696,13 @@ body {
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 .items__pick,
-.items__head input[type="checkbox"] { width: 16px; height: 16px; border-radius: 5px; justify-self: center; }
+.items__head input[type="checkbox"] { width: 14px; height: 14px; border-radius: 4px; justify-self: center; align-self: center; }
 .items__pick::after,
 .items__head input[type="checkbox"]::after,
 .friends__pick input[type="checkbox"]::after {
   content: '';
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 2px;
   transform: scale(0);
   transition: transform 0.12s ease-out;
@@ -723,7 +724,7 @@ body {
 .items__head input[type="checkbox"]:indeterminate::after,
 .friends__pick input[type="checkbox"]:indeterminate::after {
   clip-path: none;
-  width: 8px;
+  width: 7px;
   height: 2px;
   transform: scale(1);
 }
@@ -802,7 +803,7 @@ body {
   opacity: 0;
 }
 
-.items__grid input {
+.items__grid input:not([type="checkbox"]) {
   width: 100%;
   padding: 10px 8px;
   border-radius: 12px;
@@ -812,7 +813,7 @@ body {
   color: var(--ink);
 }
 
-.items__grid input:focus {
+.items__grid input:not([type="checkbox"]):focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(255, 46, 136, 0.18);
