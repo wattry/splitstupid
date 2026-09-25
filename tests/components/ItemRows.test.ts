@@ -18,11 +18,12 @@ const makeRow = (fields: ItemFields = {}): Item => {
 
 const defaultParticipants: Participant[] = [{ id: 'me', name: 'Ryan' }, { id: 'sam', name: 'Sam Kim' }];
 
-function Harness({ initial, perUnit, participants, onManageParticipants }: {
+function Harness({ initial, perUnit, participants, onManageParticipants, meId }: {
   initial: Item[];
   perUnit: boolean;
   participants: Participant[];
   onManageParticipants: () => void;
+  meId: string;
 }) {
   const [items, setItems] = useState(initial);
   return React.createElement(ItemRows, {
@@ -35,10 +36,11 @@ function Harness({ initial, perUnit, participants, onManageParticipants }: {
     onContinue: () => {},
     participants,
     onManageParticipants,
+    meId,
   });
 }
 
-function mount(initial: Item[], perUnit = false, participants: Participant[] = defaultParticipants) {
+function mount(initial: Item[], perUnit = false, participants: Participant[] = defaultParticipants, meId = 'me') {
   const capture = vi.fn();
   const onManage = vi.fn();
   const host = document.createElement('div');
@@ -48,7 +50,7 @@ function mount(initial: Item[], perUnit = false, participants: Participant[] = d
       React.createElement(
         PostHogContext.Provider,
         { value: { client: { capture } as never } },
-        React.createElement(Harness, { initial, perUnit, participants, onManageParticipants: onManage })
+        React.createElement(Harness, { initial, perUnit, participants, onManageParticipants: onManage, meId })
       )
     );
   });
@@ -79,6 +81,14 @@ const unitsOf = (row: Element) => (row.querySelector('input[aria-label="Units on
 const priceOf = (row: Element) => (row.querySelector('.items__price') as HTMLInputElement).value;
 const trayButton = (row: Element, label: string) =>
   [...row.querySelectorAll('.items__tray button')].find((b) => b.textContent === label) as HTMLButtonElement | undefined;
+const pickBox = (row: Element) => row.querySelector('input[aria-label="Select row"]') as HTMLInputElement;
+const headPick = (host: Element) => host.querySelector('input[aria-label="Select all rows"]') as HTMLInputElement;
+const bulkBar = (host: Element) => host.querySelector('.items__bulk');
+const selectToggle = (host: Element) =>
+  [...host.querySelectorAll('.items__select-toggle')][0] as HTMLButtonElement;
+const check = (el: HTMLInputElement, value: boolean) => {
+  if (el.checked !== value) click(el);
+};
 
 beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); document.body.innerHTML = ''; });
@@ -252,5 +262,107 @@ describe('ItemRows assign', () => {
     click(trayButton(row, 'Assign')!);
     expect(host.querySelector('[role="dialog"][aria-label="Assign"]')).toBeTruthy();
     expect(row.classList.contains('items__row--open')).toBe(false);
+  });
+});
+
+describe('ItemRows bulk assign', () => {
+  const twoRows = () => [
+    makeRow({ units: '1', desc: 'Beer', price: '10.00' }),
+    makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
+  ];
+
+  it('shows no action bar until a row is selected; ticking two rows shows "2 selected"; Clear hides it', () => {
+    const { host } = mount(twoRows());
+    expect(bulkBar(host)).toBeNull();
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    expect(bulkBar(host)?.textContent).toContain('2 selected');
+    click(bulkBar(host)!.querySelector('.items__bulk-clear')!);
+    expect(bulkBar(host)).toBeNull();
+  });
+
+  it('header checkbox selects all, shows indeterminate with a partial selection, and unticks all', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    expect(headPick(host).indeterminate).toBe(true);
+    expect(headPick(host).checked).toBe(false);
+    check(headPick(host), true);
+    expect(pickBox(a!).checked).toBe(true);
+    expect(pickBox(b!).checked).toBe(true);
+    expect(headPick(host).indeterminate).toBe(false);
+    expect(headPick(host).checked).toBe(true);
+    check(headPick(host), false);
+    expect(pickBox(a!).checked).toBe(false);
+    expect(pickBox(b!).checked).toBe(false);
+  });
+
+  it('"Assign to me" puts a Ryan pill on every selected row, none on unselected rows, and does not duplicate', () => {
+    const { host } = mount(twoRows().concat(makeRow({ units: '1', desc: 'Soda', price: '2.00' })));
+    const [a, b, c] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    const assignToMe = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Assign to me')!;
+    click(assignToMe());
+    expect(a!.querySelector('.pill[aria-label="Ryan"]')).toBeTruthy();
+    expect(b!.querySelector('.pill[aria-label="Ryan"]')).toBeTruthy();
+    expect(c!.querySelector('.pill[aria-label="Ryan"]')).toBeNull();
+    click(assignToMe());
+    expect(a!.querySelectorAll('.pill[aria-label="Ryan"]')).toHaveLength(1);
+  });
+
+  it('"Assign…" opens a dialog titled "2 items"; toggles apply to both rows; selection persists after Done', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    // Pre-assign Sam Kim to just the first row so her checkbox starts indeterminate.
+    click(a!.querySelector('button[aria-label="Assign to people"]')!);
+    click(host.querySelectorAll('.assign__row input[type="checkbox"]')[1]!);
+    click(button(host, 'Done'));
+
+    const assignEllipsis = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Assign…')!;
+    click(assignEllipsis());
+    const dialog = host.querySelector('[role="dialog"][aria-label="Assign"]')!;
+    expect(dialog.textContent).toContain('2 items');
+    const samBox = host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[1]!;
+    expect(samBox.indeterminate).toBe(true);
+
+    click(samBox);
+    expect(a!.querySelector('.pill[aria-label="Sam Kim"]')).toBeTruthy();
+    expect(b!.querySelector('.pill[aria-label="Sam Kim"]')).toBeTruthy();
+
+    click(host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[1]!);
+    expect(a!.querySelector('.pill[aria-label="Sam Kim"]')).toBeNull();
+    expect(b!.querySelector('.pill[aria-label="Sam Kim"]')).toBeNull();
+
+    click(button(host, 'Done'));
+    expect(bulkBar(host)?.textContent).toContain('2 selected');
+  });
+
+  it('Select toggle flips to Done, adds items--selecting, and Done clears the selection and the class', () => {
+    const { host } = mount(twoRows());
+    const itemsEl = host.querySelector('.items')!;
+    expect(itemsEl.classList.contains('items--selecting')).toBe(false);
+    click(selectToggle(host));
+    expect(selectToggle(host).textContent).toBe('Done');
+    expect(itemsEl.classList.contains('items--selecting')).toBe(true);
+    check(pickBox(firstRow(host)), true);
+    expect(bulkBar(host)?.textContent).toContain('1 selected');
+    click(selectToggle(host));
+    expect(selectToggle(host).textContent).toBe('Select');
+    expect(itemsEl.classList.contains('items--selecting')).toBe(false);
+    expect(bulkBar(host)).toBeNull();
+  });
+
+  it('removing a selected row via the desktop Remove item button drops it from the count', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    expect(bulkBar(host)?.textContent).toContain('2 selected');
+    click(a!.querySelector('button[aria-label="Remove item"]')!);
+    expect(bulkBar(host)?.textContent).toContain('1 selected');
   });
 });

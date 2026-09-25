@@ -12,7 +12,7 @@ import { SplitIcon, AssignIcon } from './components/Icons.js';
 import type { Reconciliation } from './lib/reconcile.js';
 import { ACTION_WIDTH } from './lib/swipe.js';
 import { canSplit, maxSplit, splitItem } from './lib/splitItem.js';
-import { assigneesOf, shortLabels, toggleAssignee } from './lib/assign.js';
+import { assigneesOf, assignAll, assigneeStatus, shortLabels, toggleAssignee, toggleAssigneeAll } from './lib/assign.js';
 
 export type { Item } from './types.js';
 
@@ -27,6 +27,8 @@ interface ItemRowsProps {
   onContinue: () => void;
   participants: Participant[];
   onManageParticipants: () => void;
+  /** This device's participant id, used by "Assign to me". */
+  meId: string;
 };
 
 const money = (n: number) => `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`
@@ -51,11 +53,17 @@ export function rowOwed(row: Item, perUnit: boolean): number {
   return units > 0 ? price * (yours / units) : 0;
 }
 
+type AssignTarget = { kind: 'row'; id: string } | { kind: 'selection' };
+
 /**
  * Editable list of receipt line items. Each row is Units / Yours / Description /
  * Price, plus a remove button and the amount owed by the user. "Units" is the
  * count on the receipt; "Yours" is how many you actually had. Whether Price is
  * per-unit or a total for all units is governed by the parent's `perUnit` flag.
+ *
+ * A leading checkbox column (always shown on pointer devices, only in "select
+ * mode" on touch) lets several rows be picked at once; an action bar above the
+ * table then offers bulk Assign, "Assign to me" and Clear.
  *
  * @param props
  * @typedef Row
@@ -72,18 +80,42 @@ export default function ItemRows(
     locked,
     onContinue,
     participants,
-    onManageParticipants
+    onManageParticipants,
+    meId
   } = props;
   const posthog = usePostHog();
   // Row being split via the Split dialog, if any.
   const [splitting, setSplitting] = useState<Item | null>(null);
-  // Row being assigned via the Assign dialog, if any.
-  const [assigningId, setAssigningId] = useState<string | null>(null);
-  // Live row so the dialog's checkboxes update immediately as they're ticked.
-  const assigning = items.find((it) => it.id === assigningId) ?? null;
+  // Target of the Assign dialog: a single row, a bulk selection, or none.
+  const [assignTarget, setAssignTarget] = useState<AssignTarget | null>(null);
   const labels = shortLabels(participants);
   // Row whose swipe tray is open (touch); at most one at a time.
   const [openId, setOpenId] = useState<string | null>(null);
+  // Ids of rows picked via the checkbox column.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Touch-only "select mode": shows the checkbox column and the Select/Done toggle.
+  const [selecting, setSelecting] = useState(false);
+  // Drop ids of rows that no longer exist (removed, or replaced by a split).
+  const selectedIds = new Set(items.filter((it) => selected.has(it.id)).map((it) => it.id));
+
+  const clearSelection = () => setSelected(new Set());
+  const toggleSelect = (id: string, checked: boolean) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (checked) next.add(id); else next.delete(id);
+    return next;
+  });
+  const allSelected = items.length > 0 && items.every((it) => selectedIds.has(it.id));
+  const someSelected = selectedIds.size > 0 && !allSelected;
+  const toggleAllSelected = () => setSelected(allSelected ? new Set() : new Set(items.map((it) => it.id)));
+  const toggleSelecting = () => {
+    if (selecting) clearSelection();
+    setSelecting((s) => !s);
+  };
+
+  // Live row/selection so the dialog's checkboxes update immediately as they're ticked.
+  const assigningRow = assignTarget?.kind === 'row' ? items.find((it) => it.id === assignTarget.id) ?? null : null;
+  const selectionStatus = assignTarget?.kind === 'selection' ? assigneeStatus(items, selectedIds) : null;
+  const showAssignDialog = assignTarget?.kind === 'selection' || (assignTarget?.kind === 'row' && assigningRow !== null);
   const update = (id: string, field: string, value: unknown) =>
     setItems(items.map((it) => {
       if (it.id !== id) return it
@@ -102,7 +134,10 @@ export default function ItemRows(
 
   const add = () => setItems([...items, makeRow()])
 
-  const clear = () => setItems([makeRow()])
+  const clear = () => {
+    setItems([makeRow()])
+    clearSelection()
+  }
 
   // Replace the held row with its split-out singles, in place.
   const split = (count: number) => {
@@ -113,20 +148,58 @@ export default function ItemRows(
     posthog.capture('item_split', { count, units: maxSplit(target), per_unit: perUnit })
   }
 
-  const toggle = (id: string) => setItems((prev) => prev.map((it) => (it.id === assigningId ? toggleAssignee(it, id) : it)));
+  const toggle = (id: string) => {
+    if (!assignTarget) return;
+    if (assignTarget.kind === 'row') {
+      const rowId = assignTarget.id;
+      setItems((prev) => prev.map((it) => (it.id === rowId ? toggleAssignee(it, id) : it)));
+    } else {
+      setItems((prev) => toggleAssigneeAll(prev, selectedIds, id));
+    }
+  };
 
   // Rows with real content; the blank starter row doesn't count.
   const filled = items.filter((it) => it.desc.trim() || (parseFloat(it.price) || 0) > 0).length
 
   return (
     <div className="field">
-      <span className="field__label">
+      <span className="field__label items__label">
         Total line items
         {filled > 0 && <span className="field__count"> · {filled}</span>}
+        <button
+          type="button"
+          className="items__select-toggle"
+          aria-pressed={selecting}
+          onClick={toggleSelecting}
+        >
+          {selecting ? 'Done' : 'Select'}
+        </button>
       </span>
 
-      <div className={`items${locked ? ' items--locked' : ''}`}>
+      {selectedIds.size > 0 && (
+        <div className="items__bulk" role="toolbar" aria-label="Selected items">
+          <span className="items__bulk-count">{selectedIds.size} selected</span>
+          <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setAssignTarget({ kind: 'selection' })}>
+            Assign…
+          </button>
+          <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setItems((prev) => assignAll(prev, selectedIds, meId))}>
+            Assign to me
+          </button>
+          <button type="button" className="items__bulk-clear" onClick={clearSelection}>
+            Clear
+          </button>
+        </div>
+      )}
+
+      <div className={`items${locked ? ' items--locked' : ''}${selecting ? ' items--selecting' : ''}`}>
         <div className="items__head">
+          <input
+            type="checkbox"
+            aria-label="Select all rows"
+            checked={allSelected}
+            ref={(el) => { if (el) el.indeterminate = someSelected; }}
+            onChange={toggleAllSelected}
+          />
           <span>Total</span>
           {!locked && <span>Yours</span>}
           <span>Description</span>
@@ -149,19 +222,22 @@ export default function ItemRows(
             setOpen={(open) => setOpenId(open ? it.id : null)}
             participants={participants}
             labels={labels}
-            onAssign={(item) => setAssigningId(item.id)}
+            onAssign={(item) => setAssignTarget({ kind: 'row', id: item.id })}
+            picked={selectedIds.has(it.id)}
+            onPick={(checked) => toggleSelect(it.id, checked)}
           />
         ))}
       </div>
 
-      {assigning && (
+      {showAssignDialog && (
         <AssignModal
-          desc={assigning.desc}
+          desc={assignTarget!.kind === 'row' ? assigningRow!.desc : `${selectedIds.size} items`}
           participants={participants}
-          assigned={assigneesOf(assigning)}
+          assigned={assignTarget!.kind === 'row' ? assigneesOf(assigningRow!) : selectionStatus!.all}
+          partial={assignTarget!.kind === 'selection' ? selectionStatus!.some : []}
           onToggle={toggle}
           onManage={onManageParticipants}
-          onClose={() => setAssigningId(null)}
+          onClose={() => setAssignTarget(null)}
         />
       )}
       <ByPerson items={items} participants={participants} perUnit={perUnit} />
@@ -210,6 +286,9 @@ interface ItemRowProps {
   labels: Map<string, string>;
   /** Open the Assign dialog for this row. */
   onAssign: (item: Item) => void;
+  /** Whether this row is picked for bulk actions. */
+  picked: boolean;
+  onPick: (checked: boolean) => void;
 }
 
 /**
@@ -217,7 +296,7 @@ interface ItemRowProps {
  * Delete, Assign and Split buttons; on pointer devices the assign icon,
  * split icon and × button at the end of the row do the job.
  */
-function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, setOpen, participants, labels, onAssign }: ItemRowProps): ReactElement {
+function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, setOpen, participants, labels, onAssign, picked, onPick }: ItemRowProps): ReactElement {
   const splittable = canSplit(it);
   const tray = (splittable ? 3 : 2) * ACTION_WIDTH;
   const swipe = useSwipeActions(tray, open, setOpen);
@@ -262,6 +341,13 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
         )}
       </div>
       <div className="items__grid" style={swipe.style}>
+        <input
+          className="items__pick"
+          type="checkbox"
+          checked={picked}
+          onChange={(e) => onPick(e.target.checked)}
+          aria-label="Select row"
+        />
         <input
           className="items__num"
           type="number"

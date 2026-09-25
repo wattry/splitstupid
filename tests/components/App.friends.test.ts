@@ -386,4 +386,21 @@ describe('App friends and participants integration', () => {
     click(button(h, 'Close'));
     expect(chipNames(h)).toEqual(['Sam', 'Sam K']);
   });
+
+  it('Assign to me on two selected rows shows Ryan under By person with both descriptions', async () => {
+    seedMe('Ryan');
+    const h = mount();
+    await flush();
+    click(button(h, '+ Add item'));
+    const pickBox = (row: Element) => row.querySelector('input[aria-label="Select row"]') as HTMLInputElement;
+    const check = (el: HTMLInputElement, value: boolean) => {
+      if (el.checked !== value) click(el);
+    };
+    const [a, b] = [...h.querySelectorAll('.items__row')];
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    click([...h.querySelectorAll('.items__bulk button')].find((btn) => btn.textContent === 'Assign to me')!);
+    expect(h.querySelector('.byperson__label')?.textContent).toBe('Ryan');
+    expect(h.querySelectorAll('.byperson__items li')).toHaveLength(2);
+  });
 });

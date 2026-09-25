@@ -449,6 +449,7 @@ export default function App() {
           onContinue={() => setLocked(false)}
           participants={participants}
           onManageParticipants={() => setFriendsOpen(true)}
+          meId={me.id}
         />
         {scanWarnings.length > 0 && (
           <div className="scan-warnings" role="alert">
