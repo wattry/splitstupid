@@ -63,6 +63,11 @@ describe('setAssignees with meId', () => {
     const out = setAssignees(base, ['me'], 'me');
     expect(out.yours).toBe('1');
   });
+  it('adding Me to a non-integer yours rounds to cents', () => {
+    const base = item({ units: '2', yours: '0.5' });
+    const out = setAssignees(base, ['me'], 'me');
+    expect(out.yours).toBe('1.5');
+  });
 });
 
 describe('toggleAssignee / assignAll / toggleAssigneeAll / setAssigneesAll thread meId', () => {
@@ -80,7 +85,21 @@ describe('toggleAssignee / assignAll / toggleAssigneeAll / setAssigneesAll threa
     const out = toggleAssigneeAll([a], new Set(['a']), 'me', 'me');
     expect(out[0]!.yours).toBe('1');
   });
-  it('setAssigneesAll moves Mine and preserves identity for untouched or unchanged rows', () => {
+  it('setAssigneesAll moves Mine for a row gaining Me and leaves it alone when membership does not change', () => {
+    const a = item({ id: 'a', units: '2', yours: '0' });
+    const b = item({ id: 'b', assignees: ['sam'] });
+    const c = item({ id: 'c', yours: '1', assignees: ['me'] });
+    const out = setAssigneesAll([a, b, c], new Set(['a', 'c']), ['me'], 'me');
+    expect(out[0]!.yours).toBe('1');
+    expect(out[1]).toBe(b);
+    expect(out[2]!.yours).toBe('1');
+  });
+  it('setAssigneesAll decrements Mine when Me is removed', () => {
+    const c = item({ id: 'c', yours: '1', assignees: ['me'] });
+    const out = setAssigneesAll([c], new Set(['c']), [], 'me');
+    expect(out[0]!.yours).toBe('0');
+  });
+  it('setAssigneesAll preserves identity for untouched or unchanged rows', () => {
     const a = item({ id: 'a', units: '2', yours: '0' });
     const b = item({ id: 'b', assignees: ['sam'] });
     const c = item({ id: 'c', assignees: ['sam'] });
@@ -94,15 +113,18 @@ describe('toggleAssignee / assignAll / toggleAssigneeAll / setAssigneesAll threa
 
 describe('stripAssignee / pruneAssignees', () => {
   it('removes an id from every row and leaves untouched rows identical', () => {
-    const a = item({ id: 'a', assignees: ['sam', 'me'] });
+    const a = item({ id: 'a', yours: '1', assignees: ['sam', 'me'] });
     const b = item({ id: 'b' });
     const out = stripAssignee([a, b], 'sam');
     expect(out[0]!.assignees).toEqual(['me']);
+    expect(out[0]!.yours).toBe('1');
     expect(out[1]).toBe(b);
   });
   it('prunes ids that are not on the bill', () => {
-    const a = item({ assignees: ['sam', 'ghost'] });
-    expect(pruneAssignees([a], [sam])[0]!.assignees).toEqual(['sam']);
+    const a = item({ yours: '1', assignees: ['sam', 'ghost'] });
+    const out = pruneAssignees([a], [sam]);
+    expect(out[0]!.assignees).toEqual(['sam']);
+    expect(out[0]!.yours).toBe('1');
   });
 });
 

@@ -94,4 +94,16 @@ describe('AssignModal Everyone toggle', () => {
     click(everyoneBox(host));
     expect(onToggleAll).toHaveBeenCalledWith(false);
   });
+
+  it('is omitted when there are no participants', () => {
+    const onToggle = vi.fn(); const onManage = vi.fn(); const onClose = vi.fn(); const onToggleAll = vi.fn();
+    const host = document.createElement('div'); document.body.appendChild(host);
+    act(() => {
+      createRoot(host).render(React.createElement(AssignModal, {
+        desc: 'Beer', participants: [], assigned: [], partial: [], onToggle, onToggleAll, onManage, onClose,
+      }));
+    });
+    expect(host.querySelector('input[aria-label="Assign everyone"]')).toBeNull();
+    expect(host.querySelectorAll('.assign__row')).toHaveLength(0);
+  });
 });

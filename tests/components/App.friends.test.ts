@@ -387,7 +387,7 @@ describe('App friends and participants integration', () => {
     expect(chipNames(h)).toEqual(['Sam', 'Sam K']);
   });
 
-  it('Assign to me on two selected rows shows Ryan under By person with both descriptions', async () => {
+  it('"Mine" on two selected rows shows Ryan under By person with both descriptions', async () => {
     seedMe('Ryan');
     const h = mount();
     await flush();

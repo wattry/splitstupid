@@ -35,18 +35,20 @@ export function AssignModal({ desc, participants, assigned, partial = [], onTogg
         <h2 className="calc__title">Assign</h2>
         <p className="calc__result">Who had <strong>{label}</strong>?</p>
         <ul className="assign__list">
-          <li className="assign__row">
-            <label className="friends__pick">
-              <input
-                type="checkbox"
-                aria-label="Assign everyone"
-                checked={allAssigned}
-                ref={(el) => { if (el) el.indeterminate = !allAssigned && someTouched; }}
-                onChange={() => onToggleAll(!allAssigned)}
-              />
-              <span className="assign__name">Everyone</span>
-            </label>
-          </li>
+          {participants.length > 0 && (
+            <li className="assign__row">
+              <label className="friends__pick">
+                <input
+                  type="checkbox"
+                  aria-label="Assign everyone"
+                  checked={allAssigned}
+                  ref={(el) => { if (el) el.indeterminate = !allAssigned && someTouched; }}
+                  onChange={() => onToggleAll(!allAssigned)}
+                />
+                <span className="assign__name">Everyone</span>
+              </label>
+            </li>
+          )}
           {participants.map((p) => (
             <li key={p.id} className="assign__row">
               <label className="friends__pick">

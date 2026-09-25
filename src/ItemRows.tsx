@@ -27,7 +27,7 @@ interface ItemRowsProps {
   onContinue: () => void;
   participants: Participant[];
   onManageParticipants: () => void;
-  /** This device's participant id, used by the bulk "Mine" button. */
+  /** This device's participant id: assignment changes that add or remove it also move the Mine column. */
   meId: string;
 };
 
