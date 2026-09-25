@@ -757,7 +757,7 @@ body {
 
 .items__grid { position: relative; z-index: 1; background: transparent; }
 
-/* Delete / Assign / Split buttons uncovered as the row slides left on touch. */
+/* Delete / Assign / Mine / Split buttons uncovered as the row slides left on touch. */
 .items__tray {
   position: absolute;
   top: 0;

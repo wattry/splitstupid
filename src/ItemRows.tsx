@@ -303,7 +303,7 @@ interface ItemRowProps {
 
 /**
  * One editable line item. On touch devices the row swipes left to reveal
- * Delete, Assign and Split buttons; on pointer devices the assign icon,
+ * Delete, Assign, Mine and Split buttons; on pointer devices the assign icon,
  * split icon and × button at the end of the row do the job.
  */
 function ItemRow({
