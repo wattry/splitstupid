@@ -671,7 +671,7 @@ body {
 .items__head,
 .items__grid {
   display: grid;
-  grid-template-columns: 40px 40px 1fr 80px 20px 24px 24px;
+  grid-template-columns: 40px 54px 1fr 80px 20px 24px 24px;
   gap: 4px;
   align-items: center;
 }
@@ -887,7 +887,7 @@ body {
 /* Selection column appears only in select mode (the Assign toggle), on every device. */
 .items__pick, .items__head input[type="checkbox"] { display: none; }
 .items--selecting .items__head,
-.items--selecting .items__grid { grid-template-columns: 40px 40px 1fr 80px 20px 24px 24px 20px; }
+.items--selecting .items__grid { grid-template-columns: 40px 54px 1fr 80px 20px 24px 24px 20px; }
 .items--selecting.items--locked .items__head,
 .items--selecting.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 20px 24px 24px 20px; }
 .items--selecting .items__pick,
@@ -1244,7 +1244,7 @@ a.action-btn {
 /* Touch devices: swipe to reveal Split / Delete replaces the icon columns. */
 @media (hover: none) and (pointer: coarse) {
   .items__head,
-  .items__grid { grid-template-columns: 40px 40px 1fr 80px; }
+  .items__grid { grid-template-columns: 40px 54px 1fr 80px; }
   .items--locked .items__head,
   .items--locked .items__grid { grid-template-columns: 40px 1fr 80px; }
   .items__split,
@@ -1255,7 +1255,7 @@ a.action-btn {
   .items__tray { display: flex; }
   .items__pick, .items__head input[type="checkbox"] { display: none; }
   .items--selecting .items__head,
-  .items--selecting .items__grid { grid-template-columns: 40px 40px 1fr 80px 24px; }
+  .items--selecting .items__grid { grid-template-columns: 40px 54px 1fr 80px 24px; }
   .items--selecting.items--locked .items__head,
   .items--selecting.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 24px; }
   .items--selecting .items__pick,
