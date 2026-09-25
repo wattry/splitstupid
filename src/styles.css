@@ -665,7 +665,7 @@ body {
 
 .lightbox__hint { color: rgba(255, 255, 255, 0.7); font-size: 0.8rem; }
 
-/* Item rows: Units | Yours | Description | Price | remove | assign | split | select */
+/* Item rows: Units | Mine | Description | Price | remove | assign | split | select */
 .items { display: flex; flex-direction: column; gap: 10px; }
 
 .items__head,
@@ -819,7 +819,7 @@ body {
   box-shadow: 0 0 0 3px rgba(255, 46, 136, 0.18);
 }
 
-/* Tighten the number inputs (Units/Yours/Price) and drop the spinners. */
+/* Tighten the number inputs (Units/Mine/Price) and drop the spinners. */
 .items__num,
 .items__price {
   -moz-appearance: textfield;
@@ -880,7 +880,7 @@ body {
   cursor: pointer;
 }
 
-/* Yours column hidden until the bill reconciles after a scan */
+/* Mine column hidden until the bill reconciles after a scan */
 .items--locked .items__head,
 .items--locked .items__grid { grid-template-columns: 40px 1fr 80px 20px 24px 24px 20px; }
 

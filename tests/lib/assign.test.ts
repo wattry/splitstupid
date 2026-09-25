@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  assigneesOf, assignAll, assigneeStatus, groupByParticipant, lineLabel, lineTotal, pruneAssignees, setAssignees, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
+  assigneesOf, assignAll, assigneeStatus, groupByParticipant, lineLabel, lineTotal, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
 } from '../../src/lib/assign.js';
 import type { Item, Participant } from '../../src/types.js';
 
@@ -24,6 +24,71 @@ describe('assigneesOf / toggleAssignee / setAssignees', () => {
   });
   it('setAssignees dedupes and keeps order', () => {
     expect(setAssignees(item(), ['sam', 'me', 'sam']).assignees).toEqual(['sam', 'me']);
+  });
+});
+
+describe('setAssignees with meId', () => {
+  it('adding Me bumps yours toward units', () => {
+    const base = item({ units: '2', yours: '0' });
+    const out = setAssignees(base, ['me'], 'me');
+    expect(out.yours).toBe('1');
+  });
+  it('adding Me again with no membership change leaves yours alone', () => {
+    const base = item({ units: '2', yours: '1', assignees: ['me'] });
+    const out = setAssignees(base, ['me'], 'me');
+    expect(out.yours).toBe('1');
+  });
+  it('removing Me decrements yours', () => {
+    const base = item({ units: '2', yours: '1', assignees: ['me'] });
+    const out = setAssignees(base, [], 'me');
+    expect(out.yours).toBe('0');
+  });
+  it('caps yours at units when adding Me', () => {
+    const base = item({ units: '1', yours: '1' });
+    const out = setAssignees(base, ['me'], 'me');
+    expect(out.yours).toBe('1');
+  });
+  it('floors yours at 0 when removing Me', () => {
+    const base = item({ units: '2', yours: '0', assignees: ['me'] });
+    const out = setAssignees(base, [], 'me');
+    expect(out.yours).toBe('0');
+  });
+  it('leaves yours untouched without a meId', () => {
+    const base = item({ units: '2', yours: '0' });
+    const out = setAssignees(base, ['me']);
+    expect(out.yours).toBe('0');
+  });
+  it('blank units increments yours uncapped', () => {
+    const base = item({ units: '', yours: '0' });
+    const out = setAssignees(base, ['me'], 'me');
+    expect(out.yours).toBe('1');
+  });
+});
+
+describe('toggleAssignee / assignAll / toggleAssigneeAll / setAssigneesAll thread meId', () => {
+  it('toggleAssignee moves Mine when toggling Me on', () => {
+    const base = item({ units: '2', yours: '0' });
+    expect(toggleAssignee(base, 'me', 'me').yours).toBe('1');
+  });
+  it('assignAll moves Mine when assigning Me to listed rows', () => {
+    const a = item({ id: 'a', units: '2', yours: '0' });
+    const out = assignAll([a], new Set(['a']), 'me', 'me');
+    expect(out[0]!.yours).toBe('1');
+  });
+  it('toggleAssigneeAll moves Mine when adding Me to listed rows', () => {
+    const a = item({ id: 'a', units: '2', yours: '0' });
+    const out = toggleAssigneeAll([a], new Set(['a']), 'me', 'me');
+    expect(out[0]!.yours).toBe('1');
+  });
+  it('setAssigneesAll moves Mine and preserves identity for untouched or unchanged rows', () => {
+    const a = item({ id: 'a', units: '2', yours: '0' });
+    const b = item({ id: 'b', assignees: ['sam'] });
+    const c = item({ id: 'c', assignees: ['sam'] });
+    const out = setAssigneesAll([a, b, c], new Set(['a', 'c']), ['sam'], 'me');
+    expect(out[0]!.assignees).toEqual(['sam']);
+    expect(out[0]!.yours).toBe('0');
+    expect(out[1]).toBe(b);
+    expect(out[2]).toBe(c);
   });
 });
 

@@ -112,17 +112,15 @@ export default function App() {
   };
 
   /**
-   * Build a blank row. `fields` can prefill units/yours/desc/price.
-   * Each row gets a unique id so rows stay independent even when several are
-   * created in the same render (e.g. a receipt scan).
+   * Build a blank row. `fields` can prefill units/yours/desc/price. Mine
+   * (`yours`) defaults to 0 unless the caller sets it explicitly. Each row
+   * gets a unique id so rows stay independent even when several are created
+   * in the same render (e.g. a receipt scan).
    * @param {Partial<Row>} fields
    * @returns {Row}
    */
   function makeRow(fields: ItemFields = {}): Item {
-    const row = { id: crypto.randomUUID(), units: '1', yours: '1', desc: '', price: '', ...fields };
-    // "Yours" defaults to the "Total" (units) unless the caller set it explicitly.
-    if (fields.yours === undefined) row.yours = row.units;
-    return row;
+    return { id: crypto.randomUUID(), units: '1', yours: '0', desc: '', price: '', ...fields };
   }
 
   // A receipt scan replaces the whole bill, so values typed for a previous
@@ -226,7 +224,7 @@ export default function App() {
     return doShare();
   };
 
-  // Turning Split Even on resets every row to Yours = Total so the line-item
+  // Turning Split Even on resets every row to Mine = Total so the line-item
   // sum is the whole bill before it is divided by the party.
   const toggleSplitEven = (on: boolean) => {
     if (on) setItems(items.map((item) => ({ ...item, yours: item.units })));

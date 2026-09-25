@@ -1,7 +1,7 @@
 /**
  * Item assignment: which bill participants had a row. Pure helpers over
- * `Item.assignees` (participant ids). Labelling only; nothing here touches
- * Yours or the owed maths.
+ * `Item.assignees` (participant ids). Labelling only, except that adding or
+ * removing Me (`meId`) also nudges `Mine` so it tracks your own assignments.
  */
 import type { Item, Participant } from '../types.js';
 import { round2 } from './calculate.js';
@@ -12,39 +12,70 @@ export function assigneesOf(item: Item): string[] {
 
 const unique = (ids: string[]): string[] => [...new Set(ids)];
 
-export function setAssignees(item: Item, ids: string[]): Item {
+/** Integral values write back as a plain integer string; everything else rounds to cents. */
+const formatAmount = (n: number): string => (Number.isInteger(n) ? String(n) : String(round2(n)));
+
+/**
+ * Replace a row's assignees. When `meId` is given and Me's membership changes
+ * between the old and new lists, `Mine` moves with it: added → `min(units,
+ * yours + 1)` (uncapped when units isn't a positive number), removed →
+ * `max(0, yours - 1)`.
+ */
+export function setAssignees(item: Item, ids: string[], meId?: string): Item {
   const deduped = unique(ids);
+  let next: Item;
   if (deduped.length === 0) {
-    const rest = { ...item };
-    delete rest.assignees;
-    return rest;
+    next = { ...item };
+    delete next.assignees;
+  } else {
+    next = { ...item, assignees: deduped };
   }
-  return { ...item, assignees: deduped };
+  if (meId === undefined) return next;
+  const had = assigneesOf(item).includes(meId);
+  const has = deduped.includes(meId);
+  if (had === has) return next;
+  const yoursNum = parseFloat(item.yours) || 0;
+  const unitsNum = parseFloat(item.units) || 0;
+  const newYours = has
+    ? (unitsNum > 0 ? Math.min(unitsNum, yoursNum + 1) : yoursNum + 1)
+    : Math.max(0, yoursNum - 1);
+  return { ...next, yours: formatAmount(newYours) };
 }
 
-export function toggleAssignee(item: Item, id: string): Item {
+export function toggleAssignee(item: Item, id: string, meId?: string): Item {
   const cur = assigneesOf(item);
-  return setAssignees(item, cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+  return setAssignees(item, cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id], meId);
 }
 
 /** Add `id` to every listed row; rows that already have it (or aren't listed) are returned as-is. */
-export function assignAll(items: Item[], rowIds: ReadonlySet<string>, id: string): Item[] {
+export function assignAll(items: Item[], rowIds: ReadonlySet<string>, id: string, meId?: string): Item[] {
   return items.map((it) => {
     if (!rowIds.has(it.id)) return it;
     const cur = assigneesOf(it);
-    return cur.includes(id) ? it : setAssignees(it, [...cur, id]);
+    return cur.includes(id) ? it : setAssignees(it, [...cur, id], meId);
   });
 }
 
 /** If every listed row has `id`, remove it from all of them; otherwise add it to all. */
-export function toggleAssigneeAll(items: Item[], rowIds: ReadonlySet<string>, id: string): Item[] {
+export function toggleAssigneeAll(items: Item[], rowIds: ReadonlySet<string>, id: string, meId?: string): Item[] {
   const listed = items.filter((it) => rowIds.has(it.id));
   const allHaveIt = listed.length > 0 && listed.every((it) => assigneesOf(it).includes(id));
   return items.map((it) => {
     if (!rowIds.has(it.id)) return it;
     const cur = assigneesOf(it);
-    if (allHaveIt) return cur.includes(id) ? setAssignees(it, cur.filter((x) => x !== id)) : it;
-    return cur.includes(id) ? it : setAssignees(it, [...cur, id]);
+    if (allHaveIt) return cur.includes(id) ? setAssignees(it, cur.filter((x) => x !== id), meId) : it;
+    return cur.includes(id) ? it : setAssignees(it, [...cur, id], meId);
+  });
+}
+
+/** Assign the same participant list to every listed row (used by the Everyone toggle). */
+export function setAssigneesAll(items: Item[], rowIds: ReadonlySet<string>, ids: string[], meId?: string): Item[] {
+  const deduped = unique(ids);
+  return items.map((it) => {
+    if (!rowIds.has(it.id)) return it;
+    const cur = assigneesOf(it);
+    const same = cur.length === deduped.length && deduped.every((id) => cur.includes(id));
+    return same ? it : setAssignees(it, deduped, meId);
   });
 }
 
@@ -96,7 +127,7 @@ export function shortLabels(participants: Participant[]): Map<string, string> {
   return new Map(raw.map((r) => [r.id, (count.get(r.label) ?? 0) > 1 ? r.name : r.label]));
 }
 
-/** Full amount of a row, independent of `Yours`. */
+/** Full amount of a row, independent of `Mine`. */
 export function lineTotal(item: Item, perUnit: boolean): number {
   const price = parseFloat(item.price) || 0;
   if (!perUnit) return price;

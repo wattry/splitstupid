@@ -10,11 +10,8 @@ import { reconcile } from '../../src/lib/reconcile.js';
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 let seq = 0;
-const makeRow = (fields: ItemFields = {}): Item => {
-  const row: Item = { id: `r${++seq}`, units: '1', yours: '1', desc: '', price: '', ...fields };
-  if (fields.yours === undefined) row.yours = row.units;
-  return row;
-};
+const makeRow = (fields: ItemFields = {}): Item =>
+  ({ id: `r${++seq}`, units: '1', yours: '0', desc: '', price: '', ...fields });
 
 const defaultParticipants: Participant[] = [{ id: 'me', name: 'Ryan' }, { id: 'sam', name: 'Sam Kim' }];
 
@@ -79,6 +76,7 @@ const rows = (host: Element) => [...host.querySelectorAll('.items__row')];
 const firstRow = (host: Element) => rows(host)[0]!;
 const unitsOf = (row: Element) => (row.querySelector('input[aria-label="Units on receipt"]') as HTMLInputElement).value;
 const priceOf = (row: Element) => (row.querySelector('.items__price') as HTMLInputElement).value;
+const mineOf = (row: Element) => (row.querySelector('input[aria-label="How many were mine"]') as HTMLInputElement).value;
 const trayButton = (row: Element, label: string) =>
   [...row.querySelectorAll('.items__tray button')].find((b) => b.textContent === label) as HTMLButtonElement | undefined;
 const pickBox = (row: Element) => row.querySelector('input[aria-label="Select row"]') as HTMLInputElement;
@@ -413,5 +411,44 @@ describe('ItemRows bulk assign', () => {
     expect(row.classList.contains('items__row--open')).toBe(true);
     click(selectToggle(host));
     expect(firstRow(host).classList.contains('items__row--open')).toBe(false);
+  });
+});
+
+describe('ItemRows Mine column', () => {
+  it('header reads Mine', () => {
+    const { host } = mount([makeRow({ desc: 'Beer' })]);
+    expect(host.querySelector('.items__head')?.textContent).toContain('Mine');
+  });
+
+  it('new rows show Mine 0', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
+    expect(mineOf(firstRow(host))).toBe('0');
+  });
+
+  it('assigning Me from the row dialog sets Mine to 1; unticking sets it back to 0', () => {
+    const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
+    click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
+    const meBox = host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[0]!;
+    click(meBox);
+    expect(mineOf(firstRow(host))).toBe('1');
+    click(meBox);
+    expect(mineOf(firstRow(host))).toBe('0');
+  });
+
+  it('"Assign to me" on two selected rows sets Mine to 1 on both; a second press leaves it at 1', () => {
+    const { host } = mount([
+      makeRow({ units: '1', desc: 'Beer', price: '10.00' }),
+      makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
+    ]);
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    const assignToMe = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Assign to me')!;
+    click(assignToMe());
+    expect(mineOf(a!)).toBe('1');
+    expect(mineOf(b!)).toBe('1');
+    click(assignToMe());
+    expect(mineOf(a!)).toBe('1');
+    expect(mineOf(b!)).toBe('1');
   });
 });

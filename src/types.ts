@@ -12,7 +12,7 @@ export interface Item {
   id: string;
   /** Count printed on the receipt. */
   units: string;
-  /** How many of those units are yours. */
+  /** How many of those units are mine. */
   yours: string;
   desc: string;
   /** Per-unit or line total depending on the parent's `perUnit` flag. */

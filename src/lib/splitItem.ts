@@ -24,10 +24,11 @@ export const maxSplit = (row: Item): number => (canSplit(row) ? unitCount(row) :
  *                   whatever is left so the prices still sum to the old total.
  *                   When nothing remains, the last single absorbs the rounding.
  *
- * The singles are "yours"; the original keeps its Yours capped at the units it
- * has left. Invalid input returns `[row]` untouched.
+ * Each single is Mine when Me (`meId`) is among the row's assignees, else not;
+ * the original keeps its Mine capped at the units it has left. Invalid input
+ * returns `[row]` untouched.
  */
-export function splitItem(row: Item, count: number, perUnit: boolean, makeRow: MakeRow): Item[] {
+export function splitItem(row: Item, count: number, perUnit: boolean, makeRow: MakeRow, meId?: string): Item[] {
   const units = unitCount(row);
   if (!canSplit(row) || !Number.isInteger(count) || count < 1 || count > units) return [row];
 
@@ -36,10 +37,11 @@ export function splitItem(row: Item, count: number, perUnit: boolean, makeRow: M
   const remaining = units - count;
   const yours = parseFloat(row.yours) || 0;
   const who = assigneesOf(row);
+  const singleYours = meId !== undefined && who.includes(meId) ? '1' : '0';
 
   const singles = Array.from({ length: count }, () => makeRow({
     units: '1',
-    yours: '1',
+    yours: singleYours,
     desc: row.desc,
     price: perUnit ? row.price : String(unit),
     ...(who.length ? { assignees: [...who] } : {}),

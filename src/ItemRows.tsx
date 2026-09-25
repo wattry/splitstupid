@@ -22,7 +22,7 @@ interface ItemRowsProps {
   perUnit: boolean;
   makeRow: MakeRow;
   reconciliation: Reconciliation;
-  /** After a scan, hide the Yours column until the rows match the Sub Total. */
+  /** After a scan, hide the Mine column until the rows match the Sub Total. */
   locked: boolean;
   onContinue: () => void;
   participants: Participant[];
@@ -56,9 +56,9 @@ export function rowOwed(row: Item, perUnit: boolean): number {
 type AssignTarget = { kind: 'row'; id: string } | { kind: 'selection' };
 
 /**
- * Editable list of receipt line items. Each row is Units / Yours / Description /
+ * Editable list of receipt line items. Each row is Units / Mine / Description /
  * Price, plus a remove button and the amount owed by the user. "Units" is the
- * count on the receipt; "Yours" is how many you actually had. Whether Price is
+ * count on the receipt; "Mine" is how many you actually had. Whether Price is
  * per-unit or a total for all units is governed by the parent's `perUnit` flag.
  *
  * A leading checkbox column (always shown on pointer devices, only in "select
@@ -124,24 +124,18 @@ export default function ItemRows(
       desc: assigningRow.desc,
       assigned: assigneesOf(assigningRow),
       partial: [] as string[],
-      toggle: (id: string) => setItems((prev) => prev.map((it) => (it.id === assigningRow.id ? toggleAssignee(it, id) : it))),
+      toggle: (id: string) => setItems((prev) => prev.map((it) => (it.id === assigningRow.id ? toggleAssignee(it, id, meId) : it))),
     })
     : assignTarget?.kind === 'selection' && selectedIds.size > 0
       ? ((status) => ({
         desc: `${selectedIds.size} items`,
         assigned: status.all,
         partial: status.some,
-        toggle: (id: string) => setItems((prev) => toggleAssigneeAll(prev, selectedIds, id)),
+        toggle: (id: string) => setItems((prev) => toggleAssigneeAll(prev, selectedIds, id, meId)),
       }))(assigneeStatus(items, selectedIds))
       : null;
   const update = (id: string, field: string, value: unknown) =>
-    setItems(items.map((it) => {
-      if (it.id !== id) return it
-      const next = { ...it, [field]: value }
-      // "Yours" tracks "Total" (units) until the user edits Yours on its own.
-      if (field === 'units' && it.yours === it.units) next.yours = value as string
-      return next
-    }))
+    setItems(items.map((it) => (it.id === id ? { ...it, [field]: value } : it)))
 
   // Functional update: the swipe hook calls this after a short exit animation,
   // so it must not rely on the `items` captured when the gesture started.
@@ -162,7 +156,7 @@ export default function ItemRows(
     if (!splitting) return
     const target = splitting
     setSplitting(null)
-    setItems((prev) => prev.flatMap((it) => (it.id === target.id ? splitItem(it, count, perUnit, makeRow) : it)))
+    setItems((prev) => prev.flatMap((it) => (it.id === target.id ? splitItem(it, count, perUnit, makeRow, meId) : it)))
     posthog.capture('item_split', { count, units: maxSplit(target), per_unit: perUnit })
   }
 
@@ -190,7 +184,7 @@ export default function ItemRows(
           <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setAssignTarget({ kind: 'selection' })}>
             Assign…
           </button>
-          <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setItems((prev) => assignAll(prev, selectedIds, meId))}>
+          <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setItems((prev) => assignAll(prev, selectedIds, meId, meId))}>
             Assign to me
           </button>
           <button type="button" className="items__bulk-clear" onClick={clearSelection}>
@@ -202,7 +196,7 @@ export default function ItemRows(
       <div className={`items${locked ? ' items--locked' : ''}${selecting ? ' items--selecting' : ''}`}>
         <div className="items__head">
           <span>Total</span>
-          {!locked && <span>Yours</span>}
+          {!locked && <span>Mine</span>}
           <span>Description</span>
           <span>{perUnit ? 'Each' : 'Total'}</span>
           <span aria-hidden="true" />
@@ -367,7 +361,7 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
           step="1"
           value={it.yours}
           onChange={(e) => update(it.id, 'yours', e.target.value)}
-          aria-label="How many you had"
+          aria-label="How many were mine"
         />}
         <input
           className="items__desc"

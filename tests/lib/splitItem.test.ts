@@ -33,8 +33,8 @@ describe('splitItem — per-unit price', () => {
     const rows = splitItem(item({ units: '3', price: '4.00' }), 2, true, makeRow);
     expect(rows).toHaveLength(3);
     expect(rows[0]).toMatchObject({ id: 'orig', units: '1', price: '4.00', desc: 'Beer' });
-    expect(rows[1]).toMatchObject({ units: '1', yours: '1', price: '4.00', desc: 'Beer' });
-    expect(rows[2]).toMatchObject({ units: '1', yours: '1', price: '4.00', desc: 'Beer' });
+    expect(rows[1]).toMatchObject({ units: '1', yours: '0', price: '4.00', desc: 'Beer' });
+    expect(rows[2]).toMatchObject({ units: '1', yours: '0', price: '4.00', desc: 'Beer' });
     expect(new Set(rows.map((r) => r.id)).size).toBe(3);
   });
 
@@ -72,15 +72,26 @@ describe('splitItem — total price', () => {
 });
 
 describe('splitItem — yours', () => {
-  it('singles are yours; the original keeps at most its remaining units', () => {
+  it('singles default to not-mine; the original keeps at most its remaining units', () => {
     const rows = splitItem(item({ units: '3', yours: '3', price: '9.00' }), 1, false, makeRow);
     expect(rows[0]?.yours).toBe('2');
-    expect(rows[1]?.yours).toBe('1');
+    expect(rows[1]?.yours).toBe('0');
   });
 
   it('original keeps a smaller yours untouched when it still fits', () => {
     const rows = splitItem(item({ units: '3', yours: '1', price: '9.00' }), 1, false, makeRow);
     expect(rows[0]?.yours).toBe('1');
+  });
+
+  it('singles are Mine when Me is among the assignees', () => {
+    const rows = splitItem(item({ units: '3', yours: '3', price: '9.00', assignees: ['me'] }), 1, false, makeRow, 'me');
+    expect(rows[0]?.yours).toBe('2');
+    expect(rows[1]?.yours).toBe('1');
+  });
+
+  it('singles are not Mine when Me is absent from the assignees, even with a meId', () => {
+    const rows = splitItem(item({ units: '3', yours: '3', price: '9.00', assignees: ['sam'] }), 1, false, makeRow, 'me');
+    expect(rows[1]?.yours).toBe('0');
   });
 });
 
