@@ -233,7 +233,7 @@ describe('ItemRows assign', () => {
     const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
     click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
     const dialog = host.querySelector('[role="dialog"][aria-label="Assign"]')!;
-    click(dialog.querySelectorAll('.assign__row input[type="checkbox"]')[1]!);
+    click(dialog.querySelectorAll('.assign__row input[type="checkbox"]')[2]!);
     click(button(host, 'Done'));
     const pill = firstRow(host).querySelector('.pill')!;
     expect(pill.textContent).toBe('SK');
@@ -317,14 +317,14 @@ describe('ItemRows bulk assign', () => {
     check(pickBox(b!), true);
     // Pre-assign Sam Kim to just the first row so her checkbox starts indeterminate.
     click(a!.querySelector('button[aria-label="Assign to people"]')!);
-    click(host.querySelectorAll('.assign__row input[type="checkbox"]')[1]!);
+    click(host.querySelectorAll('.assign__row input[type="checkbox"]')[2]!);
     click(button(host, 'Done'));
 
     const assignEllipsis = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Assign…')!;
     click(assignEllipsis());
     const dialog = host.querySelector('[role="dialog"][aria-label="Assign"]')!;
     expect(dialog.textContent).toContain('2 items');
-    const samBox = host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[1]!;
+    const samBox = host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[2]!;
     expect(samBox.indeterminate).toBe(true);
 
     click(samBox);
@@ -333,7 +333,7 @@ describe('ItemRows bulk assign', () => {
     expect(samBox.checked).toBe(true);
     expect(samBox.indeterminate).toBe(false);
 
-    click(host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[1]!);
+    click(host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[2]!);
     expect(a!.querySelector('.pill[aria-label="Sam Kim"]')).toBeNull();
     expect(b!.querySelector('.pill[aria-label="Sam Kim"]')).toBeNull();
 
@@ -428,7 +428,7 @@ describe('ItemRows Mine column', () => {
   it('assigning Me from the row dialog sets Mine to 1; unticking sets it back to 0', () => {
     const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
     click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
-    const meBox = host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[0]!;
+    const meBox = host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[1]!;
     click(meBox);
     expect(mineOf(firstRow(host))).toBe('1');
     click(meBox);
@@ -450,5 +450,15 @@ describe('ItemRows Mine column', () => {
     click(assignToMe());
     expect(mineOf(a!)).toBe('1');
     expect(mineOf(b!)).toBe('1');
+  });
+
+  it('Everyone on a row assigns all participants and Mine becomes 1', () => {
+    const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
+    click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
+    const everyoneBox = host.querySelector<HTMLInputElement>('input[aria-label="Assign everyone"]')!;
+    check(everyoneBox, true);
+    expect(mineOf(firstRow(host))).toBe('1');
+    const boxes = [...host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')].slice(1);
+    expect(boxes.every((b) => b.checked)).toBe(true);
   });
 });

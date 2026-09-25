@@ -12,7 +12,7 @@ import { SplitIcon, AssignIcon } from './components/Icons.js';
 import type { Reconciliation } from './lib/reconcile.js';
 import { ACTION_WIDTH } from './lib/swipe.js';
 import { canSplit, maxSplit, splitItem } from './lib/splitItem.js';
-import { assigneesOf, assignAll, assigneeStatus, shortLabels, toggleAssignee, toggleAssigneeAll } from './lib/assign.js';
+import { assigneesOf, assignAll, assigneeStatus, setAssignees, setAssigneesAll, shortLabels, toggleAssignee, toggleAssigneeAll } from './lib/assign.js';
 
 export type { Item } from './types.js';
 
@@ -125,6 +125,7 @@ export default function ItemRows(
       assigned: assigneesOf(assigningRow),
       partial: [] as string[],
       toggle: (id: string) => setItems((prev) => prev.map((it) => (it.id === assigningRow.id ? toggleAssignee(it, id, meId) : it))),
+      toggleAll: (on: boolean) => setItems((prev) => prev.map((it) => (it.id === assigningRow.id ? setAssignees(it, on ? participants.map((p) => p.id) : [], meId) : it))),
     })
     : assignTarget?.kind === 'selection' && selectedIds.size > 0
       ? ((status) => ({
@@ -132,6 +133,7 @@ export default function ItemRows(
         assigned: status.all,
         partial: status.some,
         toggle: (id: string) => setItems((prev) => toggleAssigneeAll(prev, selectedIds, id, meId)),
+        toggleAll: (on: boolean) => setItems((prev) => setAssigneesAll(prev, selectedIds, on ? participants.map((p) => p.id) : [], meId)),
       }))(assigneeStatus(items, selectedIds))
       : null;
   const update = (id: string, field: string, value: unknown) =>
@@ -238,6 +240,7 @@ export default function ItemRows(
           assigned={dialog.assigned}
           partial={dialog.partial}
           onToggle={dialog.toggle}
+          onToggleAll={dialog.toggleAll}
           onManage={onManageParticipants}
           onClose={() => setAssignTarget(null)}
         />

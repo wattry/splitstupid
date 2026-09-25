@@ -270,7 +270,7 @@ describe('App friends and participants integration', () => {
     click(button(h, 'Close'));
     click(h.querySelector('button[aria-label="Assign to people"]')!);
     const boxes = h.querySelectorAll('.assign__row input[type="checkbox"]');
-    click(boxes[1]!);
+    click(boxes[2]!);
     click(button(h, 'Done'));
     expect(h.querySelector('.pill')?.textContent).toBe('SK');
     expect(h.querySelector('.byperson__label')?.textContent).toBe('Sam Kim');
@@ -300,7 +300,7 @@ describe('App friends and participants integration', () => {
     click(button(h, 'Close'));
     click(h.querySelector('button[aria-label="Assign to people"]')!);
     const boxes = h.querySelectorAll('.assign__row input[type="checkbox"]');
-    click(boxes[1]!);
+    click(boxes[2]!);
     click(button(h, 'Done'));
     expect(h.querySelector('.pill')?.textContent).toBe('SK');
 
@@ -355,7 +355,7 @@ describe('App friends and participants integration', () => {
     expect(chipNames(h)).toEqual(['Me', 'Ryan', 'Sam']);
     // Assign Tea to local Me first so the remap is observable.
     click(h.querySelectorAll('button[aria-label="Assign to people"]')[1]!);
-    click(h.querySelectorAll('.assign__row input[type="checkbox"]')[0]!);
+    click(h.querySelectorAll('.assign__row input[type="checkbox"]')[1]!);
     click(button(h, 'Done'));
     click(h.querySelector('button[aria-label="Options for Ryan"]')!);
     click(h.querySelector('button[aria-label="This is me: Ryan"]')!);

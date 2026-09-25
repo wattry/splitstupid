@@ -9,15 +9,19 @@ export interface AssignModalProps {
   /** Ids to render indeterminate (a bulk selection where only some rows have them). */
   partial?: string[];
   onToggle: (id: string) => void;
+  /** Bulk-assigns or clears every participant at once (the "Everyone" row). */
+  onToggleAll: (on: boolean) => void;
   onManage: () => void;
   onClose: () => void;
 }
 
 /** "Assign" dialog: tick who had this row. Toggles apply immediately. */
-export function AssignModal({ desc, participants, assigned, partial = [], onToggle, onManage, onClose }: AssignModalProps): ReactElement {
+export function AssignModal({ desc, participants, assigned, partial = [], onToggle, onToggleAll, onManage, onClose }: AssignModalProps): ReactElement {
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => { cardRef.current?.focus(); }, []);
   const label = desc.trim() || 'this item';
+  const allAssigned = participants.length > 0 && participants.every((p) => assigned.includes(p.id));
+  const someTouched = participants.some((p) => assigned.includes(p.id) || partial.includes(p.id));
   return (
     <div
       className="calc"
@@ -31,6 +35,18 @@ export function AssignModal({ desc, participants, assigned, partial = [], onTogg
         <h2 className="calc__title">Assign</h2>
         <p className="calc__result">Who had <strong>{label}</strong>?</p>
         <ul className="assign__list">
+          <li className="assign__row">
+            <label className="friends__pick">
+              <input
+                type="checkbox"
+                aria-label="Assign everyone"
+                checked={allAssigned}
+                ref={(el) => { if (el) el.indeterminate = !allAssigned && someTouched; }}
+                onChange={() => onToggleAll(!allAssigned)}
+              />
+              <span className="assign__name">Everyone</span>
+            </label>
+          </li>
           {participants.map((p) => (
             <li key={p.id} className="assign__row">
               <label className="friends__pick">
