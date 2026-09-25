@@ -6,7 +6,16 @@ import {
 } from './lib/calculate.js';
 import ScanReceipt from './ScanReceipt.js';
 import ItemRows, { rowOwed } from './ItemRows.js';
-import type { Fee, Item, ItemFields, ParsedTotals } from './types.js';
+import type { Fee, Item, ItemFields, ParsedTotals, Participant } from './types.js';
+import { useFriends } from './hooks/useFriends.js';
+import { useMe } from './hooks/useMe.js';
+import { FriendsManager, friendErrorMessage } from './components/FriendsManager.js';
+import { ParticipantChips } from './components/ParticipantChips.js';
+import { NameModal } from './components/NameModal.js';
+import { dedupeParticipants, removeParticipant, syncRename, toggleParticipant } from './lib/participants.js';
+import { pruneAssignees, stripAssignee } from './lib/assign.js';
+import { adoptIdentity, ensureMe, meAsFriend, meParticipant, validateMeName } from './lib/me.js';
+import { nameKey } from './lib/friends.js';
 import { Calculator } from './components/inputs/Calculator.js';
 import { FeeCalculator } from './components/inputs/FeeCalculator.js';
 import { usePostHog } from '@posthog/react';
@@ -40,6 +49,67 @@ export default function App() {
   const [splitEven, setSplitEven] = useState(false);
   const [partySize, setPartySize] = useState<string>('4');
   const [myParty, setMyParty] = useState<string>('2');
+
+  // Your friends (persisted on this device) and who is on this bill. The
+  // bill's list is a snapshot of names so a shared link carries it; scans
+  // and links never touch the friend list.
+  const { friends, add, rename, remove, set: setFriends } = useFriends();
+  const { me, setName: setMeName, replace: replaceMe } = useMe();
+  // Me is always on the bill; links and imports re-seed via ensureMe.
+  const [participants, setParticipants] = useState<Participant[]>(() => [meParticipant(me)]);
+  const [friendsOpen, setFriendsOpen] = useState(false);
+  // Share is gated on Me having a name; the pending action runs after the prompt.
+  const [afterName, setAfterName] = useState<((name: string) => void) | null>(null);
+
+  // Friends may not take Me's name, in either direction. While Me is blank,
+  // "Me" itself is also reserved so two chips can't both read "Me".
+  const clashesWithMe = (name: string) =>
+    (me.name !== '' && nameKey(name) === nameKey(me.name)) ||
+    (me.name === '' && nameKey(name) === 'me');
+  const addFriend = (name: string, id?: string) =>
+    clashesWithMe(name)
+      ? ({ ok: false, error: 'duplicate', existing: meAsFriend(me) } as const)
+      : add(name, id);
+  const renameFriend = (id: string, name: string) => {
+    if (clashesWithMe(name)) return { ok: false, error: 'duplicate', existing: meAsFriend(me) } as const;
+    const result = rename(id, name);
+    if (result.ok) setParticipants((list) => syncRename(list, id, result.friend.name));
+    return result;
+  };
+  const renameMe = (name: string) => {
+    const result = validateMeName(friends, name);
+    if (result.ok) {
+      setMeName(result.friend.name);
+      setParticipants((list) => syncRename(list, me.id, result.friend.name));
+    }
+    return result;
+  };
+  const deleteFriend = (id: string) => {
+    remove(id);
+    setParticipants((list) => removeParticipant(list, id));
+    setItems((prev) => stripAssignee(prev, id));
+  };
+  const importFriend = (participant: Participant, name?: string) => {
+    // Same check as importParticipant, but through the hook so it persists.
+    const result = addFriend(name ?? participant.name, participant.id);
+    if (result.ok) setParticipants((list) => syncRename(list, participant.id, result.friend.name));
+    return result;
+  };
+
+  // "This is me": take over a participant's identity, carrying assignments along.
+  const adopt = (target: Participant): { ok: boolean; error?: string } => {
+    const r = adoptIdentity({ me, friends, participants, items, target });
+    if (!r.ok) return { ok: false, error: friendErrorMessage(r) };
+    replaceMe(r.me);
+    setFriends(r.friends);
+    setParticipants(r.participants);
+    setItems(r.items);
+    return { ok: true };
+  };
+  const adoptById = (id: string) => {
+    const target = participants.find((p) => p.id === id) ?? friends.find((f) => f.id === id);
+    return target ? adopt({ id: target.id, name: target.name }) : { ok: false, error: 'Enter a name.' };
+  };
 
   /**
    * Build a blank row. `fields` can prefill units/yours/desc/price.
@@ -84,6 +154,8 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [shared, setShared] = useState<'' | 'Shared' | 'Link Copied'>('');
   const importRef = useRef<HTMLInputElement>(null);
+  // The name just saved through the gate's NameModal, read by its onDone.
+  const savedName = useRef<string>('');
 
   // Populate the form from a shared link (#s=...), then strip the hash so
   // refreshes and later edits don't resurrect stale data.
@@ -102,20 +174,26 @@ export default function App() {
       setSplitEven(data.splitEven);
       setPartySize(data.partySize);
       setMyParty(data.myParty);
-      setItems(data.items);
+      const ensured = ensureMe(data.participants, me);
+      setParticipants(ensured);
+      setItems(pruneAssignees(data.items, ensured));
     });
     history.replaceState(null, '', window.location.pathname + window.location.search);
+    // `me` is stable across the mount (its id never changes), so reading it
+    // here without listing it as a dependency is fine.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
   // Link carrying the whole form (minus any photo); shared and put in the Venmo note.
-  const buildShareUrl = async () => {
+  const encodeUrl = async (list: Participant[]) => {
     const encoded = await encodeState({
-      billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty, items,
+      billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty,
+      participants: list, items,
     });
     return `${window.location.origin}${window.location.pathname}#s=${encoded}`;
   };
+  const buildShareUrl = () => encodeUrl(participants);
 
   // Keep a current share URL around so the Venmo note can include it.
   const [shareUrl, setShareUrl] = useState('');
@@ -124,13 +202,13 @@ export default function App() {
     buildShareUrl().then((url) => { if (live) setShareUrl(url); }).catch(() => { });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty, items]);
+  }, [billName, note, scanText, billSubtotal, fees, tipAmount, perUnit, splitEven, partySize, myParty, participants, items]);
 
   // Open the device share sheet with the link and a totals summary; browsers
   // without Web Share get the link copied to the clipboard instead. Uses the
   // precomputed URL so the share call stays inside the click's user activation.
-  const shareLink = async () => {
-    const url = shareUrl || (await buildShareUrl());
+  const doShare = async (list: Participant[] = participants) => {
+    const url = list === participants ? (shareUrl || (await encodeUrl(list))) : await encodeUrl(list);
     const text = buildShareText({ name: billName, note, taxPct, tipPct, hasFees, ...result });
     const outcome = await shareBill({ text, url });
     if (outcome === 'shared' || outcome === 'copied') {
@@ -138,6 +216,15 @@ export default function App() {
       setTimeout(() => setShared(''), 1500);
     }
   }
+
+  // Sharing needs to know who "Me" is; if unnamed, ask first and share after.
+  const shareLink = () => {
+    if (me.name === '') {
+      setAfterName(() => (name: string) => doShare(syncRename(ensureMe(participants, me), me.id, name)));
+      return;
+    }
+    return doShare();
+  };
 
   // Turning Split Even on resets every row to Yours = Total so the line-item
   // sum is the whole bill before it is divided by the party.
@@ -161,7 +248,10 @@ export default function App() {
 
   // Export every input to a JSON file the user can re-import later.
   const saveForm = () => {
-    const data = { version: 1, billName, note, scanText, billSubtotal, totalTax, fees, tipAmount, perUnit, items };
+    const data = {
+      version: 1, billName, note, scanText, billSubtotal, totalTax, fees, tipAmount, perUnit, items,
+      participants,
+    };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -188,7 +278,27 @@ export default function App() {
         else if (typeof data.totalTax === 'string') setFees(collapseFees(data.totalTax));
         if (typeof data.tipAmount === 'string') setTipAmount(data.tipAmount);
         if (typeof data.perUnit === 'boolean') setPerUnit(data.perUnit);
-        if (Array.isArray(data.items) && data.items.length > 0) setItems(data.items);
+        let ensured = participants;
+        if (Array.isArray(data.participants)) {
+          const clean = data.participants.filter((p: unknown): p is Participant => {
+            if (typeof p !== 'object' || p === null) return false;
+            const rec = p as Record<string, unknown>;
+            return typeof rec['id'] === 'string' && typeof rec['name'] === 'string';
+          });
+          ensured = ensureMe(dedupeParticipants(clean), me);
+          setParticipants(ensured);
+        }
+        if (Array.isArray(data.items) && data.items.length > 0) {
+          const cleanItems = data.items.map((item: Record<string, unknown>) => {
+            const assignees = item['assignees'];
+            if (Array.isArray(assignees) && assignees.every((a) => typeof a === 'string')) {
+              return item as unknown as Item;
+            }
+            const { assignees: _assignees, ...rest } = item;
+            return rest as unknown as Item;
+          });
+          setItems(pruneAssignees(cleanItems, ensured));
+        }
       } catch {
         // Not a valid save file — ignore.
       }
@@ -242,6 +352,71 @@ export default function App() {
           <p className="subtitle">Figure out what you actually owe</p>
         </header>
 
+        <div className="field toggle">
+          <span className="field__label">Line Item Pricing</span>
+          <button
+            type="button"
+            className="toggle__btn"
+            role="switch"
+            aria-checked={perUnit}
+            onClick={togglePerUnit}
+          >
+            <span className={!perUnit ? 'toggle__on' : ''}>Total Item Price</span>
+            <span className={perUnit ? 'toggle__on' : ''}>Per Item Price</span>
+          </button>
+          <span className="field__label">Are lines showing a total for all items or the price for a single item?</span>
+        </div>
+
+        <div className="friends-bar">
+          <button type="button" className="scan-btn scan-btn--camera" onClick={() => setFriendsOpen(true)}>
+            {`Manage Participants (${participants.length})`}
+          </button>
+          <ParticipantChips
+            participants={participants}
+            friends={friends}
+            meId={me.id}
+            onRemove={(id) => {
+              setParticipants((list) => removeParticipant(list, id));
+              setItems((prev) => stripAssignee(prev, id));
+            }}
+            onImport={importFriend}
+            onAdopt={adopt}
+          />
+        </div>
+        {friendsOpen && (
+          <FriendsManager
+            friends={friends}
+            participants={participants}
+            me={me}
+            onToggle={(friend) => {
+              const leaving = participants.some((p) => p.id === friend.id);
+              setParticipants((list) => toggleParticipant(list, friend));
+              if (leaving) setItems((prev) => stripAssignee(prev, friend.id));
+            }}
+            onAdd={(name) => addFriend(name)}
+            onRename={renameFriend}
+            onRenameMe={renameMe}
+            onDelete={deleteFriend}
+            onClose={() => setFriendsOpen(false)}
+            onAdopt={adoptById}
+          />
+        )}
+        {afterName && (
+          <NameModal
+            onSave={(name) => {
+              const result = renameMe(name);
+              if (result.ok) savedName.current = result.friend.name;
+              return result;
+            }}
+            onDone={() => {
+              const run = afterName;
+              setAfterName(null);
+              run(savedName.current);
+            }}
+            onCancel={() => setAfterName(null)}
+          />
+        )}
+
         <ScanReceipt
           items={items}
           billName={billName}
@@ -264,21 +439,6 @@ export default function App() {
           />
         </div>
 
-        <div className="field toggle">
-          <span className="field__label">Line Item Pricing</span>
-          <button
-            type="button"
-            className="toggle__btn"
-            role="switch"
-            aria-checked={perUnit}
-            onClick={togglePerUnit}
-          >
-            <span className={!perUnit ? 'toggle__on' : ''}>Total Item Price</span>
-            <span className={perUnit ? 'toggle__on' : ''}>Per Item Price</span>
-          </button>
-          <span className="field__label">Are lines showing a total for all items or the price for a single item?</span>
-        </div>
-
         <ItemRows
           items={items}
           setItems={setItems}
@@ -287,6 +447,8 @@ export default function App() {
           reconciliation={reconciliation}
           locked={locked}
           onContinue={() => setLocked(false)}
+          participants={participants}
+          onManageParticipants={() => setFriendsOpen(true)}
         />
         {scanWarnings.length > 0 && (
           <div className="scan-warnings" role="alert">

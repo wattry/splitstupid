@@ -17,6 +17,8 @@ export interface Item {
   desc: string;
   /** Per-unit or line total depending on the parent's `perUnit` flag. */
   price: string;
+  /** Ids of bill participants who had this row; absent means none. Labelling only. */
+  assignees?: string[];
 }
 
 /** Fields accepted when building a row (everything but the generated `id`). */
@@ -50,4 +52,26 @@ export interface Fee {
   id: string;
   label: string;
   amount: string;
+}
+
+/** A person in this device's persisted friend list. */
+export interface Friend {
+  id: string;
+  name: string;
+}
+
+/**
+ * A person on the current bill. Same shape as a Friend but `name` is a
+ * snapshot taken when they were added, so a shared link carries it without
+ * needing the recipient to know the friend.
+ */
+export interface Participant {
+  id: string;
+  name: string;
+}
+
+/** This device's owner: a persisted id plus a name that may still be blank. */
+export interface Me {
+  id: string;
+  name: string;
 }

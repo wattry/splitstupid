@@ -317,6 +317,8 @@ body {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
 }
 
+.calc.friends { z-index: 80; }
+
 .calc__title { margin: 0 0 16px; font-size: 1.1rem; font-weight: 700; }
 
 .calc__result {
@@ -663,13 +665,13 @@ body {
 
 .lightbox__hint { color: rgba(255, 255, 255, 0.7); font-size: 0.8rem; }
 
-/* Item rows: Units | Yours | Description | Price | split | remove */
+/* Item rows: Units | Yours | Description | Price | remove | assign | split */
 .items { display: flex; flex-direction: column; gap: 10px; }
 
 .items__head,
 .items__grid {
   display: grid;
-  grid-template-columns: 40px 40px 1fr 80px 24px 20px;
+  grid-template-columns: 40px 40px 1fr 80px 20px 24px 24px;
   gap: 4px;
   align-items: center;
 }
@@ -695,7 +697,7 @@ body {
 
 .items__grid { position: relative; z-index: 1; background: transparent; }
 
-/* Split / Delete buttons uncovered as the row slides left on touch. */
+/* Delete / Assign / Split buttons uncovered as the row slides left on touch. */
 .items__tray {
   position: absolute;
   top: 0;
@@ -724,9 +726,15 @@ body {
 }
 .items__tray-btn--split { background: #2f6df6; }
 .items__tray-btn--delete { background: #e5484d; }
+.items__tray-btn--assign { background: #7b2ff7; }
 
 /* Owe label rides along with the sliding grid. */
 .items__row--open .items__owe { visibility: hidden; }
+
+/* Assignee pills are a sibling of the grid; hide them while the tray is showing. */
+.items__row--open .pills,
+.items__row--dragging .pills,
+.items__row--leaving .pills { visibility: hidden; }
 
 .items__row--leaving {
   overflow: hidden;
@@ -814,7 +822,7 @@ body {
 
 /* Yours column hidden until the bill reconciles after a scan */
 .items--locked .items__head,
-.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 24px 20px; }
+.items--locked .items__grid { grid-template-columns: 40px 1fr 80px 20px 24px 24px; }
 
 /* Split Even slider switch */
 .switch__row {
@@ -911,6 +919,19 @@ body {
 }
 .items__split:hover:not(:disabled) { color: var(--accent); }
 .items__split:disabled { opacity: 0.3; cursor: default; }
+
+.items__assign {
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+}
+.items__assign:hover { color: var(--accent); }
 
 .items__actions {
   display: flex;
@@ -1122,6 +1143,7 @@ a.action-btn {
   .items--locked .items__head,
   .items--locked .items__grid { grid-template-columns: 40px 1fr 80px; }
   .items__split,
+  .items__assign,
   .items__remove,
   .items__head span[aria-hidden] { display: none; }
   .items__owe { padding-right: 4px; }
@@ -1133,3 +1155,137 @@ a.action-btn {
   .title { font-size: 1.9rem; }
   .total__value { font-size: 1.7rem; }
 }
+
+/* Manage Participants overlay: search + add on top, checkbox list below. */
+.friends__card { max-width: 420px; max-height: 90vh; display: flex; flex-direction: column; }
+.friends__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.friends__head .calc__title { margin-bottom: 0; }
+.friends__close {
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(123, 47, 247, 0.1);
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.friends__search,
+.friends__add input,
+.friends__editor input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+  color: var(--ink);
+}
+.friends__search { margin-top: 12px; }
+.friends__add { display: flex; gap: 8px; margin-top: 10px; }
+.friends__add input { flex: 1; min-width: 0; }
+.friends__add .scan-btn { flex: 0 0 auto; padding: 10px 16px; }
+.friends__error { margin: 8px 0 0; color: #c2185b; font-size: 0.9rem; }
+.friends__empty { margin: 16px 0 0; color: var(--muted); text-align: center; }
+.friends__list { list-style: none; margin: 12px 0 0; padding: 0; overflow-y: auto; }
+.friends__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  border-bottom: 1px solid rgba(123, 47, 247, 0.12);
+}
+.friends__pick { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; }
+.friends__pick input { width: 20px; height: 20px; accent-color: var(--accent); }
+.friends__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friends__edit {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--accent);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.friends__edit:hover { border-color: rgba(123, 47, 247, 0.25); }
+.friends__editor input { margin: 12px 0 16px; font-size: 1.2rem; }
+.scan-btn--danger { background: #c2185b; border-color: #c2185b; }
+
+/* Participant chips: who is on this bill, under the Manage Participants button. */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 10px 0 0; padding: 0; }
+.chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(123, 47, 247, 0.08);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.chip__rename { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; padding: 6px 4px 4px; }
+.chip__rename input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+}
+.chip__rename .scan-btn { padding: 8px 12px; font-size: 0.9rem; }
+
+/* Chip options sheet. */
+.chip__name--btn { border: none; background: transparent; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+.chip__sheet { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 4px 4px; }
+.chip__action {
+  border: 1px solid rgba(123, 47, 247, 0.25);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip__action--danger { color: #c2185b; border-color: rgba(194, 24, 91, 0.35); }
+.friends__editor .calc__actions { flex-wrap: wrap; }
+
+/* Manage Participants button and chips, above the scan buttons. */
+.friends-bar { margin-bottom: 12px; }
+.friends-bar > .scan-btn { width: 100%; }
+
+/* Pinned "Me" row at the top of Manage Participants. */
+.friends__row--me { background: rgba(123, 47, 247, 0.06); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
+.friends__row--me .friends__pick { cursor: default; }
+li.friends__empty { list-style: none; }
+
+/* Assign dialog list. */
+.assign__list { list-style: none; margin: 0 0 16px; padding: 0; max-height: 50vh; overflow-y: auto; }
+.assign__row { padding: 8px 4px; border-bottom: 1px solid rgba(123, 47, 247, 0.12); }
+
+/* Assignee pills under a row's description. */
+.pills { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 2px; }
+.pill {
+  border: 1px solid rgba(123, 47, 247, 0.3);
+  background: rgba(123, 47, 247, 0.1);
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* By person: read-only grouping of descriptions. */
+.byperson { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(123, 47, 247, 0.06); }
+.byperson__title { margin: 0 0 6px; font-size: 0.85rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.byperson__group + .byperson__group { margin-top: 8px; }
+.byperson__name { margin: 0 0 2px; font-size: 0.9rem; font-weight: 700; }
+.byperson__items { margin: 0; padding-left: 18px; font-size: 0.85rem; color: var(--ink); }
+
+.byperson__name, .byperson__items li, .byperson__sum { display: flex; justify-content: space-between; gap: 8px; }
+.byperson__items { padding-left: 0; list-style: none; }
+.byperson__items li { padding-left: 12px; }
+.byperson__amount, .byperson__total { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.byperson__sum { margin: 8px 0 0; padding-top: 6px; border-top: 1px solid rgba(123, 47, 247, 0.2); font-weight: 700; }

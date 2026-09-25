@@ -84,6 +84,14 @@ describe('splitItem — yours', () => {
   });
 });
 
+describe('splitItem — assignees', () => {
+  it('copies assignees onto the remainder and every single, as separate arrays', () => {
+    const rows = splitItem(item({ units: '3', price: '9', assignees: ['sam', 'me'] }), 2, false, makeRow);
+    expect(rows.map((r) => r.assignees)).toEqual([['sam', 'me'], ['sam', 'me'], ['sam', 'me']]);
+    expect(rows[0]!.assignees).not.toBe(rows[1]!.assignees);
+  });
+});
+
 describe('splitItem — invalid input', () => {
   it('returns the row unchanged when count is out of range or the row cannot split', () => {
     const it3 = item({ units: '3' });

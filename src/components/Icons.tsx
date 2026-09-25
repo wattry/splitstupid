@@ -50,3 +50,13 @@ export const SplitIcon = () => (
     <path d="M15 14l3 3-3 3" />
   </svg>
 );
+
+/** Person outline with a plus: assign a row to someone. */
+export const AssignIcon = () => (
+  <svg {...base}>
+    <circle cx="10" cy="8" r="3.5" />
+    <path d="M3.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6" />
+    <path d="M19 8v6" />
+    <path d="M16 11h6" />
+  </svg>
+);

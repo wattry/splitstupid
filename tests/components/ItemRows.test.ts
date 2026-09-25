@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { PostHogContext } from '@posthog/react';
 import ItemRows from '../../src/ItemRows.js';
-import type { Item, ItemFields } from '../../src/types.js';
+import type { Item, ItemFields, Participant } from '../../src/types.js';
 import { reconcile } from '../../src/lib/reconcile.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -16,7 +16,14 @@ const makeRow = (fields: ItemFields = {}): Item => {
   return row;
 };
 
-function Harness({ initial, perUnit }: { initial: Item[]; perUnit: boolean }) {
+const defaultParticipants: Participant[] = [{ id: 'me', name: 'Ryan' }, { id: 'sam', name: 'Sam Kim' }];
+
+function Harness({ initial, perUnit, participants, onManageParticipants }: {
+  initial: Item[];
+  perUnit: boolean;
+  participants: Participant[];
+  onManageParticipants: () => void;
+}) {
   const [items, setItems] = useState(initial);
   return React.createElement(ItemRows, {
     items,
@@ -26,11 +33,14 @@ function Harness({ initial, perUnit }: { initial: Item[]; perUnit: boolean }) {
     reconciliation: reconcile(items, perUnit, ''),
     locked: false,
     onContinue: () => {},
+    participants,
+    onManageParticipants,
   });
 }
 
-function mount(initial: Item[], perUnit = false) {
+function mount(initial: Item[], perUnit = false, participants: Participant[] = defaultParticipants) {
   const capture = vi.fn();
+  const onManage = vi.fn();
   const host = document.createElement('div');
   document.body.appendChild(host);
   act(() => {
@@ -38,11 +48,11 @@ function mount(initial: Item[], perUnit = false) {
       React.createElement(
         PostHogContext.Provider,
         { value: { client: { capture } as never } },
-        React.createElement(Harness, { initial, perUnit })
+        React.createElement(Harness, { initial, perUnit, participants, onManageParticipants: onManage })
       )
     );
   });
-  return { host, capture };
+  return { host, capture, onManage };
 }
 
 const pointer = (el: Element, type: string, x = 10, y = 10, pointerType = 'touch') => act(() => {
@@ -74,22 +84,24 @@ beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); document.body.innerHTML = ''; });
 
 describe('ItemRows swipe tray (touch)', () => {
-  it('swiping a row left snaps it open and shows Split and Delete', () => {
+  it('swiping a row left snaps it open and shows Delete, Assign and Split', () => {
     const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
     const row = firstRow(host);
     expect(row.classList.contains('items__row--open')).toBe(false);
     swipeOpen(row);
     expect(row.classList.contains('items__row--open')).toBe(true);
-    expect(trayButton(row, 'Split')).toBeDefined();
     expect(trayButton(row, 'Delete')).toBeDefined();
+    expect(trayButton(row, 'Assign')).toBeDefined();
+    expect(trayButton(row, 'Split')).toBeDefined();
   });
 
-  it('a single-unit row offers Delete only', () => {
+  it('a single-unit row offers Delete and Assign only', () => {
     const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
     const row = firstRow(host);
     swipeOpen(row);
     expect(trayButton(row, 'Split')).toBeUndefined();
     expect(trayButton(row, 'Delete')).toBeDefined();
+    expect(trayButton(row, 'Assign')).toBeDefined();
   });
 
   it('a short swipe snaps back closed', () => {
@@ -187,5 +199,58 @@ describe('ItemRows split', () => {
     click(button(host, 'Cancel'));
     expect(host.querySelector('[role="dialog"]')).toBeNull();
     expect(rows(host)).toHaveLength(1);
+  });
+});
+
+describe('ItemRows assign', () => {
+  it('tray reads Delete, Assign, Split for a splittable row and Delete, Assign otherwise', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' }), makeRow({ units: '1', desc: 'Tea', price: '2' })]);
+    const [a, b] = rows(host);
+    swipeOpen(a!);
+    expect([...a!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign', 'Split']);
+    expect((a!.querySelector('.items__tray') as HTMLElement).style.width).toBe('216px');
+    swipeOpen(b!);
+    expect([...b!.querySelectorAll('.items__tray button')].map((x) => x.textContent)).toEqual(['Delete', 'Assign']);
+    expect((b!.querySelector('.items__tray') as HTMLElement).style.width).toBe('144px');
+  });
+
+  it('desktop action column is remove, assign, split in that order', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
+    const grid = firstRow(host).querySelector('.items__grid')!;
+    const buttons = [...grid.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'));
+    expect(buttons).toEqual(['Remove item', 'Assign to people', 'Split units into separate items']);
+  });
+
+  it('assign icon opens the Assign dialog; ticking Sam adds a pill; tapping the pill reopens', () => {
+    const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
+    click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
+    const dialog = host.querySelector('[role="dialog"][aria-label="Assign"]')!;
+    click(dialog.querySelectorAll('.assign__row input[type="checkbox"]')[1]!);
+    click(button(host, 'Done'));
+    const pill = firstRow(host).querySelector('.pill')!;
+    expect(pill.textContent).toBe('SK');
+    expect(pill.getAttribute('aria-label')).toBe('Sam Kim');
+    click(pill);
+    expect(host.querySelector('[role="dialog"][aria-label="Assign"]')).toBeTruthy();
+  });
+
+  it('shows the By person section once a row is assigned and calls onManageParticipants', () => {
+    const { host, onManage } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
+    expect(host.querySelector('.byperson')).toBeNull();
+    click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
+    click(host.querySelectorAll('.assign__row input[type="checkbox"]')[0]!);
+    expect(host.querySelector('.byperson')).toBeTruthy();
+    expect(host.querySelector('.byperson__label')?.textContent).toBe('Ryan');
+    click(button(host, 'Manage participants'));
+    expect(onManage).toHaveBeenCalled();
+  });
+
+  it('tray Assign opens the dialog and closes the tray', () => {
+    const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
+    const row = firstRow(host);
+    swipeOpen(row);
+    click(trayButton(row, 'Assign')!);
+    expect(host.querySelector('[role="dialog"][aria-label="Assign"]')).toBeTruthy();
+    expect(row.classList.contains('items__row--open')).toBe(false);
   });
 });
