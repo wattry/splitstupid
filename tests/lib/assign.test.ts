@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  assigneesOf, assignAll, assigneeStatus, groupByParticipant, lineLabel, lineTotal, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
+  assigneesOf, assignAll, assigneeStatus, groupByParticipant, lineLabel, lineTotal, mineShare, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
 } from '../../src/lib/assign.js';
 import type { Item, Participant } from '../../src/types.js';
 
@@ -28,69 +28,60 @@ describe('assigneesOf / toggleAssignee / setAssignees', () => {
 });
 
 describe('setAssignees with meId', () => {
-  it('adding Me bumps yours toward units', () => {
-    const base = item({ units: '2', yours: '0' });
-    const out = setAssignees(base, ['me'], 'me');
-    expect(out.yours).toBe('1');
+  it('adding Me alone gives the whole unit count', () => {
+    expect(setAssignees(item({ units: '2', yours: '0' }), ['me'], 'me').yours).toBe('2');
   });
-  it('adding Me again with no membership change leaves yours alone', () => {
-    const base = item({ units: '2', yours: '1', assignees: ['me'] });
-    const out = setAssignees(base, ['me'], 'me');
-    expect(out.yours).toBe('1');
+  it('sharing with others divides the units evenly, rounded to cents', () => {
+    expect(setAssignees(item({ units: '2', yours: '0' }), ['me', 'sam'], 'me').yours).toBe('1');
+    expect(setAssignees(item({ units: '2', yours: '0' }), ['me', 'sam', 'sk'], 'me').yours).toBe('0.67');
   });
-  it('removing Me decrements yours', () => {
-    const base = item({ units: '2', yours: '1', assignees: ['me'] });
-    const out = setAssignees(base, [], 'me');
-    expect(out.yours).toBe('0');
+  it('someone else joining or leaving re-derives your share', () => {
+    const shared = item({ units: '2', yours: '2', assignees: ['me'] });
+    const withSam = setAssignees(shared, ['me', 'sam'], 'me');
+    expect(withSam.yours).toBe('1');
+    expect(setAssignees(withSam, ['me'], 'me').yours).toBe('2');
   });
-  it('caps yours at units when adding Me', () => {
-    const base = item({ units: '1', yours: '1' });
-    const out = setAssignees(base, ['me'], 'me');
-    expect(out.yours).toBe('1');
+  it('removing Me zeroes yours', () => {
+    expect(setAssignees(item({ units: '2', yours: '1', assignees: ['me', 'sam'] }), ['sam'], 'me').yours).toBe('0');
   });
-  it('floors yours at 0 when removing Me', () => {
-    const base = item({ units: '2', yours: '0', assignees: ['me'] });
-    const out = setAssignees(base, [], 'me');
-    expect(out.yours).toBe('0');
+  it('rows Me was never on keep a hand-typed value', () => {
+    expect(setAssignees(item({ units: '2', yours: '1' }), ['sam'], 'me').yours).toBe('1');
   });
   it('leaves yours untouched without a meId', () => {
-    const base = item({ units: '2', yours: '0' });
-    const out = setAssignees(base, ['me']);
-    expect(out.yours).toBe('0');
+    expect(setAssignees(item({ units: '2', yours: '0' }), ['me']).yours).toBe('0');
   });
-  it('blank units increments yours uncapped', () => {
-    const base = item({ units: '', yours: '0' });
-    const out = setAssignees(base, ['me'], 'me');
-    expect(out.yours).toBe('1');
+  it('blank units count as one unit', () => {
+    expect(setAssignees(item({ units: '', yours: '0' }), ['me'], 'me').yours).toBe('1');
+    expect(setAssignees(item({ units: '', yours: '0' }), ['me', 'sam'], 'me').yours).toBe('0.5');
   });
-  it('adding Me to a non-integer yours rounds to cents', () => {
-    const base = item({ units: '2', yours: '0.5' });
-    const out = setAssignees(base, ['me'], 'me');
-    expect(out.yours).toBe('1.5');
+  it('mineShare splits units by count', () => {
+    expect(mineShare('3', 2)).toBe(1.5);
+    expect(mineShare('', 4)).toBe(0.25);
+    expect(mineShare('3', 0)).toBe(0);
   });
 });
 
 describe('toggleAssignee / assignAll / toggleAssigneeAll / setAssigneesAll thread meId', () => {
   it('toggleAssignee moves Mine when toggling Me on', () => {
     const base = item({ units: '2', yours: '0' });
-    expect(toggleAssignee(base, 'me', 'me').yours).toBe('1');
+    expect(toggleAssignee(base, 'me', 'me').yours).toBe('2');
   });
   it('assignAll moves Mine when assigning Me to listed rows', () => {
     const a = item({ id: 'a', units: '2', yours: '0' });
     const out = assignAll([a], new Set(['a']), 'me', 'me');
-    expect(out[0]!.yours).toBe('1');
+    expect(out[0]!.yours).toBe('2');
   });
   it('toggleAssigneeAll moves Mine when adding Me to listed rows', () => {
     const a = item({ id: 'a', units: '2', yours: '0' });
     const out = toggleAssigneeAll([a], new Set(['a']), 'me', 'me');
-    expect(out[0]!.yours).toBe('1');
+    expect(out[0]!.yours).toBe('2');
   });
   it('setAssigneesAll moves Mine for a row gaining Me and leaves it alone when membership does not change', () => {
     const a = item({ id: 'a', units: '2', yours: '0' });
     const b = item({ id: 'b', assignees: ['sam'] });
-    const c = item({ id: 'c', yours: '1', assignees: ['me'] });
+    const c = item({ id: 'c', units: '1', yours: '1', assignees: ['me'] });
     const out = setAssigneesAll([a, b, c], new Set(['a', 'c']), ['me'], 'me');
-    expect(out[0]!.yours).toBe('1');
+    expect(out[0]!.yours).toBe('2');
     expect(out[1]).toBe(b);
     expect(out[2]!.yours).toBe('1');
   });

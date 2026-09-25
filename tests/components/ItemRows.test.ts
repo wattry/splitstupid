@@ -452,8 +452,8 @@ describe('ItemRows Mine column', () => {
     expect(mineOf(b!)).toBe('1');
   });
 
-  it('Everyone on a row assigns all participants and Mine becomes 1', () => {
-    const { host } = mount([makeRow({ units: '1', desc: 'Beer', price: '10.00' })]);
+  it('Everyone on a row assigns all participants and Mine becomes the even share', () => {
+    const { host } = mount([makeRow({ units: '2', desc: 'Beer', price: '10.00' })]);
     click(firstRow(host).querySelector('button[aria-label="Assign to people"]')!);
     const everyoneBox = host.querySelector<HTMLInputElement>('input[aria-label="Assign everyone"]')!;
     check(everyoneBox, true);
@@ -462,10 +462,10 @@ describe('ItemRows Mine column', () => {
     expect(boxes.every((b) => b.checked)).toBe(true);
   });
 
-  it('bulk Everyone assigns every participant to both selected rows and sets Mine to 1 on both', () => {
+  it('bulk Everyone assigns every participant to both selected rows and sets Mine to the even share on both', () => {
     const { host } = mount([
-      makeRow({ units: '1', desc: 'Beer', price: '10.00', assignees: ['sam'] }),
-      makeRow({ units: '1', desc: 'Fries', price: '4.00' }),
+      makeRow({ units: '2', desc: 'Beer', price: '10.00', assignees: ['sam'] }),
+      makeRow({ units: '2', desc: 'Fries', price: '4.00' }),
     ]);
     const [a, b] = rows(host);
     check(pickBox(a!), true);

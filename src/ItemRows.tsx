@@ -359,9 +359,9 @@ function ItemRow({ item: it, perUnit, locked, update, remove, onSplit, open, set
         {!locked && <input
           className="items__num"
           type="number"
-          inputMode="numeric"
+          inputMode="decimal"
           min="0"
-          step="1"
+          step="any"
           value={it.yours}
           onChange={(e) => update(it.id, 'yours', e.target.value)}
           aria-label="How many were mine"

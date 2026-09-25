@@ -1,7 +1,7 @@
 /**
  * Item assignment: which bill participants had a row. Pure helpers over
- * `Item.assignees` (participant ids). Labelling only, except that adding or
- * removing Me (`meId`) also nudges `Mine` so it tracks your own assignments.
+ * `Item.assignees` (participant ids). When `meId` is passed, `Mine` follows
+ * the assignment: units split evenly across everyone on the row.
  */
 import type { Item, Participant } from '../types.js';
 import { round2 } from './calculate.js';
@@ -16,10 +16,10 @@ const unique = (ids: string[]): string[] => [...new Set(ids)];
 const formatAmount = (n: number): string => (Number.isInteger(n) ? String(n) : String(round2(n)));
 
 /**
- * Replace a row's assignees. When `meId` is given and Me's membership changes
- * between the old and new lists, `Mine` moves with it: added → `min(units,
- * yours + 1)` (uncapped when units isn't a positive number), removed →
- * `max(0, yours - 1)`.
+ * Replace a row's assignees. When `meId` is given, `Mine` is derived from the
+ * result: if Me is on the row it becomes `units / assignees` (units blank
+ * counts as 1), rounded to cents; if Me just left the row it becomes 0; rows
+ * Me was never on keep whatever was typed.
  */
 export function setAssignees(item: Item, ids: string[], meId?: string): Item {
   const deduped = unique(ids);
@@ -33,13 +33,15 @@ export function setAssignees(item: Item, ids: string[], meId?: string): Item {
   if (meId === undefined) return next;
   const had = assigneesOf(item).includes(meId);
   const has = deduped.includes(meId);
-  if (had === has) return next;
-  const yoursNum = parseFloat(item.yours) || 0;
-  const unitsNum = parseFloat(item.units) || 0;
-  const newYours = has
-    ? (unitsNum > 0 ? Math.min(unitsNum, yoursNum + 1) : yoursNum + 1)
-    : Math.max(0, yoursNum - 1);
-  return { ...next, yours: formatAmount(newYours) };
+  if (!had && !has) return next;
+  return { ...next, yours: formatAmount(has ? mineShare(item.units, deduped.length) : 0) };
+}
+
+/** Your share of a row's units when split evenly between `count` assignees. */
+export function mineShare(units: string, count: number): number {
+  const unitsNum = parseFloat(units);
+  const base = Number.isFinite(unitsNum) && unitsNum > 0 ? unitsNum : 1;
+  return count > 0 ? base / count : 0;
 }
 
 export function toggleAssignee(item: Item, id: string, meId?: string): Item {
@@ -94,20 +96,20 @@ export function assigneeStatus(items: Item[], rowIds: ReadonlySet<string>): { al
 }
 
 /** Remove `id` from every row; rows that never had it are returned as-is. */
-export function stripAssignee(items: Item[], id: string): Item[] {
+export function stripAssignee(items: Item[], id: string, meId?: string): Item[] {
   return items.map((it) => {
     const ids = assigneesOf(it);
-    return ids.includes(id) ? setAssignees(it, ids.filter((x) => x !== id)) : it;
+    return ids.includes(id) ? setAssignees(it, ids.filter((x) => x !== id), meId) : it;
   });
 }
 
 /** Drop assignee ids that are not on the bill (after a link or file load). */
-export function pruneAssignees(items: Item[], participants: Participant[]): Item[] {
+export function pruneAssignees(items: Item[], participants: Participant[], meId?: string): Item[] {
   const onBill = new Set(participants.map((p) => p.id));
   return items.map((it) => {
     const ids = assigneesOf(it);
     const kept = ids.filter((x) => onBill.has(x));
-    return kept.length === ids.length ? it : setAssignees(it, kept);
+    return kept.length === ids.length ? it : setAssignees(it, kept, meId);
   });
 }
 

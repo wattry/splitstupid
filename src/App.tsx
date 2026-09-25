@@ -87,7 +87,7 @@ export default function App() {
   const deleteFriend = (id: string) => {
     remove(id);
     setParticipants((list) => removeParticipant(list, id));
-    setItems((prev) => stripAssignee(prev, id));
+    setItems((prev) => stripAssignee(prev, id, me.id));
   };
   const importFriend = (participant: Participant, name?: string) => {
     // Same check as importParticipant, but through the hook so it persists.
@@ -174,7 +174,7 @@ export default function App() {
       setMyParty(data.myParty);
       const ensured = ensureMe(data.participants, me);
       setParticipants(ensured);
-      setItems(pruneAssignees(data.items, ensured));
+      setItems(pruneAssignees(data.items, ensured, me.id));
     });
     history.replaceState(null, '', window.location.pathname + window.location.search);
     // `me` is stable across the mount (its id never changes), so reading it
@@ -295,7 +295,7 @@ export default function App() {
             const { assignees: _assignees, ...rest } = item;
             return rest as unknown as Item;
           });
-          setItems(pruneAssignees(cleanItems, ensured));
+          setItems(pruneAssignees(cleanItems, ensured, me.id));
         }
       } catch {
         // Not a valid save file — ignore.
@@ -375,7 +375,7 @@ export default function App() {
             meId={me.id}
             onRemove={(id) => {
               setParticipants((list) => removeParticipant(list, id));
-              setItems((prev) => stripAssignee(prev, id));
+              setItems((prev) => stripAssignee(prev, id, me.id));
             }}
             onImport={importFriend}
             onAdopt={adopt}
@@ -389,7 +389,7 @@ export default function App() {
             onToggle={(friend) => {
               const leaving = participants.some((p) => p.id === friend.id);
               setParticipants((list) => toggleParticipant(list, friend));
-              if (leaving) setItems((prev) => stripAssignee(prev, friend.id));
+              if (leaving) setItems((prev) => stripAssignee(prev, friend.id, me.id));
             }}
             onAdd={(name) => addFriend(name)}
             onRename={renameFriend}
