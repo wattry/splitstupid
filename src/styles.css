@@ -72,7 +72,7 @@ body {
 
 .field label { font-size: 0.85rem; font-weight: 600; color: var(--muted); }
 
-.field input,
+.field input:not([type="checkbox"]),
 .field select,
 .field textarea {
   width: 100%;
@@ -94,7 +94,7 @@ body {
   word-break: break-word;
 }
 
-.field input:focus,
+.field input:not([type="checkbox"]):focus,
 .field select:focus,
 .field textarea:focus {
   outline: none;
