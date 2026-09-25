@@ -332,6 +332,8 @@ describe('ItemRows bulk assign', () => {
     click(samBox);
     expect(a!.querySelector('.pill[aria-label="Sam Kim"]')).toBeTruthy();
     expect(b!.querySelector('.pill[aria-label="Sam Kim"]')).toBeTruthy();
+    expect(samBox.checked).toBe(true);
+    expect(samBox.indeterminate).toBe(false);
 
     click(host.querySelectorAll<HTMLInputElement>('.assign__row input[type="checkbox"]')[1]!);
     expect(a!.querySelector('.pill[aria-label="Sam Kim"]')).toBeNull();
@@ -339,6 +341,22 @@ describe('ItemRows bulk assign', () => {
 
     click(button(host, 'Done'));
     expect(bulkBar(host)?.textContent).toContain('2 selected');
+  });
+
+  it('removing every selected row while the Assign dialog is open closes the dialog', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    const assignEllipsis = () => [...bulkBar(host)!.querySelectorAll('button')].find((btn) => btn.textContent === 'Assign…')!;
+    click(assignEllipsis());
+    expect(host.querySelector('[role="dialog"][aria-label="Assign"]')).toBeTruthy();
+
+    // The dialog overlays the rows, but the desktop Remove buttons are still in the DOM.
+    click(a!.querySelector('button[aria-label="Remove item"]')!);
+    click(b!.querySelector('button[aria-label="Remove item"]')!);
+
+    expect(host.querySelector('[role="dialog"][aria-label="Assign"]')).toBeNull();
   });
 
   it('Select toggle flips to Done, adds items--selecting, and Done clears the selection and the class', () => {
@@ -364,5 +382,36 @@ describe('ItemRows bulk assign', () => {
     expect(bulkBar(host)?.textContent).toContain('2 selected');
     click(a!.querySelector('button[aria-label="Remove item"]')!);
     expect(bulkBar(host)?.textContent).toContain('1 selected');
+  });
+
+  it('footer Clear empties the selection and hides the bar', () => {
+    const { host } = mount(twoRows());
+    const [a, b] = rows(host);
+    check(pickBox(a!), true);
+    check(pickBox(b!), true);
+    expect(bulkBar(host)?.textContent).toContain('2 selected');
+    click([...host.querySelectorAll('.items__clear')][0]!);
+    expect(bulkBar(host)).toBeNull();
+  });
+
+  it('splitting a selected row yields rows that are not selected', () => {
+    const { host } = mount([makeRow({ units: '3', desc: 'Beer', price: '10.00' })]);
+    const [a] = rows(host);
+    check(pickBox(a!), true);
+    expect(bulkBar(host)?.textContent).toContain('1 selected');
+    click(a!.querySelector('.items__split')!);
+    // Split out every unit so none of the resulting rows keeps the original id.
+    type(host.querySelector('.split__count') as HTMLInputElement, '3');
+    click(button(host, 'Split'));
+    expect(bulkBar(host)).toBeNull();
+  });
+
+  it('tapping Select while a swipe tray is open closes the tray', () => {
+    const { host } = mount(twoRows());
+    const row = firstRow(host);
+    swipeOpen(row);
+    expect(row.classList.contains('items__row--open')).toBe(true);
+    click(selectToggle(host));
+    expect(firstRow(host).classList.contains('items__row--open')).toBe(false);
   });
 });

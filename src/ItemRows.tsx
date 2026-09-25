@@ -91,8 +91,10 @@ export default function ItemRows(
   const labels = shortLabels(participants);
   // Row whose swipe tray is open (touch); at most one at a time.
   const [openId, setOpenId] = useState<string | null>(null);
-  // Ids of rows picked via the checkbox column.
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Ids of rows picked via the checkbox column. The raw Set may hold ids of
+  // removed rows on purpose; `selectedIds` (filtered against live `items`)
+  // is the only legal read.
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
   // Touch-only "select mode": shows the checkbox column and the Select/Done toggle.
   const [selecting, setSelecting] = useState(false);
   // Drop ids of rows that no longer exist (removed, or replaced by a split).
@@ -109,13 +111,29 @@ export default function ItemRows(
   const toggleAllSelected = () => setSelected(allSelected ? new Set() : new Set(items.map((it) => it.id)));
   const toggleSelecting = () => {
     if (selecting) clearSelection();
+    else setOpenId(null); // entering select mode closes any open swipe tray
     setSelecting((s) => !s);
   };
 
   // Live row/selection so the dialog's checkboxes update immediately as they're ticked.
   const assigningRow = assignTarget?.kind === 'row' ? items.find((it) => it.id === assignTarget.id) ?? null : null;
-  const selectionStatus = assignTarget?.kind === 'selection' ? assigneeStatus(items, selectedIds) : null;
-  const showAssignDialog = assignTarget?.kind === 'selection' || (assignTarget?.kind === 'row' && assigningRow !== null);
+  // Single narrowed value drives the Assign dialog: only render for a row that
+  // still exists, or a selection that still has members.
+  const dialog = assignTarget?.kind === 'row'
+    ? (assigningRow && {
+      desc: assigningRow.desc,
+      assigned: assigneesOf(assigningRow),
+      partial: [] as string[],
+      toggle: (id: string) => setItems((prev) => prev.map((it) => (it.id === assigningRow.id ? toggleAssignee(it, id) : it))),
+    })
+    : assignTarget?.kind === 'selection' && selectedIds.size > 0
+      ? ((status) => ({
+        desc: `${selectedIds.size} items`,
+        assigned: status.all,
+        partial: status.some,
+        toggle: (id: string) => setItems((prev) => toggleAssigneeAll(prev, selectedIds, id)),
+      }))(assigneeStatus(items, selectedIds))
+      : null;
   const update = (id: string, field: string, value: unknown) =>
     setItems(items.map((it) => {
       if (it.id !== id) return it
@@ -148,16 +166,6 @@ export default function ItemRows(
     posthog.capture('item_split', { count, units: maxSplit(target), per_unit: perUnit })
   }
 
-  const toggle = (id: string) => {
-    if (!assignTarget) return;
-    if (assignTarget.kind === 'row') {
-      const rowId = assignTarget.id;
-      setItems((prev) => prev.map((it) => (it.id === rowId ? toggleAssignee(it, id) : it)));
-    } else {
-      setItems((prev) => toggleAssigneeAll(prev, selectedIds, id));
-    }
-  };
-
   // Rows with real content; the blank starter row doesn't count.
   const filled = items.filter((it) => it.desc.trim() || (parseFloat(it.price) || 0) > 0).length
 
@@ -177,8 +185,8 @@ export default function ItemRows(
       </span>
 
       {selectedIds.size > 0 && (
-        <div className="items__bulk" role="toolbar" aria-label="Selected items">
-          <span className="items__bulk-count">{selectedIds.size} selected</span>
+        <div className="items__bulk" role="group" aria-label="Selected items">
+          <span className="items__bulk-count" aria-live="polite">{selectedIds.size} selected</span>
           <button type="button" className="scan-btn scan-btn--ghost" onClick={() => setAssignTarget({ kind: 'selection' })}>
             Assign…
           </button>
@@ -229,13 +237,13 @@ export default function ItemRows(
         ))}
       </div>
 
-      {showAssignDialog && (
+      {dialog && (
         <AssignModal
-          desc={assignTarget!.kind === 'row' ? assigningRow!.desc : `${selectedIds.size} items`}
+          desc={dialog.desc}
           participants={participants}
-          assigned={assignTarget!.kind === 'row' ? assigneesOf(assigningRow!) : selectionStatus!.all}
-          partial={assignTarget!.kind === 'selection' ? selectionStatus!.some : []}
-          onToggle={toggle}
+          assigned={dialog.assigned}
+          partial={dialog.partial}
+          onToggle={dialog.toggle}
           onManage={onManageParticipants}
           onClose={() => setAssignTarget(null)}
         />

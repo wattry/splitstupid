@@ -397,10 +397,14 @@ describe('App friends and participants integration', () => {
       if (el.checked !== value) click(el);
     };
     const [a, b] = [...h.querySelectorAll('.items__row')];
+    type(byLabel(a!, 'Description'), 'Soup');
+    type(byLabel(b!, 'Description'), 'Tea');
     check(pickBox(a!), true);
     check(pickBox(b!), true);
     click([...h.querySelectorAll('.items__bulk button')].find((btn) => btn.textContent === 'Assign to me')!);
     expect(h.querySelector('.byperson__label')?.textContent).toBe('Ryan');
-    expect(h.querySelectorAll('.byperson__items li')).toHaveLength(2);
+    const items = [...h.querySelectorAll('.byperson__items li')];
+    expect(items).toHaveLength(2);
+    expect(items.map((li) => li.querySelector('span')?.textContent)).toEqual(['Soup', 'Tea']);
   });
 });
