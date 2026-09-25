@@ -6,13 +6,15 @@ export interface AssignModalProps {
   desc: string;
   participants: Participant[];
   assigned: string[];
+  /** Ids to render indeterminate (a bulk selection where only some rows have them). */
+  partial?: string[];
   onToggle: (id: string) => void;
   onManage: () => void;
   onClose: () => void;
 }
 
 /** "Assign" dialog: tick who had this row. Toggles apply immediately. */
-export function AssignModal({ desc, participants, assigned, onToggle, onManage, onClose }: AssignModalProps): ReactElement {
+export function AssignModal({ desc, participants, assigned, partial = [], onToggle, onManage, onClose }: AssignModalProps): ReactElement {
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => { cardRef.current?.focus(); }, []);
   const label = desc.trim() || 'this item';
@@ -32,7 +34,12 @@ export function AssignModal({ desc, participants, assigned, onToggle, onManage, 
           {participants.map((p) => (
             <li key={p.id} className="assign__row">
               <label className="friends__pick">
-                <input type="checkbox" checked={assigned.includes(p.id)} onChange={() => onToggle(p.id)} />
+                <input
+                  type="checkbox"
+                  checked={assigned.includes(p.id)}
+                  ref={(el) => { if (el) el.indeterminate = partial.includes(p.id) && !assigned.includes(p.id); }}
+                  onChange={() => onToggle(p.id)}
+                />
                 <span className="assign__name">{p.name || 'Me'}</span>
               </label>
             </li>
