@@ -66,4 +66,23 @@ describe('ByPerson', () => {
     expect(samGroup!.querySelector('.byperson__total')?.textContent).toBe('$13.50');
     expect(host.querySelector('.byperson__sum')?.textContent).toBe('Total$54.00');
   });
+  it('shows the whole bill under the total so it can be checked, and flags a mismatch', () => {
+    const fees = [{ id: 'f1', label: 'Tax', amount: '4' }];
+    const soup = row('a', 'Soup', ['me']); soup.price = '30';
+    const tea = row('b', 'Tea', ['sam']); tea.price = '10';
+    const balanced = mount([soup, tea], false, { billSubtotal: '40', fees, tipAmount: '8' });
+    expect(balanced.querySelector('.byperson__sum')?.textContent).toBe('Total$52.00');
+    expect(balanced.querySelector('.byperson__bill')?.textContent).toBe('Bill total$52.00');
+    expect(balanced.querySelector('.byperson__off')).toBeNull();
+
+    // Items only reach $30 of a $40 Sub Total: $13 short once fees and tip are counted.
+    const short = mount([soup], false, { billSubtotal: '40', fees, tipAmount: '8' });
+    expect(short.querySelector('.byperson__bill')?.textContent).toBe('Bill total$52.00');
+    expect(short.querySelector('.byperson__off')?.textContent).toBe('Off by $13.00');
+  });
+
+  it('leaves out the bill total without a Sub Total', () => {
+    const host = mount([row('a', 'Soup', ['me'])]);
+    expect(host.querySelector('.byperson__bill')).toBeNull();
+  });
 });
