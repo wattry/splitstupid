@@ -1,5 +1,5 @@
 import { defineConfig } from 'eslint/config';
-import { createBaseConfig } from '@wattry/tsconfig/eslint';
+import { createBaseConfig } from './eslint.base.js';
 
 const files = ['**/*.ts'];
 const ignores = ['dist/**/*', 'node_modules/**/*'];
