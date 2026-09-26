@@ -13,7 +13,7 @@ Source of truth for planned work. Work items are `SS-n`. Update the Status colum
 
 | ID | Item | Priority | Status |
 | --- | --- | --- | --- |
-| SS-16 | Bug: By person leaves out each person's fees and tip | P1 | In review |
+| SS-16 | Bug: By person leaves out each person's fees and tip | P1 | In review (#20) |
 | SS-2 | PostHog may record the `#s=` bill payload | P0 | Next up |
 | SS-4 | No guard when a share link gets too long | P1 | Open |
 | SS-3 | Raw OCR text inflates share links | P1 | Open |
