@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Roadmap
+
+Planned work lives in `docs/ROADMAP.md` (items `SS-n`). Read it before starting work, follow its PR rules, and update its Status table and Shipped log in the same PR.
+
 ## Commands
 
 Package manager is pnpm.

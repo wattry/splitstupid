@@ -408,3 +408,67 @@ describe('App friends and participants integration', () => {
     expect(items.map((li) => li.querySelector('span')?.textContent)).toEqual(['Soup', 'Tea']);
   });
 });
+
+describe('Split Even party size', () => {
+  const partySize = (h: Element) => h.querySelector('#party_size') as HTMLInputElement;
+  const addFriend = (h: Element, name: string) => {
+    const nameInput = byLabel(h, 'New friend name');
+    type(nameInput, name);
+    submit(nameInput);
+  };
+
+  it('defaults to the number of people on the bill and follows adds', async () => {
+    seedMe();
+    const h = mount();
+    await flush();
+
+    click(button(h, 'Manage Participants (1)'));
+    addFriend(h, 'Sam');
+    addFriend(h, 'Alex');
+    click(button(h, 'Close'));
+
+    click(h.querySelector('#split_even')!);
+    expect(partySize(h).value).toBe('3');
+
+    click(button(h, 'Manage Participants (3)'));
+    addFriend(h, 'Jo');
+    click(button(h, 'Close'));
+    expect(partySize(h).value).toBe('4');
+  });
+
+  it('keeps a typed override when people are added', async () => {
+    seedMe();
+    const h = mount();
+    await flush();
+
+    click(h.querySelector('#split_even')!);
+    expect(partySize(h).value).toBe('1');
+    type(partySize(h), '6');
+
+    click(button(h, 'Manage Participants (1)'));
+    addFriend(h, 'Sam');
+    click(button(h, 'Close'));
+    expect(partySize(h).value).toBe('6');
+  });
+
+  it('a link keeps the sender\'s override but otherwise uses the head count', async () => {
+    seedMe();
+    const people = [{ id: 'id-jo', name: 'Jo' }, { id: 'id-sam', name: 'Sam' }, { id: 'id-me', name: 'Ryan' }];
+
+    window.location.hash = `#s=${await encodeState({ ...minimalState(people), splitEven: true, partySize: '8' })}`;
+    let h = mount();
+    await flush();
+    expect(partySize(h).value).toBe('8');
+
+    document.body.innerHTML = '';
+    window.location.hash = `#s=${await encodeState({ ...minimalState(people), splitEven: true, partySize: '3' })}`;
+    h = mount();
+    await flush();
+    expect(partySize(h).value).toBe('3');
+
+    click(button(h, 'Manage Participants (3)'));
+    addFriend(h, 'Alex');
+    click(button(h, 'Close'));
+    expect(partySize(h).value).toBe('4');
+  });
+});

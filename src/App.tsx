@@ -47,7 +47,9 @@ export default function App() {
   const [items, setItems] = useState<Item[]>(() => [makeRow()]);
   // Split Even: this user's share is an even slice of the line-item sum.
   const [splitEven, setSplitEven] = useState(false);
-  const [partySize, setPartySize] = useState<string>('4');
+  // Party Size follows the number of people on the bill until the user types
+  // their own value; null means "use the head count".
+  const [partySizeOverride, setPartySizeOverride] = useState<string | null>(null);
   const [myParty, setMyParty] = useState<string>('2');
 
   // Your friends (persisted on this device) and who is on this bill. The
@@ -57,6 +59,7 @@ export default function App() {
   const { me, setName: setMeName, replace: replaceMe } = useMe();
   // Me is always on the bill; links and imports re-seed via ensureMe.
   const [participants, setParticipants] = useState<Participant[]>(() => [meParticipant(me)]);
+  const partySize = partySizeOverride ?? String(participants.length);
   const [friendsOpen, setFriendsOpen] = useState(false);
   // Bill ids after `id` leaves; keeps Mine's split honest when someone is removed.
   const onBillWithout = (id: string) => new Set(participants.filter((p) => p.id !== id).map((p) => p.id));
@@ -144,7 +147,7 @@ export default function App() {
     setFees(bill.fees);
     setTipAmount(bill.tipAmount);
     setSplitEven(bill.splitEven);
-    setPartySize(bill.partySize);
+    setPartySizeOverride(null);
     setMyParty(bill.myParty);
     setItems(bill.items);
   };
@@ -172,10 +175,13 @@ export default function App() {
       setTipAmount(data.tipAmount);
       setPerUnit(data.perUnit);
       setSplitEven(data.splitEven);
-      setPartySize(data.partySize);
       setMyParty(data.myParty);
       const ensured = ensureMe(data.participants, me);
       setParticipants(ensured);
+      // Keep the sender's Party Size only if they overrode the head count.
+      setPartySizeOverride(
+        data.splitEven && data.partySize !== String(data.participants.length) ? data.partySize : null
+      );
       setItems(pruneAssignees(data.items, ensured, me.id));
     });
     history.replaceState(null, '', window.location.pathname + window.location.search);
@@ -565,7 +571,7 @@ export default function App() {
                   step="1"
                   placeholder="4"
                   value={partySize}
-                  onChange={(e) => setPartySize(e.target.value)}
+                  onChange={(e) => setPartySizeOverride(e.target.value)}
                 />
               </div>
               <div className="field">
