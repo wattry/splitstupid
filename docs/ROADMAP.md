@@ -13,7 +13,7 @@ Source of truth for planned work. Work items are `SS-n`. Update the Status colum
 
 | ID | Item | Priority | Status |
 | --- | --- | --- | --- |
-| SS-13 | Bug: Split Even Party Size ignores the people on the bill | P1 | Done in this branch |
+| SS-13 | Bug: Split Even Party Size ignores the people on the bill | P1 | In review (#18) |
 | SS-8 | Bug: shared-link recipients see the sender's Mine column | P0 | Next up |
 | SS-2 | PostHog may record the `#s=` bill payload | P0 | Open |
 | SS-4 | No guard when a share link gets too long | P1 | Open |
