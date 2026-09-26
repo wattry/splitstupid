@@ -1,5 +1,5 @@
 {
-  "extends": "@wattry/tsconfig/base",
+  "extends": "./tsconfig.base.json",
   "include": [
     "src",
     "types",
@@ -8,7 +8,8 @@
     "__tests__",
     "__mocks__",
     "vite.config.ts",
-    "eslint.config.ts"
+    "eslint.config.ts",
+    "eslint.base.ts"
   ],
   "exclude": [
     "dist",

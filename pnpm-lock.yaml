@@ -48,9 +48,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: 6.0.2
         version: 6.0.2(vite@8.0.16(@types/node@24.12.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.22.4))
-      '@wattry/tsconfig':
-        specifier: 0.4.4
-        version: 0.4.4
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -976,10 +973,6 @@ packages:
 
   '@vitest/utils@4.1.8':
     resolution: {integrity: sha512-uOJamYALNhfJ6iolExyQM40yIQwDqYnkKtQ5VCiSe17E33H0aQ/u+1GlRuz4LZBk6Mm3sg90G9hEbmEt37C1Zg==}
-
-  '@wattry/tsconfig@0.4.4':
-    resolution: {integrity: sha512-A8Wc1Zl53ZVMl4s2QGaWDer5NrNkPswTI4Oikuka6ZK7ZTuf8Ydaj6f1MTyAx78hs6BfDOYkblY+ez5dxjCAdw==, tarball: https://npm.pkg.github.com/download/@wattry/tsconfig/0.4.4/09822f587e919da07a169fbb042c4d7c83df83db}
-    hasBin: true
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -2693,10 +2686,6 @@ snapshots:
       '@vitest/pretty-format': 4.1.8
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.1
-
-  '@wattry/tsconfig@0.4.4':
-    dependencies:
-      commander: 15.0.0
 
   acorn-jsx@5.3.2(acorn@8.18.0):
     dependencies:
