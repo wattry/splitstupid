@@ -43,7 +43,7 @@ async function encodeLegacy(payload: unknown): Promise<string> {
 }
 
 describe('encodeState / decodeState', () => {
-  it('round-trips all fields except item ids', async () => {
+  it('round-trips all fields except item ids and Mine', async () => {
     const encoded = await encodeState(state);
     const decoded = await decodeState(encoded);
     expect(decoded).not.toBeNull();
@@ -53,7 +53,7 @@ describe('encodeState / decodeState', () => {
     expect(decoded!.tipAmount).toBe('8.00');
     expect(decoded!.perUnit).toBe(true);
     expect(decoded!.items.map(({ id: _id, ...rest }) => rest)).toEqual(
-      state.items.map(({ id: _id, ...rest }) => rest)
+      state.items.map(({ id: _id, ...rest }) => ({ ...rest, yours: '0' }))
     );
   });
 
@@ -90,13 +90,14 @@ describe('encodeState / decodeState', () => {
     expect(without.length).toBeLessThan(withName.length);
   });
 
-  it('round-trips split even fields', async () => {
-    const decoded = await decodeState(
-      await encodeState({ ...state, splitEven: true, partySize: '4', myParty: '2' })
-    );
+  it('round-trips split even and party size but not my party', async () => {
+    const encoded = await encodeState({ ...state, splitEven: true, partySize: '4', myParty: '2' });
+    const decoded = await decodeState(encoded);
     expect(decoded!.splitEven).toBe(true);
     expect(decoded!.partySize).toBe('4');
-    expect(decoded!.myParty).toBe('2');
+    expect(decoded!.myParty).toBe('1');
+    const otherParty = await encodeState({ ...state, splitEven: true, partySize: '4', myParty: '3' });
+    expect(otherParty).toBe(encoded);
   });
 
   it('omits split even fields from the payload when off', async () => {
@@ -248,6 +249,33 @@ describe('encodeState / decodeState', () => {
     expect((await decodeState(ok))!.items[0]!.assignees).toBeUndefined();
     const bad = await encodeLegacy({ v: 1, s: '10', x: '1', t: '2', p: false, i: [['1', '1', 'Soup', '10', 'x']] });
     expect(await decodeState(bad)).toBeNull();
+  });
+});
+
+describe('Mine (SS-8)', () => {
+  it('encodes every row\'s Mine as 0 and keeps the assignees', async () => {
+    const encoded = await encodeState({
+      ...state,
+      participants: [{ id: 'id-sam', name: 'Sam' }],
+      items: [
+        { id: 'a', units: '2', yours: '2', desc: 'Soup', price: '5', assignees: ['id-sam'] },
+        { id: 'b', units: '1', yours: '0.5', desc: 'Tea', price: '2' },
+      ],
+    });
+    const decoded = await decodeState(encoded);
+    expect(decoded!.items.map((it) => it.yours)).toEqual(['0', '0']);
+    expect(decoded!.items[0]!.assignees).toEqual(['id-sam']);
+  });
+
+  it('zeroes Mine from older links that still carry the sender\'s value', async () => {
+    const legacy = await encodeLegacy({
+      v: 1, s: '10', x: '', t: '', p: false,
+      u: [['id-sam', 'Sam']],
+      i: [['2', '2', 'Soup', '10', ['id-sam']], ['1', '1', 'Tea', '2']],
+    });
+    const decoded = await decodeState(legacy);
+    expect(decoded!.items.map((it) => it.yours)).toEqual(['0', '0']);
+    expect(decoded!.items[0]!.assignees).toEqual(['id-sam']);
   });
 });
 

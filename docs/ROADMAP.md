@@ -13,9 +13,8 @@ Source of truth for planned work. Work items are `SS-n`. Update the Status colum
 
 | ID | Item | Priority | Status |
 | --- | --- | --- | --- |
-| SS-13 | Bug: Split Even Party Size ignores the people on the bill | P1 | In review (#18) |
-| SS-8 | Bug: shared-link recipients see the sender's Mine column | P0 | Next up |
-| SS-2 | PostHog may record the `#s=` bill payload | P0 | Open |
+| SS-8 | Bug: shared-link recipients see the sender's Mine column | P0 | In review |
+| SS-2 | PostHog may record the `#s=` bill payload | P0 | Next up |
 | SS-4 | No guard when a share link gets too long | P1 | Open |
 | SS-3 | Raw OCR text inflates share links | P1 | Open |
 | SS-15 | Undo toast for every removal | P1 | Open |
@@ -42,6 +41,8 @@ Agreed design:
 6. Omit Split Even `m` (my party) from links; the recipient picks their own.
 
 Accepted side effect: claiming permanently switches this device's Me id to the one in the link.
+
+Split Even links: every row's Mine is set to its units on load (as turning Split Even on does) and claiming does not derive it, so the even split works before and after a claim.
 
 Tests: encode emits `yours: '0'` with assignees intact; decode of an old link zeroes Mine; foreign `me.id` sets `claimPending` and adds no Me; claiming B gives Mine 1 on B's rows and 0 elsewhere; own-link reload skips the prompt.
 
@@ -125,3 +126,4 @@ One PR per step, screenshots re-approved deliberately:
 | ID | Date | PR | Notes |
 | --- | --- | --- | --- |
 | SS-14 | 2026-09-26 | #17 | Inlined tsconfig and ESLint base configs; dropped GitHub Packages auth. |
+| SS-13 | 2026-09-26 | #18 | Party Size follows the head count until typed over. |
