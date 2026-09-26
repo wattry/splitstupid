@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  assigneesOf, assignAll, assigneeStatus, groupByParticipant, lineLabel, lineTotal, mineShare, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
+  assigneesOf, assignAll, assigneeStatus, deriveMine, groupByParticipant, lineLabel, lineTotal, mineShare, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
 } from '../../src/lib/assign.js';
 import type { Item, Participant } from '../../src/types.js';
 
@@ -277,5 +277,29 @@ describe('lineLabel', () => {
   });
   it('omits the count for non-integer units', () => {
     expect(lineLabel({ item: item({ desc: 'Beer', units: '2.5' }), share: 0, sharedWith: 1 })).toBe('Beer');
+  });
+});
+
+describe('deriveMine', () => {
+  const onBill = new Set(['me', 'b', 'c']);
+
+  it('gives Me an even share of rows Me is on and 0 on other assigned rows', () => {
+    const out = deriveMine([
+      item({ units: '1', yours: '0', assignees: ['b'] }),
+      item({ units: '3', yours: '0', assignees: ['me', 'b', 'c'] }),
+      item({ units: '1', yours: '1', assignees: ['c'] }),
+    ], 'me', onBill);
+    expect(out.map((it) => it.yours)).toEqual(['0', '1', '0']);
+  });
+
+  it('counts only on-bill assignees and leaves unassigned rows alone', () => {
+    const unassigned = item({ units: '1', yours: '0.5' });
+    const out = deriveMine([
+      item({ units: '1', yours: '0', assignees: ['me', 'ghost'] }),
+      unassigned,
+      item({ units: '1', yours: '0.5', assignees: ['ghost'] }),
+    ], 'me', onBill);
+    expect(out.map((it) => it.yours)).toEqual(['1', '0.5', '0.5']);
+    expect(out[1]).toBe(unassigned);
   });
 });

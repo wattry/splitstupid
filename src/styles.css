@@ -1174,6 +1174,8 @@ body {
   animation: pop 0.25s ease;
 }
 
+.total__value.total__value--pending { font-size: 1rem; font-weight: 700; text-align: right; }
+
 .copy-btn {
   padding: 6px 14px;
   border: 1px solid var(--accent);
@@ -1366,6 +1368,9 @@ a.action-btn {
 /* Manage Participants button and chips, above the scan buttons. */
 .friends-bar { margin-bottom: 12px; }
 .friends-bar > .scan-btn { width: 100%; }
+
+/* Unclaimed shared link: ask the recipient which chip is them (SS-8). */
+.claim-banner { margin: 10px 0 0; font-weight: 700; color: var(--accent); }
 
 /* Pinned "Me" row at the top of Manage Participants. */
 .friends__row--me { background: rgba(123, 47, 247, 0.06); border-radius: 10px; padding-left: 8px; padding-right: 8px; }

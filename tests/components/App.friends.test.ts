@@ -118,8 +118,10 @@ describe('App friends and participants integration', () => {
     const h = mount();
     await flush();
 
-    expect(chipNames(h)).toEqual(['Ryan', 'Jo', 'Known']);
+    expect(chipNames(h)).toEqual(['Jo', 'Known', "I'm not on this bill"]);
     expect(localStorage.getItem(FRIENDS_STORAGE_KEY)).toBe(JSON.stringify({ v: 1, friends: [] }));
+    click(button(h, "I'm not on this bill"));
+    expect(chipNames(h)).toEqual(['Ryan', 'Jo', 'Known']);
 
     click(h.querySelector('[aria-label="Options for Jo"]')!);
     const addBtn = h.querySelector('[aria-label="Add Jo to friends"]');
@@ -341,30 +343,25 @@ describe('App friends and participants integration', () => {
     expect([...h.querySelectorAll('.pill')].map((p) => p.textContent)).toEqual(['S']);
   });
 
-  it('This is me adopts a link participant: id, name, assignments and friends follow', async () => {
+  it('claiming a link participant adopts their id and name, clears them from friends, and keeps pills', async () => {
     seedMe('');
     localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify({ v: 1, friends: [{ id: 'id-r', name: 'Ryan' }] }));
     const st = minimalState([{ id: 'id-r', name: 'Ryan' }, { id: 'id-sam', name: 'Sam' }]);
     st.items = [
       { id: 'a', units: '1', yours: '1', desc: 'Soup', price: '5', assignees: ['id-r'] },
-      { id: 'b', units: '1', yours: '1', desc: 'Tea', price: '2' },
+      { id: 'b', units: '1', yours: '1', desc: 'Tea', price: '2', assignees: ['id-sam'] },
     ];
     window.location.hash = `#s=${await encodeState(st)}`;
     const h = mount();
     await flush();
-    expect(chipNames(h)).toEqual(['Me', 'Ryan', 'Sam']);
-    // Assign Tea to local Me first so the remap is observable.
-    click(h.querySelectorAll('button[aria-label="Assign to people"]')[1]!);
-    click(h.querySelectorAll('.assign__row input[type="checkbox"]')[1]!);
-    click(button(h, 'Done'));
-    click(h.querySelector('button[aria-label="Options for Ryan"]')!);
-    click(h.querySelector('button[aria-label="This is me: Ryan"]')!);
+    expect(chipNames(h)).toEqual(['Ryan', 'Sam', "I'm not on this bill"]);
+    click(h.querySelector('button[aria-label="I\'m Ryan"]')!);
+    click(h.querySelector('button[aria-label="Confirm: I\'m Ryan"]')!);
     expect(chipNames(h)).toEqual(['Ryan', 'Sam']);
     expect(JSON.parse(localStorage.getItem(ME_STORAGE_KEY)!)).toEqual({ v: 1, id: 'id-r', name: 'Ryan' });
     expect(JSON.parse(localStorage.getItem(FRIENDS_STORAGE_KEY)!).friends).toEqual([]);
     const pills = [...h.querySelectorAll('.pill')].map((p) => p.getAttribute('aria-label'));
-    expect(pills).toEqual(['Ryan', 'Ryan']);
-    expect(h.querySelector('.friends__row--me .friends__name')).toBeNull(); // dialog closed
+    expect(pills).toEqual(['Ryan', 'Sam']);
     click(button(h, 'Manage Participants (2)'));
     expect(h.querySelector('.friends__row--me .friends__name')?.textContent).toBe('Ryan');
   });
@@ -470,5 +467,83 @@ describe('Split Even party size', () => {
     addFriend(h, 'Alex');
     click(button(h, 'Close'));
     expect(partySize(h).value).toBe('4');
+  });
+});
+
+describe('Shared-link recipients claim their name (SS-8)', () => {
+  const mine = (h: Element) =>
+    [...h.querySelectorAll('input[aria-label="How many were mine"]')].map((el) => (el as HTMLInputElement).value);
+  const owed = (h: Element) => h.querySelector('.total__value')?.textContent;
+  const banner = (h: Element) => h.querySelector('.claim-banner');
+  // Sender Jo's bill: Soup is Jo's, Tea is B's, Cake is shared by both. Jo's Mine travels as 1s.
+  const sendersBill = (): SavedState => ({
+    ...minimalState([{ id: 'id-jo', name: 'Jo' }, { id: 'id-b', name: 'Bea' }]),
+    billSubtotal: '17',
+    items: [
+      { id: 'a', units: '1', yours: '1', desc: 'Soup', price: '10', assignees: ['id-jo'] },
+      { id: 'b', units: '1', yours: '0', desc: 'Tea', price: '3', assignees: ['id-b'] },
+      { id: 'c', units: '2', yours: '1', desc: 'Cake', price: '4', assignees: ['id-jo', 'id-b'] },
+    ],
+  });
+
+  it('a device not on the bill gets the claim prompt, no Me chip and no Mine', async () => {
+    seedMe('Ryan');
+    window.location.hash = `#s=${await encodeState(sendersBill())}`;
+    const h = mount();
+    await flush();
+    expect(banner(h)?.textContent).toBe('Who are you? Tap your name.');
+    expect(chipNames(h)).toEqual(['Jo', 'Bea', "I'm not on this bill"]);
+    expect(mine(h)).toEqual(['0', '0', '0']);
+    expect(owed(h)).toBe('Pick your name to see your share');
+    expect(h.querySelector('[aria-label="Copy amount owed"]')).toBeNull();
+  });
+
+  it('claiming Bea gives Mine only on Bea\'s rows and ends the prompt', async () => {
+    seedMe('Ryan');
+    window.location.hash = `#s=${await encodeState(sendersBill())}`;
+    const h = mount();
+    await flush();
+    click(h.querySelector('button[aria-label="I\'m Bea"]')!);
+    expect(mine(h)).toEqual(['0', '0', '0']); // nothing happens until confirmed
+    click(h.querySelector('button[aria-label="Confirm: I\'m Bea"]')!);
+    expect(mine(h)).toEqual(['0', '1', '1']);
+    expect(banner(h)).toBeNull();
+    expect(chipNames(h)).toEqual(['Bea', 'Jo']);
+    expect(owed(h)).toBe('$5.00');
+    expect(JSON.parse(localStorage.getItem(ME_STORAGE_KEY)!).id).toBe('id-b');
+  });
+
+  it('"I\'m not on this bill" adds this device and leaves Mine at 0', async () => {
+    seedMe('Ryan');
+    window.location.hash = `#s=${await encodeState(sendersBill())}`;
+    const h = mount();
+    await flush();
+    click(button(h, "I'm not on this bill"));
+    expect(banner(h)).toBeNull();
+    expect(chipNames(h)).toEqual(['Ryan', 'Jo', 'Bea']);
+    expect(mine(h)).toEqual(['0', '0', '0']);
+    expect(owed(h)).toBe('$0.00');
+  });
+
+  it('the sender reopening their own link skips the prompt and gets their Mine back', async () => {
+    localStorage.setItem(ME_STORAGE_KEY, JSON.stringify({ v: 1, id: 'id-jo', name: 'Jo' }));
+    window.location.hash = `#s=${await encodeState(sendersBill())}`;
+    const h = mount();
+    await flush();
+    expect(banner(h)).toBeNull();
+    expect(chipNames(h)).toEqual(['Jo', 'Bea']);
+    expect(mine(h)).toEqual(['1', '0', '1']);
+  });
+
+  it('a Split Even link counts every row in full and keeps the recipient\'s My Party', async () => {
+    seedMe('Ryan');
+    window.location.hash = `#s=${await encodeState({ ...sendersBill(), splitEven: true, myParty: '3' })}`;
+    const h = mount();
+    await flush();
+    expect(mine(h)).toEqual(['1', '1', '2']);
+    expect((h.querySelector('#my_party') as HTMLInputElement).value).toBe('2');
+    click(h.querySelector('button[aria-label="I\'m Bea"]')!);
+    click(h.querySelector('button[aria-label="Confirm: I\'m Bea"]')!);
+    expect(mine(h)).toEqual(['1', '1', '2']);
   });
 });

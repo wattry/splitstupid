@@ -14,6 +14,10 @@ export interface ParticipantChipsProps {
   onImport: (participant: Participant, name?: string) => FriendResult;
   /** Adopt a participant as Me; refused with an inline error on collision. */
   onAdopt: (participant: Participant) => { ok: boolean; error?: string };
+  /** An unclaimed shared link: tapping a chip asks "Is this you?" instead of opening options. */
+  claiming?: boolean;
+  /** Claim mode's way out: add this device to the bill as a new participant. */
+  onNotOnBill?: () => void;
 }
 
 /**
@@ -24,9 +28,13 @@ export interface ParticipantChipsProps {
  * as the device owner), "Add to friends" (only when not already a friend),
  * "Remove from bill", and "Cancel". A name collision on Add turns the sheet
  * into a tiny rename form.
+ *
+ * While `claiming`, a chip tap asks the recipient to confirm "That's me"
+ * (which adopts that participant), and an extra "I'm not on this bill" chip
+ * adds this device instead.
  */
 export function ParticipantChips(props: ParticipantChipsProps): ReactElement | null {
-  const { participants, friends, meId, onRemove, onImport, onAdopt } = props;
+  const { participants, friends, meId, onRemove, onImport, onAdopt, claiming = false, onNotOnBill } = props;
   if (participants.length === 0) return null;
   const known = new Set(friends.map((f) => f.id));
   return (
@@ -40,8 +48,16 @@ export function ParticipantChips(props: ParticipantChipsProps): ReactElement | n
           onRemove={onRemove}
           onImport={onImport}
           onAdopt={onAdopt}
+          claiming={claiming}
         />
       ))}
+      {claiming && onNotOnBill && (
+        <li className="chip">
+          <button type="button" className="chip__name chip__name--btn" onClick={onNotOnBill}>
+            I'm not on this bill
+          </button>
+        </li>
+      )}
     </ul>
   );
 }
@@ -53,9 +69,10 @@ interface ChipProps {
   onRemove: (id: string) => void;
   onImport: (participant: Participant, name?: string) => FriendResult;
   onAdopt: (participant: Participant) => { ok: boolean; error?: string };
+  claiming: boolean;
 }
 
-function Chip({ participant, isFriend, isMe, onRemove, onImport, onAdopt }: ChipProps): ReactElement {
+function Chip({ participant, isFriend, isMe, onRemove, onImport, onAdopt, claiming }: ChipProps): ReactElement {
   const [sheet, setSheet] = useState(false);
   const [error, setError] = useState('');
   const [renaming, setRenaming] = useState(false);
@@ -101,7 +118,7 @@ function Chip({ participant, isFriend, isMe, onRemove, onImport, onAdopt }: Chip
         <button
           type="button"
           className="chip__name chip__name--btn"
-          aria-label={`Options for ${label}`}
+          aria-label={claiming ? `I'm ${label}` : `Options for ${label}`}
           aria-expanded={sheet}
           onClick={() => {
             setSheet((s) => !s);
@@ -115,7 +132,19 @@ function Chip({ participant, isFriend, isMe, onRemove, onImport, onAdopt }: Chip
       {sheet && (
         <div className="chip__sheet" role="group" aria-label={`Options for ${label}`}>
           {error && <p className="friends__error" role="alert">{error}</p>}
-          {renaming ? (
+          {claiming ? (
+            <>
+              <button
+                type="button"
+                className="chip__action"
+                aria-label={`Confirm: I'm ${label}`}
+                onClick={adopt}
+              >
+                {`Yes, I'm ${label}`}
+              </button>
+              <button type="button" className="chip__action" onClick={close}>Cancel</button>
+            </>
+          ) : renaming ? (
             <form className="chip__rename" onSubmit={submitRename} noValidate>
               <input
                 type="text"

@@ -46,6 +46,20 @@ export function mineShare(units: string, count: number): number {
   return count > 0 ? base / count : 0;
 }
 
+/**
+ * Recompute `Mine` from assignments alone: on every row with someone on the
+ * bill assigned, `yours` is Me's even share if Me is on it, else 0. Rows with
+ * no on-bill assignees keep their value. Used when a shared link is claimed.
+ */
+export function deriveMine(items: Item[], meId: string, onBill: ReadonlySet<string>): Item[] {
+  return items.map((it) => {
+    const sharers = assigneesOf(it).filter((id) => onBill.has(id));
+    if (sharers.length === 0) return it;
+    const share = sharers.includes(meId) ? mineShare(it.units, sharers.length) : 0;
+    return { ...it, yours: formatAmount(share) };
+  });
+}
+
 export function toggleAssignee(item: Item, id: string, meId?: string, onBill?: ReadonlySet<string>): Item {
   const cur = assigneesOf(item);
   return setAssignees(item, cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id], meId, onBill);

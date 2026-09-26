@@ -29,7 +29,7 @@ export interface SavedState {
   items: Item[];
 }
 
-/** [units, yours, desc, price, assignees?] — an Item without its transient id. */
+/** [units, yours, desc, price, assignees?] — an Item without its transient id. `yours` is always written as '0'. */
 type PackedItem = [string, string, string, string] | [string, string, string, string, string[]];
 /** [label, amount] — a Fee without its transient id. */
 type PackedFee = [string, string];
@@ -54,7 +54,7 @@ interface Payload {
   f?: PackedFee[];
   t: string;
   p: boolean;
-  /** Split Even on/off, party size, my party; all omitted when off. */
+  /** Split Even on/off and party size; omitted when off. `m` (my party) is only read from older links. */
   e?: boolean;
   z?: string;
   m?: string;
@@ -111,13 +111,15 @@ export async function encodeState(state: SavedState): Promise<string> {
     ...(isPlainTax(state.fees) ? {} : { f: state.fees.map((fee) => [fee.label, fee.amount]) }),
     t: state.tipAmount,
     p: state.perUnit,
-    ...(state.splitEven ? { e: true, z: state.partySize, m: state.myParty } : {}),
+    // My Party is the sender's own; recipients pick theirs.
+    ...(state.splitEven ? { e: true, z: state.partySize } : {}),
     ...(state.participants.length
       ? { u: state.participants.map((p) => [p.id, p.name] as PackedParticipant) }
       : {}),
+    // Mine is the sender's; recipients derive their own once they claim a name.
     i: state.items.map((it) => it.assignees?.length
-      ? [it.units, it.yours, it.desc, it.price, it.assignees]
-      : [it.units, it.yours, it.desc, it.price]),
+      ? [it.units, '0', it.desc, it.price, it.assignees]
+      : [it.units, '0', it.desc, it.price]),
   };
   const json = new TextEncoder().encode(JSON.stringify(payload));
   const deflated = bytesToStream(json).pipeThrough(new CompressionStream('deflate-raw'));
@@ -180,9 +182,10 @@ export async function decodeState(encoded: string): Promise<SavedState | null> {
       partySize: z ?? '4',
       myParty: m ?? '1',
       participants,
-      items: i.map(([units, yours, desc, price, who]) => {
+      // Older links carry the sender's Mine; never show it to the recipient.
+      items: i.map(([units, _yours, desc, price, who]) => {
         const kept = (who ?? []).filter((id) => onBill.has(id));
-        return { id: crypto.randomUUID(), units, yours, desc, price, ...(kept.length ? { assignees: kept } : {}) };
+        return { id: crypto.randomUUID(), units, yours: '0', desc, price, ...(kept.length ? { assignees: kept } : {}) };
       }),
     };
   } catch {

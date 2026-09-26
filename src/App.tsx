@@ -13,7 +13,7 @@ import { FriendsManager, friendErrorMessage } from './components/FriendsManager.
 import { ParticipantChips } from './components/ParticipantChips.js';
 import { NameModal } from './components/NameModal.js';
 import { dedupeParticipants, removeParticipant, syncRename, toggleParticipant } from './lib/participants.js';
-import { pruneAssignees, stripAssignee } from './lib/assign.js';
+import { deriveMine, pruneAssignees, stripAssignee } from './lib/assign.js';
 import { adoptIdentity, ensureMe, meAsFriend, meParticipant, validateMeName } from './lib/me.js';
 import { nameKey } from './lib/friends.js';
 import { Calculator } from './components/inputs/Calculator.js';
@@ -57,10 +57,21 @@ export default function App() {
   // and links never touch the friend list.
   const { friends, add, rename, remove, set: setFriends } = useFriends();
   const { me, setName: setMeName, replace: replaceMe } = useMe();
-  // Me is always on the bill; links and imports re-seed via ensureMe.
+  // Me is always on the bill (except while a shared link waits to be claimed);
+  // links and imports re-seed via ensureMe.
   const [participants, setParticipants] = useState<Participant[]>(() => [meParticipant(me)]);
   const partySize = partySizeOverride ?? String(participants.length);
   const [friendsOpen, setFriendsOpen] = useState(false);
+  // A shared link opened on a device that isn't on the bill: the recipient
+  // picks their name (or says they're not on it) before Mine means anything.
+  const [claimPending, setClaimPending] = useState(false);
+  // Leave claim mode with Me on the bill; returns the list it settled on.
+  const endClaim = (list: Participant[]) => {
+    setClaimPending(false);
+    const ensured = ensureMe(list, me);
+    setParticipants(ensured);
+    return ensured;
+  };
   // Bill ids after `id` leaves; keeps Mine's split honest when someone is removed.
   const onBillWithout = (id: string) => new Set(participants.filter((p) => p.id !== id).map((p) => p.id));
   // Share is gated on Me having a name; the pending action runs after the prompt.
@@ -102,13 +113,17 @@ export default function App() {
   };
 
   // "This is me": take over a participant's identity, carrying assignments along.
+  // While a link is unclaimed, adopting is the claim: Mine is derived from the
+  // assignments (Split Even already counts every row in full).
   const adopt = (target: Participant): { ok: boolean; error?: string } => {
     const r = adoptIdentity({ me, friends, participants, items, target });
     if (!r.ok) return { ok: false, error: friendErrorMessage(r) };
     replaceMe(r.me);
     setFriends(r.friends);
     setParticipants(r.participants);
-    setItems(r.items);
+    const claimed = claimPending && !splitEven;
+    setItems(claimed ? deriveMine(r.items, r.me.id, new Set(r.participants.map((p) => p.id))) : r.items);
+    setClaimPending(false);
     return { ok: true };
   };
   const adoptById = (id: string) => {
@@ -150,6 +165,7 @@ export default function App() {
     setPartySizeOverride(null);
     setMyParty(bill.myParty);
     setItems(bill.items);
+    if (claimPending) endClaim(participants);
   };
 
   // true => Price column is per single unit; false => Price is total for all units.
@@ -175,14 +191,28 @@ export default function App() {
       setTipAmount(data.tipAmount);
       setPerUnit(data.perUnit);
       setSplitEven(data.splitEven);
-      setMyParty(data.myParty);
-      const ensured = ensureMe(data.participants, me);
-      setParticipants(ensured);
       // Keep the sender's Party Size only if they overrode the head count.
       setPartySizeOverride(
         data.splitEven && data.partySize !== String(data.participants.length) ? data.partySize : null
       );
-      setItems(pruneAssignees(data.items, ensured, me.id));
+      // Links carry no Mine. Split Even counts every row in full; otherwise
+      // Mine comes from the assignments once we know who this device is.
+      const rows = pruneAssignees(data.items, data.participants);
+      const onBill = new Set(data.participants.map((p) => p.id));
+      if (data.splitEven) {
+        setItems(rows.map((it) => ({ ...it, yours: it.units })));
+      } else if (onBill.has(me.id)) {
+        setItems(deriveMine(rows, me.id, onBill));
+      } else {
+        setItems(rows);
+      }
+      if (onBill.has(me.id) || data.participants.length === 0) {
+        setParticipants(ensureMe(data.participants, me));
+      } else {
+        // Someone else's bill: don't add this device; ask who they are.
+        setParticipants(data.participants);
+        setClaimPending(true);
+      }
     });
     history.replaceState(null, '', window.location.pathname + window.location.search);
     // `me` is stable across the mount (its id never changes), so reading it
@@ -293,6 +323,9 @@ export default function App() {
           });
           ensured = ensureMe(dedupeParticipants(clean), me);
           setParticipants(ensured);
+          setClaimPending(false);
+        } else if (claimPending) {
+          ensured = endClaim(participants);
         }
         if (Array.isArray(data.items) && data.items.length > 0) {
           const cleanItems = data.items.map((item: Record<string, unknown>) => {
@@ -377,10 +410,15 @@ export default function App() {
           <button type="button" className="scan-btn scan-btn--camera" onClick={() => setFriendsOpen(true)}>
             {`Manage Participants (${participants.length})`}
           </button>
+          {claimPending && (
+            <p className="claim-banner" role="status">Who are you? Tap your name.</p>
+          )}
           <ParticipantChips
             participants={participants}
             friends={friends}
             meId={me.id}
+            claiming={claimPending}
+            onNotOnBill={() => endClaim(participants)}
             onRemove={(id) => {
               setParticipants((list) => removeParticipant(list, id));
               setItems((prev) => stripAssignee(prev, id, me.id, onBillWithout(id)));
@@ -616,17 +654,21 @@ export default function App() {
 
             <div className="total">
               <span className="total__label">What U Owe</span>
-              <span key={result.total} className="total__value">
-                {money(result.total)}
-              </span>
-              <button
-                type="button"
-                className="copy-btn"
-                onClick={copyOwed}
-                aria-label="Copy amount owed"
-              >
-                {copied ? 'Copied' : 'Copy'}
-              </button>
+              {claimPending ? (
+                <span className="total__value total__value--pending">Pick your name to see your share</span>
+              ) : <>
+                <span key={result.total} className="total__value">
+                  {money(result.total)}
+                </span>
+                <button
+                  type="button"
+                  className="copy-btn"
+                  onClick={copyOwed}
+                  aria-label="Copy amount owed"
+                >
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </>}
             </div>
 
             <div className="actions">
