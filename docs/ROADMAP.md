@@ -13,7 +13,6 @@ Source of truth for planned work. Work items are `SS-n`. Update the Status colum
 
 | ID | Item | Priority | Status |
 | --- | --- | --- | --- |
-| SS-16 | Bug: By person leaves out each person's fees and tip | P1 | In review (#20) |
 | SS-2 | PostHog may record the `#s=` bill payload | P0 | Next up |
 | SS-4 | No guard when a share link gets too long | P1 | Open |
 | SS-3 | Raw OCR text inflates share links | P1 | Open |
@@ -132,3 +131,4 @@ One PR per step, screenshots re-approved deliberately:
 | SS-14 | 2026-09-26 | #17 | Inlined tsconfig and ESLint base configs; dropped GitHub Packages auth. |
 | SS-13 | 2026-09-26 | #18 | Party Size follows the head count until typed over. |
 | SS-8 | 2026-09-26 | #19 | Links drop Mine and My Party; recipients claim their name. |
+| SS-16 | 2026-09-26 | #20 | By person lists each person's fees and tip, a Bill total check, and whole-cent splits; row layout fix followed. |

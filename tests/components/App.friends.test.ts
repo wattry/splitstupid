@@ -475,6 +475,11 @@ describe('Shared-link recipients claim their name (SS-8)', () => {
     [...h.querySelectorAll('input[aria-label="How many were mine"]')].map((el) => (el as HTMLInputElement).value);
   const owed = (h: Element) => h.querySelector('.total__value')?.textContent;
   const banner = (h: Element) => h.querySelector('.claim-banner');
+  // Link decoding is async and can take longer than one flush under a loaded
+  // test run; wait until the sender's three rows are on screen.
+  const loaded = async (h: Element) => {
+    for (let i = 0; i < 50 && mine(h).length !== 3; i++) await flush();
+  };
   // Sender Jo's bill: Soup is Jo's, Tea is B's, Cake is shared by both. Jo's Mine travels as 1s.
   const sendersBill = (): SavedState => ({
     ...minimalState([{ id: 'id-jo', name: 'Jo' }, { id: 'id-b', name: 'Bea' }]),
@@ -490,7 +495,7 @@ describe('Shared-link recipients claim their name (SS-8)', () => {
     seedMe('Ryan');
     window.location.hash = `#s=${await encodeState(sendersBill())}`;
     const h = mount();
-    await flush();
+    await loaded(h);
     expect(banner(h)?.textContent).toBe('Who are you? Tap your name.');
     expect(chipNames(h)).toEqual(['Jo', 'Bea', "I'm not on this bill"]);
     expect(mine(h)).toEqual(['0', '0', '0']);
@@ -502,7 +507,7 @@ describe('Shared-link recipients claim their name (SS-8)', () => {
     seedMe('Ryan');
     window.location.hash = `#s=${await encodeState(sendersBill())}`;
     const h = mount();
-    await flush();
+    await loaded(h);
     click(h.querySelector('button[aria-label="I\'m Bea"]')!);
     expect(mine(h)).toEqual(['0', '0', '0']); // nothing happens until confirmed
     click(h.querySelector('button[aria-label="Confirm: I\'m Bea"]')!);
@@ -517,7 +522,7 @@ describe('Shared-link recipients claim their name (SS-8)', () => {
     seedMe('Ryan');
     window.location.hash = `#s=${await encodeState(sendersBill())}`;
     const h = mount();
-    await flush();
+    await loaded(h);
     click(button(h, "I'm not on this bill"));
     expect(banner(h)).toBeNull();
     expect(chipNames(h)).toEqual(['Ryan', 'Jo', 'Bea']);
@@ -529,7 +534,7 @@ describe('Shared-link recipients claim their name (SS-8)', () => {
     localStorage.setItem(ME_STORAGE_KEY, JSON.stringify({ v: 1, id: 'id-jo', name: 'Jo' }));
     window.location.hash = `#s=${await encodeState(sendersBill())}`;
     const h = mount();
-    await flush();
+    await loaded(h);
     expect(banner(h)).toBeNull();
     expect(chipNames(h)).toEqual(['Jo', 'Bea']);
     expect(mine(h)).toEqual(['1', '0', '1']);
@@ -539,7 +544,7 @@ describe('Shared-link recipients claim their name (SS-8)', () => {
     seedMe('Ryan');
     window.location.hash = `#s=${await encodeState({ ...sendersBill(), splitEven: true, myParty: '3' })}`;
     const h = mount();
-    await flush();
+    await loaded(h);
     expect(mine(h)).toEqual(['1', '1', '2']);
     expect((h.querySelector('#my_party') as HTMLInputElement).value).toBe('2');
     click(h.querySelector('button[aria-label="I\'m Bea"]')!);
