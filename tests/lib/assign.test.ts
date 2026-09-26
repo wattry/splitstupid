@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  assigneesOf, assignAll, assigneeStatus, deriveMine, groupByParticipant, lineLabel, lineTotal, mineShare, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
+  assigneesOf, assignAll, assigneeStatus, allocateExtras, deriveMine, groupByParticipant, lineLabel, lineTotal, mineShare, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, splitCents, toggleAssignee, toggleAssigneeAll,
 } from '../../src/lib/assign.js';
 import type { Item, Participant } from '../../src/types.js';
 
@@ -178,14 +178,13 @@ describe('groupByParticipant', () => {
     expect(meGroup.total).toBe(5);
     expect(samGroup.total).toBe(5);
   });
-  it('splits an item between three assignees, rounding each share and summing the displayed shares', () => {
+  it('splits an item between three assignees in whole cents that add up to the row, extra cent in bill order', () => {
     const a = item({ id: 'a', price: '10', assignees: ['sam', 'me', 'sk'] });
     const g = groupByParticipant([a], people, false);
-    for (const p of ['me', 'sam', 'sk']) {
-      const grp = g.groups.find((x) => x.participant.id === p)!;
-      expect(grp.lines[0]!.share).toBe(3.33);
-      expect(grp.total).toBe(3.33);
-    }
+    expect(g.groups.map((x) => [x.participant.id, x.lines[0]!.share, x.total])).toEqual([
+      ['me', 3.34, 3.34], ['sam', 3.33, 3.33], ['sk', 3.33, 3.33],
+    ]);
+    expect(g.total).toBe(10);
   });
   it('per-unit mode multiplies price by units before splitting', () => {
     const a = item({ id: 'a', price: '5', units: '2', assignees: ['sam', 'me'] });
@@ -301,5 +300,51 @@ describe('deriveMine', () => {
     ], 'me', onBill);
     expect(out.map((it) => it.yours)).toEqual(['1', '0.5', '0.5']);
     expect(out[1]).toBe(unassigned);
+  });
+});
+
+describe('splitCents', () => {
+  it('splits into whole cents that add back up, extra cents to the earliest on a tie', () => {
+    expect(splitCents(1000, [1, 1, 1])).toEqual([334, 333, 333]);
+    expect(splitCents(588, [1, 1, 1])).toEqual([196, 196, 196]);
+    expect(splitCents(100, [1, 2])).toEqual([33, 67]);
+    expect(splitCents(-10, [1, 1, 1])).toEqual([-3, -3, -4]);
+  });
+
+  it('gives the leftover cents to the largest remainders', () => {
+    expect(splitCents(10, [1, 2])).toEqual([3, 7]);
+    expect(splitCents(10, [2, 1, 1])).toEqual([5, 3, 2]);
+  });
+
+  it('returns zeros when every weight is zero', () => {
+    expect(splitCents(50, [0, 0])).toEqual([0, 0]);
+  });
+});
+
+describe('allocateExtras', () => {
+  const fee = (label: string, amount: string) => ({ id: label, label, amount });
+
+  it('gives each group a share of every fee and the tip in proportion to its items, by label', () => {
+    // $10 and $30 of a $40 bill: a quarter and three quarters of each.
+    expect(allocateExtras([10, 30], [fee('Tax', '4'), fee('Service', '6')], '8', '40')).toEqual([
+      [{ label: 'Tax', amount: 1 }, { label: 'Service', amount: 1.5 }, { label: 'Tip', amount: 2 }],
+      [{ label: 'Tax', amount: 3 }, { label: 'Service', amount: 4.5 }, { label: 'Tip', amount: 6 }],
+    ]);
+  });
+
+  it('splits a third three ways so the slices add up to the whole fee', () => {
+    const out = allocateExtras([1.96, 1.96, 1.96], [fee('Tax', '0.52')], '1.18', '5.88');
+    expect(out.map((g) => g.map((l) => l.amount))).toEqual([[0.18, 0.4], [0.17, 0.39], [0.17, 0.39]]);
+  });
+
+  it('labels blank fees "Fee", skips zero lines, and leaves out groups with no items', () => {
+    expect(allocateExtras([10, 0], [fee('', '1'), fee('Tax', '')], '0', '10')).toEqual([
+      [{ label: 'Fee', amount: 1 }],
+      [],
+    ]);
+  });
+
+  it('returns nothing without a Sub Total', () => {
+    expect(allocateExtras([10], [fee('Tax', '4')], '8', '')).toEqual([[]]);
   });
 });

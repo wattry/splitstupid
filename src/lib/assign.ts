@@ -3,7 +3,7 @@
  * `Item.assignees` (participant ids). When `meId` is passed, `Mine` follows
  * the assignment: units split evenly across everyone on the row.
  */
-import type { Item, Participant } from '../types.js';
+import type { Fee, Item, Participant } from '../types.js';
 import { round2 } from './calculate.js';
 
 export function assigneesOf(item: Item): string[] {
@@ -159,6 +159,61 @@ export function lineTotal(item: Item, perUnit: boolean): number {
   return price * units;
 }
 
+/** Dollars to whole cents. */
+const toCents = (n: number): number => Math.round(n * 100);
+
+/**
+ * Split `cents` in proportion to `weights` into whole cents that add back up
+ * exactly: everyone gets their share rounded down, then the leftover cents go
+ * to the largest remainders, earlier entries first on a tie.
+ */
+export function splitCents(cents: number, weights: number[]): number[] {
+  const sum = weights.reduce((a, w) => a + w, 0);
+  if (sum === 0) return weights.map(() => 0);
+  const exact = weights.map((w) => (cents * w) / sum);
+  const parts = exact.map((e) => Math.floor(e));
+  let left = cents - parts.reduce((a, p) => a + p, 0);
+  const order = exact
+    .map((e, i) => ({ i, frac: e - Math.floor(e) }))
+    .sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (const { i } of order) {
+    if (left <= 0) break;
+    parts[i] = parts[i]! + 1;
+    left -= 1;
+  }
+  return parts;
+}
+
+export interface ExtraLine { label: string; amount: number }
+
+/**
+ * Each group's slice of every fee and the tip, in proportion to its items:
+ * the same whole-bill-subtotal ratios `calculate` applies to Me. Each line is
+ * split in whole cents so the slices add up to the items' share of it (the
+ * whole fee when the items add up to the Sub Total). Zero lines are left out;
+ * nothing is shown without a Sub Total to divide by.
+ */
+export function allocateExtras(
+  subtotals: number[], fees: Fee[], tipAmount: string, billSubtotal: string
+): ExtraLine[][] {
+  const out = subtotals.map((): ExtraLine[] => []);
+  const denom = parseFloat(billSubtotal);
+  if (!(denom > 0)) return out;
+  const weights = subtotals.map(toCents);
+  const itemSum = weights.reduce((a, w) => a + w, 0) / 100;
+  const lines = [
+    ...fees.map((fee) => ({ label: fee.label.trim() || 'Fee', whole: parseFloat(fee.amount) || 0 })),
+    { label: 'Tip', whole: parseFloat(tipAmount) || 0 },
+  ];
+  for (const { label, whole } of lines) {
+    if (whole === 0) continue;
+    splitCents(toCents((itemSum * whole) / denom), weights).forEach((c, i) => {
+      if (c !== 0) out[i]!.push({ label, amount: c / 100 });
+    });
+  }
+  return out;
+}
+
 export interface PersonLine { item: Item; share: number; sharedWith: number }
 export interface PersonGroup { participant: Participant; lines: PersonLine[]; total: number }
 export interface Grouping { groups: PersonGroup[]; unassigned: PersonLine[]; unassignedTotal: number; total: number }
@@ -171,26 +226,36 @@ export function lineLabel(line: PersonLine): string {
   return desc;
 }
 
-/** Items under each participant (bill order, empty groups omitted) plus the unassigned rest. */
+/**
+ * Items under each participant (bill order, empty groups omitted) plus the
+ * unassigned rest. A shared row is split in whole cents, leftover cents going
+ * to people in bill order, so the shares always add up to the row.
+ */
 export function groupByParticipant(items: Item[], participants: Participant[], perUnit: boolean): Grouping {
-  const onBill = new Set(participants.map((p) => p.id));
+  // Per row: each on-bill assignee's share in cents, in bill order.
+  const shares = new Map<Item, Map<string, number>>();
+  for (const item of items) {
+    const ids = participants.filter((p) => assigneesOf(item).includes(p.id)).map((p) => p.id);
+    if (ids.length === 0) continue;
+    const parts = splitCents(toCents(lineTotal(item, perUnit)), ids.map(() => 1));
+    shares.set(item, new Map(ids.map((id, i) => [id, parts[i]!])));
+  }
+  const sumCents = (lines: PersonLine[]) => lines.reduce((sum, l) => sum + toCents(l.share), 0);
   const groups = participants
     .map((participant) => {
       const lines = items
-        .filter((it) => assigneesOf(it).includes(participant.id))
+        .filter((it) => shares.get(it)?.has(participant.id))
         .map((item) => {
-          const onBillAssignees = assigneesOf(item).filter((id) => onBill.has(id));
-          const share = round2(lineTotal(item, perUnit) / onBillAssignees.length);
-          return { item, share, sharedWith: onBillAssignees.length };
+          const row = shares.get(item)!;
+          return { item, share: row.get(participant.id)! / 100, sharedWith: row.size };
         });
-      const total = round2(lines.reduce((sum, l) => sum + l.share, 0));
-      return { participant, lines, total };
+      return { participant, lines, total: sumCents(lines) / 100 };
     })
     .filter((g) => g.lines.length > 0);
   const unassigned = items
-    .filter((it) => !assigneesOf(it).some((id) => onBill.has(id)))
-    .map((item) => ({ item, share: round2(lineTotal(item, perUnit)), sharedWith: 1 }));
-  const unassignedTotal = round2(unassigned.reduce((sum, l) => sum + l.share, 0));
-  const total = round2(groups.reduce((sum, g) => sum + g.total, 0) + unassignedTotal);
+    .filter((it) => !shares.has(it))
+    .map((item) => ({ item, share: toCents(lineTotal(item, perUnit)) / 100, sharedWith: 1 }));
+  const unassignedTotal = sumCents(unassigned) / 100;
+  const total = (groups.reduce((sum, g) => sum + toCents(g.total), 0) + toCents(unassignedTotal)) / 100;
   return { groups, unassigned, unassignedTotal, total };
 }
