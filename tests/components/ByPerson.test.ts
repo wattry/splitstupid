@@ -85,4 +85,20 @@ describe('ByPerson', () => {
     const host = mount([row('a', 'Soup', ['me'])]);
     expect(host.querySelector('.byperson__bill')).toBeNull();
   });
+  it('a three-way split of the items, fees and tip adds up to the bill with no "Off by"', () => {
+    const three: Participant[] = [...people, { id: 'jo', name: 'Jo' }];
+    const pizza = row('a', 'Pizza', ['me', 'sam', 'jo']); pizza.price = '10';
+    const host = document.createElement('div'); document.body.appendChild(host);
+    act(() => {
+      createRoot(host).render(React.createElement(ByPerson, {
+        items: [pizza], participants: three, perUnit: false,
+        billSubtotal: '10', fees: [{ id: 'f1', label: 'Tax', amount: '1' }], tipAmount: '2',
+      }));
+    });
+    const totals = [...host.querySelectorAll('.byperson__total')].map((e) => e.textContent);
+    expect(totals).toEqual(['$4.35', '$4.33', '$4.32']);
+    expect(host.querySelector('.byperson__sum')?.textContent).toBe('Total$13.00');
+    expect(host.querySelector('.byperson__bill')?.textContent).toBe('Bill total$13.00');
+    expect(host.querySelector('.byperson__off')).toBeNull();
+  });
 });

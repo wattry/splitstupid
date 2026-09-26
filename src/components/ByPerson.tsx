@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ReactElement } from 'react';
 import type { Fee, Item, Participant } from '../types.js';
-import { extrasFor, groupByParticipant, lineLabel, type ExtraLine, type PersonLine } from '../lib/assign.js';
+import { allocateExtras, groupByParticipant, lineLabel, type ExtraLine, type PersonLine } from '../lib/assign.js';
 import { money, round2 } from '../lib/calculate.js';
 import { feeTotal } from '../lib/fees.js';
 
@@ -24,12 +24,18 @@ export function ByPerson(props: ByPersonProps): ReactElement | null {
   const { items, participants, perUnit, fees = [], tipAmount = '', billSubtotal = '' } = props;
   const { groups, unassigned, unassignedTotal } = groupByParticipant(items, participants, perUnit);
   if (groups.length === 0) return null;
-  const extras = (subtotal: number) => extrasFor(subtotal, fees, tipAmount, billSubtotal);
+  const entries = [
+    ...groups.map((g) => ({ key: g.participant.id, name: g.participant.name || 'Me', lines: g.lines, subtotal: g.total })),
+    ...(unassigned.length > 0
+      ? [{ key: 'unassigned', name: 'Unassigned', lines: unassigned, subtotal: unassignedTotal }]
+      : []),
+  ];
+  // Fees and tip are split across everyone at once, in whole cents, so they add up.
+  const extras = allocateExtras(entries.map((e) => e.subtotal), fees, tipAmount, billSubtotal);
   const withExtras = (subtotal: number, lines: ExtraLine[]) =>
     round2(lines.reduce((sum, l) => sum + l.amount, subtotal));
   let total = 0;
-  const block = (key: string, name: string, lines: PersonLine[], subtotal: number) => {
-    const extraLines = extras(subtotal);
+  const block = (key: string, name: string, lines: PersonLine[], subtotal: number, extraLines: ExtraLine[]) => {
     const groupTotal = withExtras(subtotal, extraLines);
     total += groupTotal;
     return (
@@ -57,10 +63,7 @@ export function ByPerson(props: ByPersonProps): ReactElement | null {
   };
   const subNum = parseFloat(billSubtotal);
   const billTotal = subNum > 0 ? round2(subNum + feeTotal(fees) + (parseFloat(tipAmount) || 0)) : null;
-  const blocks = [
-    ...groups.map((g) => block(g.participant.id, g.participant.name || 'Me', g.lines, g.total)),
-    ...(unassigned.length > 0 ? [block('unassigned', 'Unassigned', unassigned, unassignedTotal)] : []),
-  ];
+  const blocks = entries.map((e, i) => block(e.key, e.name, e.lines, e.subtotal, extras[i]!));
   return (
     <div className="byperson">
       <h3 className="byperson__title">By person</h3>

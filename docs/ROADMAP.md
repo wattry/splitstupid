@@ -48,7 +48,7 @@ Tests: encode emits `yours: '0'` with assignees intact; decode of an old link ze
 
 ### SS-16 By person leaves out each person's fees and tip (P1)
 
-By person listed only item amounts per person, so everyone's total there was short of what they owe. Each person (and Unassigned) now gets a line per fee, by label, plus Tip, in proportion to their items and using the same whole-bill Sub Total ratios as the owed total. The group totals and the section total include them. With a Sub Total, a Bill total row (Sub Total + fees + tip) sits under the section total, with "Off by $X" when they differ.
+By person listed only item amounts per person, so everyone's total there was short of what they owe. Each person (and Unassigned) now gets a line per fee, by label, plus Tip, in proportion to their items and using the same whole-bill Sub Total ratios as the owed total. The group totals and the section total include them. With a Sub Total, a Bill total row (Sub Total + fees + tip) sits under the section total, with "Off by $X" when they differ. Shared rows, fees and tip are split in whole cents (leftover cents to people in bill order) so the shares always add up; "Off by" only shows a real gap, such as items that don't reach the Sub Total.
 
 ### SS-2 PostHog may record the `#s=` payload (P0)
 
