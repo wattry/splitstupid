@@ -2,16 +2,16 @@ import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { ByPerson } from '../../src/components/ByPerson.js';
+import { ByPerson, type ByPersonProps } from '../../src/components/ByPerson.js';
 import type { Item, Participant } from '../../src/types.js';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const people: Participant[] = [{ id: 'me', name: '' }, { id: 'sam', name: 'Sam' }];
 const row = (id: string, desc: string, assignees?: string[]): Item => ({ id, units: '1', yours: '1', desc, price: '1', ...(assignees ? { assignees } : {}) });
 
-function mount(items: Item[], perUnit = false) {
+function mount(items: Item[], perUnit = false, extras: Partial<ByPersonProps> = {}) {
   const host = document.createElement('div'); document.body.appendChild(host);
-  act(() => { createRoot(host).render(React.createElement(ByPerson, { items, participants: people, perUnit })); });
+  act(() => { createRoot(host).render(React.createElement(ByPerson, { items, participants: people, perUnit, ...extras })); });
   return host;
 }
 
@@ -48,5 +48,22 @@ describe('ByPerson', () => {
     const sharedHost = mount([shared]);
     const spans = [...sharedHost.querySelectorAll('.byperson__group li span:first-child')].map((e) => e.textContent);
     expect(spans).toEqual(['Soup', 'Soup']);
+  });
+  it('itemises each person\'s share of every fee and the tip, and adds them to the totals', () => {
+    const soup = row('a', 'Soup', ['me']); soup.price = '30';
+    const tea = row('b', 'Tea', ['sam']); tea.price = '10';
+    const host = mount([soup, tea], false, {
+      billSubtotal: '40',
+      fees: [{ id: 'f1', label: 'Tax', amount: '4' }, { id: 'f2', label: 'Service', amount: '2' }],
+      tipAmount: '8',
+    });
+    const lines = (g: Element) =>
+      [...g.querySelectorAll('li')].map((li) => [...li.querySelectorAll('span')].map((s) => s.textContent).join(' '));
+    const [meGroup, samGroup] = [...host.querySelectorAll('.byperson__group')];
+    expect(lines(meGroup!)).toEqual(['Soup $30.00', 'Tax $3.00', 'Service $1.50', 'Tip $6.00']);
+    expect(meGroup!.querySelector('.byperson__total')?.textContent).toBe('$40.50');
+    expect(lines(samGroup!)).toEqual(['Tea $10.00', 'Tax $1.00', 'Service $0.50', 'Tip $2.00']);
+    expect(samGroup!.querySelector('.byperson__total')?.textContent).toBe('$13.50');
+    expect(host.querySelector('.byperson__sum')?.textContent).toBe('Total$54.00');
   });
 });

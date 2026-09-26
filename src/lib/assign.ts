@@ -3,7 +3,7 @@
  * `Item.assignees` (participant ids). When `meId` is passed, `Mine` follows
  * the assignment: units split evenly across everyone on the row.
  */
-import type { Item, Participant } from '../types.js';
+import type { Fee, Item, Participant } from '../types.js';
 import { round2 } from './calculate.js';
 
 export function assigneesOf(item: Item): string[] {
@@ -157,6 +157,25 @@ export function lineTotal(item: Item, perUnit: boolean): number {
   if (!perUnit) return price;
   const units = parseFloat(item.units) || 0;
   return price * units;
+}
+
+export interface ExtraLine { label: string; amount: number }
+
+/**
+ * Someone's slice of each fee and the tip, in proportion to their items: the
+ * same whole-bill-subtotal ratios `calculate` applies to Me. Zero lines are
+ * left out; nothing is shown without a Sub Total to divide by.
+ */
+export function extrasFor(subtotal: number, fees: Fee[], tipAmount: string, billSubtotal: string): ExtraLine[] {
+  const denom = parseFloat(billSubtotal);
+  if (!(denom > 0) || subtotal === 0) return [];
+  const lines = [
+    ...fees.map((fee) => ({ label: fee.label.trim() || 'Fee', whole: parseFloat(fee.amount) || 0 })),
+    { label: 'Tip', whole: parseFloat(tipAmount) || 0 },
+  ];
+  return lines
+    .filter((l) => l.whole !== 0)
+    .map((l) => ({ label: l.label, amount: round2((subtotal * l.whole) / denom) }));
 }
 
 export interface PersonLine { item: Item; share: number; sharedWith: number }

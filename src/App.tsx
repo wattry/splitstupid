@@ -494,6 +494,9 @@ export default function App() {
           participants={participants}
           onManageParticipants={() => setFriendsOpen(true)}
           meId={me.id}
+          fees={fees}
+          tipAmount={tipAmount}
+          billSubtotal={billSubtotal}
         />
         {scanWarnings.length > 0 && (
           <div className="scan-warnings" role="alert">

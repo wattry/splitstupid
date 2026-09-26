@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Dispatch, SetStateAction, ReactElement, PointerEvent } from 'react';
 import { usePostHog } from '@posthog/react';
-import type { Item, MakeRow, Participant } from './types.js';
+import type { Fee, Item, MakeRow, Participant } from './types.js';
 import { useSwipeActions } from './hooks/useSwipeActions.js';
 import ReconcileRow from './components/ReconcileRow.js';
 import { SplitModal } from './components/SplitModal.js';
@@ -29,6 +29,10 @@ interface ItemRowsProps {
   onManageParticipants: () => void;
   /** This device's participant id: assignment changes that add or remove it also move the Mine column. */
   meId: string;
+  /** Whole-bill fees, tip and Sub Total, for each person's share in By person. */
+  fees?: Fee[];
+  tipAmount?: string;
+  billSubtotal?: string;
 };
 
 const money = (n: number) => `$${(Number.isFinite(n) ? n : 0).toFixed(2)}`
@@ -81,7 +85,10 @@ export default function ItemRows(
     onContinue,
     participants,
     onManageParticipants,
-    meId
+    meId,
+    fees = [],
+    tipAmount = '',
+    billSubtotal = '',
   } = props;
   const posthog = usePostHog();
   // Row being split via the Split dialog, if any.
@@ -248,7 +255,14 @@ export default function ItemRows(
           onClose={() => setAssignTarget(null)}
         />
       )}
-      <ByPerson items={items} participants={participants} perUnit={perUnit} />
+      <ByPerson
+        items={items}
+        participants={participants}
+        perUnit={perUnit}
+        fees={fees}
+        tipAmount={tipAmount}
+        billSubtotal={billSubtotal}
+      />
 
       {splitting && (
         <SplitModal

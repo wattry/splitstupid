@@ -13,7 +13,7 @@ Source of truth for planned work. Work items are `SS-n`. Update the Status colum
 
 | ID | Item | Priority | Status |
 | --- | --- | --- | --- |
-| SS-8 | Bug: shared-link recipients see the sender's Mine column | P0 | In review (#19) |
+| SS-16 | Bug: By person leaves out each person's fees and tip | P1 | In review |
 | SS-2 | PostHog may record the `#s=` bill payload | P0 | Next up |
 | SS-4 | No guard when a share link gets too long | P1 | Open |
 | SS-3 | Raw OCR text inflates share links | P1 | Open |
@@ -45,6 +45,10 @@ Accepted side effect: claiming permanently switches this device's Me id to the o
 Split Even links: every row's Mine is set to its units on load (as turning Split Even on does) and claiming does not derive it, so the even split works before and after a claim.
 
 Tests: encode emits `yours: '0'` with assignees intact; decode of an old link zeroes Mine; foreign `me.id` sets `claimPending` and adds no Me; claiming B gives Mine 1 on B's rows and 0 elsewhere; own-link reload skips the prompt.
+
+### SS-16 By person leaves out each person's fees and tip (P1)
+
+By person listed only item amounts per person, so everyone's total there was short of what they owe. Each person (and Unassigned) now gets a line per fee, by label, plus Tip, in proportion to their items and using the same whole-bill Sub Total ratios as the owed total. The group totals and the section total include them.
 
 ### SS-2 PostHog may record the `#s=` payload (P0)
 
@@ -127,3 +131,4 @@ One PR per step, screenshots re-approved deliberately:
 | --- | --- | --- | --- |
 | SS-14 | 2026-09-26 | #17 | Inlined tsconfig and ESLint base configs; dropped GitHub Packages auth. |
 | SS-13 | 2026-09-26 | #18 | Party Size follows the head count until typed over. |
+| SS-8 | 2026-09-26 | #19 | Links drop Mine and My Party; recipients claim their name. |

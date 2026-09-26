@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  assigneesOf, assignAll, assigneeStatus, deriveMine, groupByParticipant, lineLabel, lineTotal, mineShare, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
+  assigneesOf, assignAll, assigneeStatus, deriveMine, extrasFor, groupByParticipant, lineLabel, lineTotal, mineShare, pruneAssignees, setAssignees, setAssigneesAll, shortLabels, stripAssignee, toggleAssignee, toggleAssigneeAll,
 } from '../../src/lib/assign.js';
 import type { Item, Participant } from '../../src/types.js';
 
@@ -301,5 +301,27 @@ describe('deriveMine', () => {
     ], 'me', onBill);
     expect(out.map((it) => it.yours)).toEqual(['1', '0.5', '0.5']);
     expect(out[1]).toBe(unassigned);
+  });
+});
+
+describe('extrasFor', () => {
+  const fee = (label: string, amount: string) => ({ id: label, label, amount });
+
+  it('gives a share of each fee and the tip in proportion to the items, by label', () => {
+    // $10 of a $40 bill: a quarter of each.
+    expect(extrasFor(10, [fee('Tax', '4'), fee('Service', '6')], '8', '40')).toEqual([
+      { label: 'Tax', amount: 1 },
+      { label: 'Service', amount: 1.5 },
+      { label: 'Tip', amount: 2 },
+    ]);
+  });
+
+  it('labels blank fees "Fee", skips zero lines, and rounds to cents', () => {
+    expect(extrasFor(10, [fee('', '1'), fee('Tax', '')], '0', '30')).toEqual([{ label: 'Fee', amount: 0.33 }]);
+  });
+
+  it('returns nothing without a Sub Total or when the person has no items', () => {
+    expect(extrasFor(10, [fee('Tax', '4')], '8', '')).toEqual([]);
+    expect(extrasFor(0, [fee('Tax', '4')], '8', '40')).toEqual([]);
   });
 });
