@@ -1401,10 +1401,10 @@ li.friends__empty { list-style: none; }
 .byperson__name { margin: 0 0 2px; font-size: 0.9rem; font-weight: 700; }
 .byperson__items { margin: 0; padding-left: 18px; font-size: 0.85rem; color: var(--ink); }
 
-.byperson__name, .byperson__items li, .byperson__extra { color: var(--muted); }
+.byperson__name, .byperson__items li, .byperson__sum { display: flex; justify-content: space-between; gap: 8px; }
+.byperson__items li.byperson__extra { color: var(--muted); }
 .byperson__bill { display: flex; justify-content: space-between; gap: 8px; margin: 2px 0 0; color: var(--muted); font-weight: 700; }
 .byperson__off { margin: 2px 0 0; text-align: right; font-size: 0.8rem; font-weight: 700; color: #c2185b; }
-.byperson__sum { display: flex; justify-content: space-between; gap: 8px; }
 .byperson__items { padding-left: 0; list-style: none; }
 .byperson__items li { padding-left: 12px; }
 .byperson__amount, .byperson__total { font-variant-numeric: tabular-nums; white-space: nowrap; }
